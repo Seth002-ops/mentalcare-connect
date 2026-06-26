@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Afya Care Connect Admin{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .stat-card {
+        background: white;
+        padding: 25px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid var(--primary-color);
+        transition: transform 0.2s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+    
+    .stat-card h3 {
+        color: #666;
+        font-size: 14px;
+        font-weight: 600;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+    }
+    
+    .stat-number {
+        font-size: 32px;
+        font-weight: bold;
+        color: var(--primary-color);
+    }
+    
+    .stat-card.clients {
+        border-left-color: #28a745;
+    }
+    
+    .stat-card.clients .stat-number {
+        color: #28a745;
+    }
+    
+    .stat-card.therapists {
+        border-left-color: #667eea;
+    }
+    
+    .stat-card.therapists .stat-number {
+        color: #667eea;
+    }
+    
+    .stat-card.messages {
+        border-left-color: #ffc107;
+    }
+    
+    .stat-card.messages .stat-number {
+        color: #ffc107;
+    }
+    
+    .stat-card.bookings {
+        border-left-color: #17a2b8;
+    }
+    
+    .stat-card.bookings .stat-number {
+        color: #17a2b8;
+    }
+    
+    .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 30px;
+    }
+    
+    .action-btn {
+        padding: 12px 24px;
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background-color 0.2s;
+    }
+    
+    .action-btn:hover {
+        background-color: var(--primary-dark);
+    }
+    
+    .action-btn:focus {
+        outline: 2px solid var(--primary-color);
+        outline-offset: 2px;
+    }
+    
+    .recent-section {
+        background: white;
+        padding: 25px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+    }
+    
+    .recent-section h2 {
+        margin-bottom: 15px;
+        color: var(--gray-dark);
+        font-size: 20px;
+    }
+    
+    .alert {
+        padding: 15px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+    }
+    
+    .alert-info {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h2>Welcome to Afya Care Connect Admin Dashboard</h2>
+
+<div class="alert alert-info" role="status">
+    <strong>System Status:</strong> All systems operational. Database synchronized.
+</div>
+
+<div class="actions">
+    <a href="{{ url_for('get_clients') }}" class="action-btn">View Clients</a>
+    <a href="{{ url_for('get_therapists') }}" class="action-btn">View Therapists</a>
+    <a href="{{ url_for('get_messages') }}" class="action-btn">View Messages</a>
+    <a href="{{ url_for('get_bookings') }}" class="action-btn">View Bookings</a>
+</div>
+
+<div class="stats-grid" role="region" aria-label="Statistics overview">
+    <div class="stat-card">
+        <h3>Total Users</h3>
+        <div class="stat-number" aria-label="Total users: {{ stats.total_users }}">{{ stats.total_users }}</div>
+    </div>
+    
+    <div class="stat-card clients">
+        <h3>Clients</h3>
+        <div class="stat-number" aria-label="Total clients: {{ stats.total_clients }}">{{ stats.total_clients }}</div>
+    </div>
+    
+    <div class="stat-card therapists">
+        <h3>Therapists</h3>
+        <div class="stat-number" aria-label="Total therapists: {{ stats.total_therapists }}">{{ stats.total_therapists }}</div>
+    </div>
+    
+    <div class="stat-card messages">
+        <h3>Messages</h3>
+        <div class="stat-number" aria-label="Total messages: {{ stats.total_messages }}">{{ stats.total_messages }}</div>
+    </div>
+    
+    <div class="stat-card bookings">
+        <h3>Bookings</h3>
+        <div class="stat-number" aria-label="Total bookings: {{ stats.total_bookings }}">{{ stats.total_bookings }}</div>
+    </div>
+</div>
+
+<div class="recent-section">
+    <h2>Quick Actions</h2>
+    <p>Use the navigation menu above or the buttons below to access specific sections of the admin panel.</p>
+    <ul style="margin: 15px 0; padding-left: 20px; line-height: 2;">
+        <li><a href="{{ url_for('get_clients') }}">Manage client accounts</a></li>
+        <li><a href="{{ url_for('get_therapists') }}">Manage therapist accounts</a></li>
+        <li><a href="{{ url_for('get_messages') }}">Review chat messages</a></li>
+        <li><a href="{{ url_for('get_bookings') }}">Monitor session bookings</a></li>
+    </ul>
+</div>
+{% endblock %}

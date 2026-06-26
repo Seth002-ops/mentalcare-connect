@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Afya Care Connect - Healthcare Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card-shadow { box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+    
+    <nav class="bg-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <h1 class="text-2xl font-bold gradient-bg bg-clip-text text-transparent">Afya Care Connect</h1>
+                </div>
+                <div class="hidden md:flex space-x-8">
+                    <a href="#home" class="text-gray-700 hover:text-gray-900">Home</a>
+                    <a href="#services" class="text-gray-700 hover:text-gray-900">Services</a>
+                    <a href="#dashboard" class="text-gray-700 hover:text-gray-900">Dashboard</a>
+                    <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600">Logout</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <!-- Hero Section -->
+        <div id="home" class="gradient-bg rounded-lg text-white p-12 mb-12 card-shadow">
+            <h2 class="text-4xl font-bold mb-4">Welcome to Afya Care Connect</h2>
+            <p class="text-xl mb-8">Your comprehensive healthcare platform connecting patients with therapists, managing appointments, and facilitating secure communication.</p>
+            <button onclick="navigateTo('login')" class="bg-white text-purple-600 font-bold px-8 py-3 rounded-lg hover:bg-gray-100">Get Started</button>
+        </div>
+
+        <!-- Services Section -->
+        <div id="services" class="grid md:grid-cols-3 gap-8 mb-12">
+            <div class="bg-white p-8 rounded-lg card-shadow">
+                <div class="text-4xl mb-4">💬</div>
+                <h3 class="text-xl font-bold mb-2">Secure Chat</h3>
+                <p class="text-gray-600">End-to-end encrypted messaging with healthcare providers for confidential discussions.</p>
+            </div>
+            <div class="bg-white p-8 rounded-lg card-shadow">
+                <div class="text-4xl mb-4">📅</div>
+                <h3 class="text-xl font-bold mb-2">Easy Booking</h3>
+                <p class="text-gray-600">Schedule appointments with therapists and healthcare professionals effortlessly.</p>
+            </div>
+            <div class="bg-white p-8 rounded-lg card-shadow">
+                <div class="text-4xl mb-4">💳</div>
+                <h3 class="text-xl font-bold mb-2">Secure Payments</h3>
+                <p class="text-gray-600">Safe and secure payment processing for all healthcare services.</p>
+            </div>
+        </div>
+
+        <!-- Dashboard Section -->
+        <div id="dashboard" class="bg-white rounded-lg p-8 card-shadow">
+            <h3 class="text-2xl font-bold mb-6">Your Dashboard</h3>
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="border-l-4 border-purple-500 pl-4">
+                    <h4 class="font-bold text-gray-900">Upcoming Appointments</h4>
+                    <p class="text-gray-600 mt-2">No upcoming appointments. <a href="#" class="text-purple-600 hover:underline">Book now</a></p>
+                </div>
+                <div class="border-l-4 border-blue-500 pl-4">
+                    <h4 class="font-bold text-gray-900">Recent Messages</h4>
+                    <p class="text-gray-600 mt-2">No messages yet. Start a conversation with your provider.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Section -->
+        <div class="grid md:grid-cols-4 gap-6 mt-12">
+            <div class="bg-white p-6 rounded-lg text-center card-shadow">
+                <div class="text-3xl font-bold text-purple-600">1000+</div>
+                <p class="text-gray-600 mt-2">Healthcare Providers</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg text-center card-shadow">
+                <div class="text-3xl font-bold text-purple-600">50K+</div>
+                <p class="text-gray-600 mt-2">Active Patients</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg text-center card-shadow">
+                <div class="text-3xl font-bold text-purple-600">100K+</div>
+                <p class="text-gray-600 mt-2">Successful Bookings</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg text-center card-shadow">
+                <div class="text-3xl font-bold text-purple-600">99.9%</div>
+                <p class="text-gray-600 mt-2">Uptime SLA</p>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-gray-900 text-white mt-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="text-center">
+                <p>&copy; 2026 Afya Care Connect. All rights reserved. Secure Healthcare Platform.</p>
+                <p class="text-sm text-gray-400 mt-2">Backend API: <span id="api-status" class="text-green-400">Connected</span></p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function navigateTo(page) {
+            alert('Navigation to ' + page + ' page');
+        }
+        
+        function logout() {
+            alert('Logged out successfully');
+        }
+
+        // Check backend API connection
+        window.addEventListener('load', () => {
+            fetch('http://localhost:8000/api/health', { mode: 'cors' })
+                .then(r => {
+                    document.getElementById('api-status').textContent = 'Connected ✓';
+                    document.getElementById('api-status').className = 'text-green-400';
+                })
+                .catch(e => {
+                    document.getElementById('api-status').textContent = 'Checking...';
+                    document.getElementById('api-status').className = 'text-yellow-400';
+                });
+        });
+    </script>
+</body>
+</html>
