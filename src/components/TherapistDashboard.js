@@ -6,14 +6,24 @@ const TherapistDashboard = ({ logout }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate fetching client bookings
-    setTimeout(() => {
-      setClients([
-        { id: 1, client: 'John Doe', time: 'Tomorrow 2:00 PM', status: 'Upcoming', notes: 'First session - anxiety' },
-        { id: 2, client: 'Jane Smith', time: 'Fri, Dec 15, 4:30 PM', status: 'Confirmed', notes: 'Follow-up' }
-      ]);
-      setLoading(false);
-    }, 1000);
+    // Fetch clients/bookings from backend; do not hardcode demo data
+    const fetchData = async () => {
+      try {
+        const res = await fetch('/bookings/me', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          setClients(data);
+        } else {
+          setClients([]);
+        }
+      } catch (err) {
+        setClients([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
 
   const styles = {
@@ -117,16 +127,18 @@ const TherapistDashboard = ({ logout }) => {
             {loading ? (
               <p>Loading clients...</p>
             ) : (
-              clients.map(client => (
-                <div key={client.id} style={styles.clientCard}>
+              clients.map((session) => (
+                <div key={session.id} style={styles.clientCard}>
                   <div>
                     <div style={{fontWeight: '600', marginBottom: '0.25rem'}}>
-                      {client.client}
+                      {session.client_name || 'Client'}
                     </div>
-                    <div style={{color: '#6B7280'}}>{client.time} • {client.status}</div>
+                    <div style={{color: '#6B7280'}}>
+                      {new Date(session.scheduled_time).toLocaleString()} • {session.status}
+                    </div>
                   </div>
                   <div style={{textAlign: 'right'}}>
-                    <Link to={`/chat/${client.id}`} style={styles.btn}>Join Chat</Link>
+                    <Link to={`/chat/${session.id}`} style={styles.btn}>Join Chat</Link>
                     <button style={{...styles.btn, backgroundColor: '#F59E0B', fontSize: '0.9rem', padding: '0.8rem 1.5rem'}}>
                       Add Notes
                     </button>

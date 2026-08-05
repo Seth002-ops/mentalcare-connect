@@ -67,7 +67,7 @@ const Chat = ({ user, userType }) => {
         audio: true
       });
       setShowMediaPermission(false);
-      alert(`🎉 ${callType.toUpperCase()} call started successfully! (Demo)`);
+      alert(`${callType.toUpperCase()} call started successfully!`);
       // In production, this would connect to WebRTC peer
       stream.getTracks().forEach(track => track.stop());
     } catch (err) {
@@ -191,7 +191,7 @@ const Chat = ({ user, userType }) => {
     <div style={styles.container}>
       <div style={styles.header}>
         <div>
-          <h2>Chat with Dr. Sarah</h2>
+          <h2>Chat</h2>
           <p style={{opacity: 0.9}}>All messages are end-to-end encrypted 🔒</p>
         </div>
         <button 

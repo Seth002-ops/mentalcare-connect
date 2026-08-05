@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
+import { stripEmoji } from '../utils/sanitizeText';
 
 const Chat = ({ user, userType }) => {
   const { roomId } = useParams();
@@ -27,11 +28,12 @@ const Chat = ({ user, userType }) => {
   ];
 
   const sendMessage = async () => {
-    if (!newMessage.trim()) return;
+    const plainText = stripEmoji(newMessage).trim();
+    if (!plainText) return;
 
     const message = {
       id: Date.now(),
-      text: newMessage,
+      text: plainText,
       sender: userType === 'client' ? 'client' : 'therapist',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       encrypted: true
@@ -55,11 +57,19 @@ const Chat = ({ user, userType }) => {
     }, 1000);
   };
 
-  const startCall = async (type) => {
+  // Note: startCall() does NOT require async keyword because it only performs
+  // synchronous state updates (setCallType, setShowMediaPermission).
+  // There are no await operations in this function, so async is unnecessary overhead.
+  // Keep functions non-async unless they contain await or return a Promise.
+  const startCall = (type) => {
     setCallType(type);
     setShowMediaPermission(true);
   };
 
+  // requestMediaPermissions() is async because it awaits getUserMedia() and handles
+  // the Promise-based browser API. Sequential operations (getUserMedia -> stop tracks)
+  // are necessary here since getUserMedia must complete before we can access the stream.
+  // No optimization opportunity: must await permission before stopping tracks.
   const requestMediaPermissions = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -67,7 +77,7 @@ const Chat = ({ user, userType }) => {
         audio: true
       });
       setShowMediaPermission(false);
-      alert(`🎉 ${callType.toUpperCase()} call started successfully! (Demo)`);
+      alert(`${callType.toUpperCase()} call started successfully!`);
       stream.getTracks().forEach((track) => track.stop());
     } catch (err) {
       alert('Permission denied. Please allow microphone/camera access for calls.');
@@ -82,7 +92,7 @@ const Chat = ({ user, userType }) => {
       backgroundColor: '#F9FAFB'
     },
     header: {
-      background: 'linear-gradient(135deg, #2BB3A3 0%, #A78BFA 100%)',
+      background: '#2E7D32',
       color: 'white',
       padding: '1.5rem 2rem',
       display: 'flex',
@@ -105,7 +115,7 @@ const Chat = ({ user, userType }) => {
       padding: '1rem 1.5rem',
       borderRadius: '20px',
       marginLeft: sender === 'client' ? 'auto' : '0',
-      backgroundColor: sender === 'client' ? '#2BB3A3' : '#E5E7EB',
+      backgroundColor: sender === 'client' ? '#4CAF50' : '#E3F2FD',
       color: sender === 'client' ? 'white' : '#111827'
     }),
     inputContainer: {
@@ -145,7 +155,7 @@ const Chat = ({ user, userType }) => {
       color: 'white'
     },
     sendBtn: {
-      backgroundColor: '#2BB3A3',
+      backgroundColor: '#2196F3',
       color: 'white',
       border: 'none',
       padding: '1rem 2rem',
@@ -190,7 +200,7 @@ const Chat = ({ user, userType }) => {
     <div style={styles.container}>
       <div style={styles.header}>
         <div>
-          <h2>Chat with Dr. Sarah</h2>
+          <h2>Chat</h2>
           <p style={{ opacity: 0.9 }}>All messages are end-to-end encrypted 🔒</p>
         </div>
         <button
@@ -217,7 +227,7 @@ const Chat = ({ user, userType }) => {
         <textarea
           style={styles.input}
           value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
+          onChange={(e) => setNewMessage(stripEmoji(e.target.value))}
           placeholder="Type your message..."
           rows="2"
           onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), sendMessage())}
@@ -235,7 +245,7 @@ const Chat = ({ user, userType }) => {
 
       {aiOpen && (
         <div style={styles.aiPanel}>
-          <h4 style={{ color: '#2BB3A3', marginBottom: '1rem' }}>AI Support</h4>
+          <h4 style={{ color: '#2E7D32', marginBottom: '1rem' }}>AI Support</h4>
           <p style={{ color: '#6B7280', fontSize: '0.9rem', marginBottom: '1rem' }}>
             Gentle coping tips • Not a therapist replacement
           </p>
@@ -248,7 +258,7 @@ const Chat = ({ user, userType }) => {
                   padding: '1rem',
                   borderRadius: '12px',
                   marginBottom: '1rem',
-                  borderLeft: '3px solid #2BB3A3'
+                  borderLeft: '3px solid #4CAF50'
                 }}
               >
                 {tip}
@@ -262,7 +272,7 @@ const Chat = ({ user, userType }) => {
         <div style={styles.permissionModal}>
           <div style={styles.permissionContent}>
             <div style={{ fontSize: '4rem', marginBottom: '1.5rem' }}>🎥</div>
-            <h3 style={{ color: '#2BB3A3', marginBottom: '1rem' }}>
+            <h3 style={{ color: '#2E7D32', marginBottom: '1rem' }}>
               {callType === 'video' ? 'Video Call' : 'Voice Call'} Permission
             </h3>
             <p style={{ marginBottom: '2rem', color: '#6B7280' }}>
@@ -273,7 +283,7 @@ const Chat = ({ user, userType }) => {
                 onClick={requestMediaPermissions}
                 style={{
                   padding: '1rem 2rem',
-                  backgroundColor: '#2BB3A3',
+                  backgroundColor: '#4CAF50',
                   color: 'white',
                   border: 'none',
                   borderRadius: '12px',

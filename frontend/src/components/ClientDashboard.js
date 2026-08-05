@@ -6,18 +6,44 @@ const ClientDashboard = ({ logout }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setTimeout(() => {
-      setSessions([
-        { id: 1, therapist: 'Dr. Sarah Johnson', time: 'Tomorrow 2:00 PM', status: 'Upcoming' },
-        { id: 2, therapist: 'Dr. Michael Chen', time: 'Fri, Dec 15, 4:30 PM', status: 'Scheduled' }
-      ]);
+    const token = localStorage.getItem('token');
+    if (!token) {
       setLoading(false);
-    }, 1000);
+      return;
+    }
+
+    const fetchSessions = async () => {
+      try {
+        const response = await fetch('/bookings/me', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!response.ok) {
+          throw new Error('Unable to load sessions');
+        }
+        const data = await response.json();
+        setSessions(
+          data.map((booking) => ({
+            id: booking.id,
+            therapist: booking.therapist_name || 'Therapist',
+            time: new Date(booking.scheduled_time).toLocaleString(),
+            status: booking.payment_status === 'completed' ? 'Confirmed' : booking.status || 'Scheduled',
+          }))
+        );
+      } catch (error) {
+        console.error('Error loading sessions:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSessions();
   }, []);
 
   const styles = {
     header: {
-      background: 'linear-gradient(135deg, #2BB3A3 0%, #A78BFA 100%)',
+      background: '#2E7D32',
       color: 'white',
       padding: '2rem 0'
     },
@@ -32,6 +58,23 @@ const ClientDashboard = ({ logout }) => {
     navTitle: {
       fontSize: '1.8rem',
       fontWeight: '700'
+    },
+    navSubtitle: {
+      fontSize: '0.9rem',
+      fontWeight: '600',
+      opacity: 0.9,
+      letterSpacing: '0.02em'
+    },
+    navBrand: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.75rem'
+    },
+    navSubtitle: {
+      fontSize: '0.9rem',
+      fontWeight: '600',
+      letterSpacing: '0.02em',
+      opacity: 0.9
     },
     logoutBtn: {
       backgroundColor: 'rgba(255,255,255,0.2)',
@@ -61,7 +104,7 @@ const ClientDashboard = ({ logout }) => {
       transition: 'transform 0.3s ease'
     },
     cardTitle: {
-      color: '#2BB3A3',
+      color: '#2E7D32',
       fontSize: '1.5rem',
       marginBottom: '1.5rem',
       display: 'flex',
@@ -69,7 +112,7 @@ const ClientDashboard = ({ logout }) => {
       gap: '0.5rem'
     },
     btn: {
-      backgroundColor: '#2BB3A3',
+      backgroundColor: '#2196F3',
       color: 'white',
       border: 'none',
       padding: '1rem 2rem',
@@ -86,9 +129,9 @@ const ClientDashboard = ({ logout }) => {
       justifyContent: 'space-between',
       alignItems: 'center',
       padding: '1.5rem',
-      background: '#F0FDF4',
+      background: '#F1F8E9',
       borderRadius: '12px',
-      borderLeft: '4px solid #2BB3A3'
+      borderLeft: '4px solid #4CAF50'
     }
   };
 
@@ -96,7 +139,10 @@ const ClientDashboard = ({ logout }) => {
     <>
       <header style={styles.header}>
         <nav style={styles.nav}>
-          <h1 style={styles.navTitle}>Afya Care Connect</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <h1 style={styles.navTitle}>Mecac</h1>
+            <span style={styles.navSubtitle}>Mental Care Connect</span>
+          </div>
           <button onClick={logout} style={styles.logoutBtn}>Logout</button>
         </nav>
       </header>
@@ -122,7 +168,7 @@ const ClientDashboard = ({ logout }) => {
 
           <div style={styles.card}>
             <h3 style={styles.cardTitle}>💬 Quick Actions</h3>
-            <Link to="/chat/1" style={styles.btn}>Start Chat</Link>
+            <Link to={sessions.length > 0 ? `/chat/${sessions[0].id}` : '/chat'} style={styles.btn}>Open Chat</Link>
             <Link to="/booking" style={styles.btn}>Book Session</Link>
             <button style={{ ...styles.btn, backgroundColor: '#F97373' }}>Resources</button>
             <button style={{ ...styles.btn, backgroundColor: '#A78BFA' }}>Assessments</button>

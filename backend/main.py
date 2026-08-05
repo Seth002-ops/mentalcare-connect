@@ -1,19 +1,22 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException
+import asyncio
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import JSONResponse
 import uvicorn
-from typing import List
+from typing import List, Optional
 from jose import jwt
 from jose.exceptions import JWTError
 from database import engine, get_db, Base, SessionLocal
 from models import User, Message, SessionBooking
 from schemas import (
-    UserCreate, UserLogin, Token, MessageCreate, MessageResponse,
-    BookingCreate, PaymentRequest, PaymentResponse
+    UserCreate, UserLogin, Token, UserResponse, MessageCreate,
+    MessageResponse, BookingCreate, PaymentRequest, PaymentResponse
 )
 from crud import (
-    get_user_by_email, get_user_by_id, authenticate_user, create_message,
-    get_messages_by_room, create_booking, simulate_payment, get_booking_by_id,
-    get_bookings_for_user
+    get_user_by_email, get_user_by_id, authenticate_user, create_user,
+    create_message, get_messages_by_room, create_booking, simulate_payment,
+    get_booking_by_id, get_bookings_for_user
 )
 from auth import create_access_token, get_current_user
 from config import settings
@@ -21,7 +24,9 @@ from config import settings
 # Create tables
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title=settings.PROJECT_NAME)
+app = FastAPI(title=settings.PROJECT_NAME, docs_url=None, redoc_url=None, openapi_url=None)
+
+PUBLIC_PATHS = {"/", "/auth/register", "/auth/login"}
 
 # CORS Middleware
 app.add_middleware(
@@ -31,6 +36,43 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def enforce_authentication(request: Request, call_next):
+    if request.scope["type"] != "http":
+        return await call_next(request)
+
+    if request.method == "OPTIONS":
+        return await call_next(request)
+
+    path = request.url.path
+    if path in {"/docs", "/openapi.json", "/redoc"}:
+        return await call_next(request)
+
+    if path in PUBLIC_PATHS or path.startswith("/static") or path.startswith("/favicon.ico"):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none';"
+        return response
+
+    auth_header = request.headers.get("authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return JSONResponse(status_code=401, content={"detail": "Authentication required"})
+
+    token = auth_header.split(" ", 1)[1]
+    try:
+        jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    except JWTError:
+        return JSONResponse(status_code=401, content={"detail": "Invalid or expired token"})
+
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none';"
+    return response
 
 # WebSocket Manager
 class ConnectionManager:
@@ -48,8 +90,9 @@ class ConnectionManager:
         await websocket.send_text(message)
 
     async def broadcast(self, message: str):
-        for connection in self.active_connections:
-            await connection.send_text(message)
+        await asyncio.gather(
+            *(connection.send_text(message) for connection in self.active_connections)
+        )
 
 manager = ConnectionManager()
 
@@ -143,6 +186,14 @@ def get_my_bookings(
     current_user=Depends(get_current_user)
 ):
     bookings = get_bookings_for_user(db, current_user.id)
+    user_names = {}
+
+    def get_user_name(user_id: int) -> str:
+        if user_id not in user_names:
+            user = get_user_by_id(db, user_id)
+            user_names[user_id] = user.email if user else "Unknown"
+        return user_names[user_id]
+
     return [
         {
             "id": booking.id,
@@ -152,9 +203,62 @@ def get_my_bookings(
             "status": booking.status,
             "amount": booking.amount,
             "payment_status": booking.payment_status,
+            "client_name": get_user_name(booking.client_id),
+            "therapist_name": get_user_name(booking.therapist_id),
         }
         for booking in bookings
     ]
+
+
+@app.get("/bookings/{booking_id}")
+def read_booking(
+    booking_id: int,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    booking = get_booking_by_id(db, booking_id)
+    if not booking or current_user.id not in {booking.client_id, booking.therapist_id}:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    def get_user_name(user_id: int) -> str:
+        user = get_user_by_id(db, user_id)
+        return user.email if user else "Unknown"
+
+    return {
+        "id": booking.id,
+        "client_id": booking.client_id,
+        "therapist_id": booking.therapist_id,
+        "scheduled_time": booking.scheduled_time,
+        "status": booking.status,
+        "amount": booking.amount,
+        "payment_status": booking.payment_status,
+        "client_name": get_user_name(booking.client_id),
+        "therapist_name": get_user_name(booking.therapist_id),
+    }
+
+
+@app.get("/users", response_model=List[UserResponse])
+def list_users(
+    user_type: Optional[str] = None,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    query = db.query(User)
+    if user_type:
+        query = query.filter(User.user_type == user_type)
+    return query.all()
+
+
+@app.get("/users/{user_id}", response_model=UserResponse)
+def read_user(
+    user_id: int,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    user = get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
 
 
 @app.post("/payments/simulate", response_model=PaymentResponse)
@@ -218,16 +322,11 @@ def read_root():
         "features": [
             "✅ End-to-end encrypted chat",
             "✅ JWT authentication",
-            "✅ SQLite + SQLAlchemy",
+            "✅ SQLAlchemy database support",
             "✅ WebSocket real-time chat",
             "✅ M-PESA payment simulation"
         ]
     }
-
-
-@app.get("/docs")
-async def custom_swagger_ui_html():
-    return {"message": "Interactive API docs at /docs"}
 
 
 if __name__ == "__main__":

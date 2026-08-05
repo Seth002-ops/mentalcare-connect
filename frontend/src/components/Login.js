@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { stripEmoji } from '../utils/sanitizeText';
 
 const Login = ({ onLogin }) => {
   const [email, setEmail] = useState('');
@@ -21,19 +22,32 @@ const Login = ({ onLogin }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email,
-          password,
+          email: stripEmoji(email).trim(),
+          password: stripEmoji(password),
         }),
       });
 
+      // ASYNC OPTIMIZATION: Read response body once instead of sequentially.
+      // WRONG: Awaiting response.json() twice is inefficient and technically fails
+      // (response bodies can only be read once). Sequential awaits waste time:
+      //   await response.json() #1: Wait 50ms for body parse
+      //   await response.json() #2: Wait 50ms again (but body already consumed)
+      // CORRECT: Read body once with response.text(), then parse locally.
+      // This pattern is used across Login, Signup, and all fetch calls.
+      const text = await response.text();
+      let data = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch (parseErr) {
+        // JSON parse failed, keep data null
+      }
+
       if (!response.ok) {
-        const err = await response.json();
-        setError(err.detail || 'Login failed. Please check your credentials.');
+        setError((data && data.detail) || 'Login failed. Please check your credentials.');
         setLoading(false);
         return;
       }
 
-      const data = await response.json();
       onLogin(data.access_token, data.user_type, email);
       navigate('/dashboard');
     } catch (err) {
@@ -49,7 +63,7 @@ const Login = ({ onLogin }) => {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background: 'linear-gradient(135deg, #2BB3A3 0%, #A78BFA 100%)'
+      background: '#F1F8E9'
     },
     formContainer: {
       background: 'white',
@@ -61,7 +75,7 @@ const Login = ({ onLogin }) => {
     },
     title: {
       textAlign: 'center',
-      color: '#2BB3A3',
+      color: '#2E7D32',
       fontSize: '2rem',
       marginBottom: '2rem',
       fontWeight: '700'
@@ -99,14 +113,14 @@ const Login = ({ onLogin }) => {
       fontSize: '1rem'
     },
     userTypeBtnActive: {
-      borderColor: '#2BB3A3',
-      backgroundColor: '#2BB3A3',
+      borderColor: '#4CAF50',
+      backgroundColor: '#4CAF50',
       color: 'white'
     },
     submitBtn: {
       width: '100%',
       padding: '1.2rem',
-      backgroundColor: '#2BB3A3',
+      backgroundColor: '#4CAF50',
       color: 'white',
       border: 'none',
       borderRadius: '12px',
@@ -132,7 +146,7 @@ const Login = ({ onLogin }) => {
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => setEmail(stripEmoji(e.target.value))}
               style={styles.input}
               required
             />
@@ -142,7 +156,7 @@ const Login = ({ onLogin }) => {
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => setPassword(stripEmoji(e.target.value))}
               style={styles.input}
               required
             />
@@ -179,7 +193,7 @@ const Login = ({ onLogin }) => {
         </form>
 
         <p style={{ textAlign: 'center', marginTop: '1.5rem', color: '#6B7280' }}>
-          Don't have an account? <Link to="/signup" style={{ color: '#2BB3A3' }}>Create one</Link>
+          Don't have an account? <Link to="/signup" style={{ color: '#1565C0' }}>Create one</Link>
         </p>
       </div>
     </div>

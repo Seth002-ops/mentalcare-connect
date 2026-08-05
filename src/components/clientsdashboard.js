@@ -22,7 +22,7 @@ const ClientDashboard = ({ logout }) => {
         const data = await response.json();
         setSessions(data.map(b => ({
           id: b.id,
-          therapist: b.therapist_name || 'Unknown Therapist',
+          therapist: b.therapist_name || 'Therapist',
           time: new Date(b.scheduled_time).toLocaleString(),
           status: b.status || b.payment_status || 'Scheduled'
         })));
@@ -144,7 +144,7 @@ const ClientDashboard = ({ logout }) => {
 
           <div style={styles.card}>
             <h3 style={styles.cardTitle}>💬 Quick Actions</h3>
-            <Link to="/chat/1" style={styles.btn}>Start Chat</Link>
+            <Link to={sessions.length > 0 ? `/chat/${sessions[0].id}` : '/chat'} style={styles.btn}>Open Chat</Link>
             <Link to="/booking" style={styles.btn}>Book Session</Link>
             <button style={{...styles.btn, backgroundColor: '#F97373'}}>Resources</button>
             <button style={{...styles.btn, backgroundColor: '#A78BFA'}}>Assessments</button>

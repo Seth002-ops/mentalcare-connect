@@ -1,24 +1,56 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { stripEmoji } from '../utils/sanitizeText';
 
 const Payment = () => {
   const [formData, setFormData] = useState({
-    amount: 2500,
+    amount: 0,
     phone: '',
     method: 'mpesa'
   });
+  const [therapistName, setTherapistName] = useState('your therapist');
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setStatus('');
+    const cleanPhone = stripEmoji(formData.phone).trim();
+    setFormData((prev) => ({ ...prev, phone: cleanPhone }));
+    const { bookingId } = location.state || {};
+    if (!bookingId) {
+      setStatus('failed');
+      setLoading(false);
+      alert('Booking reference is missing. Please return to the booking page.');
+      return;
+    }
 
-    setTimeout(() => {
-      const success = Math.random() > 0.3;
-      if (success) {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setStatus('failed');
+      setLoading(false);
+      alert('Please log in before submitting payment.');
+      return;
+    }
+
+    try {
+      const response = await fetch('/payments/simulate', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          booking_id: bookingId,
+          phone: cleanPhone,
+          amount: formData.amount
+        })
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
         setStatus('success');
         setTimeout(() => {
           alert('✅ Payment successful! Session booked.');
@@ -28,7 +60,11 @@ const Payment = () => {
         setStatus('failed');
         setLoading(false);
       }
-    }, 2000);
+    } catch (error) {
+      setStatus('failed');
+      setLoading(false);
+      alert('Payment error: ' + error.message);
+    }
   };
 
   const styles = {
@@ -50,7 +86,7 @@ const Payment = () => {
     },
     title: {
       textAlign: 'center',
-      color: '#2BB3A3',
+      color: '#2E7D32',
       fontSize: '2rem',
       marginBottom: '0.5rem',
       fontWeight: '700'
@@ -61,7 +97,7 @@ const Payment = () => {
       marginBottom: '2.5rem'
     },
     amountDisplay: {
-      background: 'linear-gradient(135deg, #2BB3A3 0%, #A78BFA 100%)',
+      background: '#2E7D32',
       color: 'white',
       padding: '2rem',
       borderRadius: '20px',
@@ -101,14 +137,14 @@ const Payment = () => {
       fontSize: '1rem'
     },
     methodBtnActive: {
-      borderColor: '#2BB3A3',
-      backgroundColor: '#2BB3A3',
+      borderColor: '#2196F3',
+      backgroundColor: '#2196F3',
       color: 'white'
     },
     payBtn: {
       width: '100%',
       padding: '1.5rem',
-      backgroundColor: '#2BB3A3',
+      backgroundColor: '#4CAF50',
       color: 'white',
       border: 'none',
       borderRadius: '12px',
@@ -127,6 +163,16 @@ const Payment = () => {
     })
   };
 
+  useEffect(() => {
+    const state = location.state || {};
+    if (state.amount) {
+      setFormData((prev) => ({ ...prev, amount: state.amount }));
+    }
+    if (state.therapist_name) {
+      setTherapistName(state.therapist_name);
+    }
+  }, [location.state]);
+
   return (
     <div style={styles.container}>
       <div style={styles.formContainer}>
@@ -137,7 +183,7 @@ const Payment = () => {
           <div style={{ fontSize: '3rem', fontWeight: '700', marginBottom: '0.5rem' }}>
             KSh {formData.amount.toLocaleString()}
           </div>
-          <div style={{ opacity: 0.9 }}>Session with Dr. Sarah Johnson</div>
+          <div style={{ opacity: 0.9 }}>Session with {therapistName}</div>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -147,7 +193,7 @@ const Payment = () => {
               type="tel"
               placeholder="2547XXXXXXXX"
               value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, phone: stripEmoji(e.target.value) })}
               style={styles.input}
               required
               pattern="254[17]\d{8}"

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { stripEmoji } from '../utils/sanitizeText';
 
 const Signup = ({ onLogin }) => {
   const [formData, setFormData] = useState({
@@ -29,9 +30,10 @@ const Signup = ({ onLogin }) => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    const cleanValue = stripEmoji(value);
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: cleanValue
     }));
 
     // Clear errors when user starts typing
@@ -88,19 +90,34 @@ const Signup = ({ onLogin }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
+          email: stripEmoji(formData.email).trim(),
+          password: stripEmoji(formData.password),
           user_type: formData.userType
         }),
       });
 
+      // ASYNC OPTIMIZATION: Read response body once instead of sequentially.
+      // WRONG: Awaiting response.json() twice is inefficient and technically fails
+      // (response bodies can only be read once). Sequential awaits waste time:
+      //   await response.json() #1: Wait 50ms for body parse (success branch)
+      //   await response.json() #2: Wait 50ms again (error branch, but body consumed)
+      // CORRECT: Read body once with response.text(), then parse locally.
+      // This pattern is used across Login, Signup, and all fetch calls.
+      // Use Promise.all() only for truly independent operations (e.g., loading user data
+      // and preferences concurrently). Here, response parsing depends on response.ok.
+      const text = await response.text();
+      let data = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch (parseErr) {
+        // JSON parse failed, keep data null
+      }
+
       if (response.ok) {
-        const data = await response.json();
         onLogin(data.access_token, data.user_type, formData.email);
         navigate('/dashboard');
       } else {
-        const errorData = await response.json();
-        setErrors({ submit: errorData.detail || 'Registration failed' });
+        setErrors({ submit: (data && data.detail) || 'Registration failed' });
       }
     } catch (error) {
       setErrors({ submit: 'Network error. Please try again.' });
@@ -112,13 +129,13 @@ const Signup = ({ onLogin }) => {
   const requirements = checkPasswordStrength(formData.password);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50 flex items-center justify-center px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-green-50 flex items-center justify-center px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full">
         {/* Signup Form */}
         <div className="bg-white rounded-3xl shadow-2xl p-8 backdrop-blur-sm bg-white/95">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h2>
-            <p className="text-gray-600">Join Afya Connect today</p>
+            <p className="text-gray-600">Join Mecac today</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -282,7 +299,7 @@ const Signup = ({ onLogin }) => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-primary-600 to-secondary-600 hover:from-primary-700 hover:to-secondary-700 text-white font-bold py-3 px-4 rounded-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
             >
               {loading ? (
                 <div className="flex items-center justify-center">

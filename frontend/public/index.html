@@ -3,28 +3,29 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Afya Care Connect - Healthcare Platform</title>
+    <title>Mecac - Healthcare Platform</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
-        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .solid-bg { background: #81C784; }
         .card-shadow { box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
     </style>
 </head>
 <body class="bg-gray-50">
     <div id="root"></div>
     
-    <nav class="bg-white shadow-md">
+    <nav class="bg-[#2E7D32] shadow-md">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
-                <div class="flex items-center">
-                    <h1 class="text-2xl font-bold gradient-bg bg-clip-text text-transparent">Afya Care Connect</h1>
+                <div class="flex items-center gap-3">
+                    <h1 class="text-2xl font-bold text-white">Mecac</h1>
+                    <span class="text-sm font-semibold text-[#E3F2FD]">Mental Care Connect</span>
                 </div>
                 <div class="hidden md:flex space-x-8">
-                    <a href="#home" class="text-gray-700 hover:text-gray-900">Home</a>
-                    <a href="#services" class="text-gray-700 hover:text-gray-900">Services</a>
-                    <a href="#dashboard" class="text-gray-700 hover:text-gray-900">Dashboard</a>
-                    <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600">Logout</button>
+                    <a href="#home" class="text-[#E3F2FD] hover:text-white">Home</a>
+                    <a href="#services" class="text-[#E3F2FD] hover:text-white">Services</a>
+                    <a href="#dashboard" class="text-[#E3F2FD] hover:text-white">Dashboard</a>
+                    <button onclick="logout()" class="bg-[#1565C0] text-white px-4 py-2 rounded-lg hover:bg-[#0D47A1]">Logout</button>
                 </div>
             </div>
         </div>
@@ -32,26 +33,26 @@
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <!-- Hero Section -->
-        <div id="home" class="gradient-bg rounded-lg text-white p-12 mb-12 card-shadow">
-            <h2 class="text-4xl font-bold mb-4">Welcome to Afya Care Connect</h2>
+        <div id="home" class="solid-bg rounded-lg text-[#1565C0] p-12 mb-12 card-shadow">
+            <h2 class="text-4xl font-bold mb-4">Welcome to Mecac</h2>
             <p class="text-xl mb-8">Your comprehensive healthcare platform connecting patients with therapists, managing appointments, and facilitating secure communication.</p>
-            <button onclick="navigateTo('login')" class="bg-white text-purple-600 font-bold px-8 py-3 rounded-lg hover:bg-gray-100">Get Started</button>
+            <button onclick="navigateTo('login')" class="bg-[#2196F3] text-white font-bold px-8 py-3 rounded-lg hover:bg-[#1565C0]">Get Started</button>
         </div>
 
         <!-- Services Section -->
         <div id="services" class="grid md:grid-cols-3 gap-8 mb-12">
             <div class="bg-white p-8 rounded-lg card-shadow">
-                <div class="text-4xl mb-4">💬</div>
+                <div class="text-4xl mb-4"></div>
                 <h3 class="text-xl font-bold mb-2">Secure Chat</h3>
                 <p class="text-gray-600">End-to-end encrypted messaging with healthcare providers for confidential discussions.</p>
             </div>
             <div class="bg-white p-8 rounded-lg card-shadow">
-                <div class="text-4xl mb-4">📅</div>
+                <div class="text-4xl mb-4"></div>
                 <h3 class="text-xl font-bold mb-2">Easy Booking</h3>
                 <p class="text-gray-600">Schedule appointments with therapists and healthcare professionals effortlessly.</p>
             </div>
             <div class="bg-white p-8 rounded-lg card-shadow">
-                <div class="text-4xl mb-4">💳</div>
+                <div class="text-4xl mb-4"></div>
                 <h3 class="text-xl font-bold mb-2">Secure Payments</h3>
                 <p class="text-gray-600">Safe and secure payment processing for all healthcare services.</p>
             </div>
@@ -93,11 +94,11 @@
         </div>
     </main>
 
-    <footer class="bg-gray-900 text-white mt-20">
+    <footer class="bg-[#1565C0] text-white mt-20">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div class="text-center">
-                <p>&copy; 2026 Afya Care Connect. All rights reserved. Secure Healthcare Platform.</p>
-                <p class="text-sm text-gray-400 mt-2">Backend API: <span id="api-status" class="text-green-400">Connected</span></p>
+                <p>&copy; 2026 Mecac. All rights reserved. Secure Healthcare Platform.</p>
+                <p class="text-sm text-[#E3F2FD] mt-2">Backend API: <span id="api-status" class="text-[#81C784]">Connected</span></p>
             </div>
         </div>
     </footer>

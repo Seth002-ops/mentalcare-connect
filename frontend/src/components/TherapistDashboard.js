@@ -6,18 +6,30 @@ const TherapistDashboard = ({ logout }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setTimeout(() => {
-      setAppointments([
-        { id: 1, client: 'Jane Mwangi', time: 'Today 3:00 PM', status: 'Upcoming' },
-        { id: 2, client: 'Peter Otieno', time: 'Tomorrow 10:00 AM', status: 'Confirmed' }
-      ]);
-      setLoading(false);
-    }, 1000);
+    // Load appointments from backend API; avoid hardcoded demo data
+    const fetchAppointments = async () => {
+      try {
+        const res = await fetch('/bookings/me', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          setAppointments(data);
+        } else {
+          setAppointments([]);
+        }
+      } catch (err) {
+        setAppointments([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAppointments();
   }, []);
 
   const styles = {
     header: {
-      background: 'linear-gradient(135deg, #2BB3A3 0%, #A78BFA 100%)',
+
+      background: '#2E7D32',
       color: 'white',
       padding: '2rem 0'
     },
@@ -55,7 +67,7 @@ const TherapistDashboard = ({ logout }) => {
       transition: 'transform 0.3s ease'
     },
     cardTitle: {
-      color: '#2BB3A3',
+      color: '#2E7D32',
       fontSize: '1.5rem',
       marginBottom: '1.5rem',
       display: 'flex',
@@ -63,7 +75,7 @@ const TherapistDashboard = ({ logout }) => {
       gap: '0.5rem'
     },
     btn: {
-      backgroundColor: '#2BB3A3',
+      backgroundColor: '#2196F3',
       color: 'white',
       border: 'none',
       padding: '1rem 2rem',
@@ -80,9 +92,9 @@ const TherapistDashboard = ({ logout }) => {
       justifyContent: 'space-between',
       alignItems: 'center',
       padding: '1.5rem',
-      background: '#EFF6FF',
+      background: '#E3F2FD',
       borderRadius: '12px',
-      borderLeft: '4px solid #2BB3A3'
+      borderLeft: '4px solid #4CAF50'
     }
   };
 
@@ -90,7 +102,10 @@ const TherapistDashboard = ({ logout }) => {
     <>
       <header style={styles.header}>
         <nav style={styles.nav}>
-          <h1 style={styles.navTitle}>Therapist Dashboard</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <h1 style={styles.navTitle}>Mecac</h1>
+            <span style={{ fontSize: '0.9rem', fontWeight: '600', opacity: 0.9 }}>Mental Care Connect</span>
+          </div>
           <button onClick={logout} style={styles.logoutBtn}>Logout</button>
         </nav>
       </header>
@@ -105,9 +120,11 @@ const TherapistDashboard = ({ logout }) => {
               <div key={appointment.id} style={styles.appointmentCard}>
                 <div>
                   <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>
-                    {appointment.client}
+                    {appointment.client_name || 'Client'}
                   </div>
-                  <div style={{ color: '#6B7280' }}>{appointment.time}</div>
+                  <div style={{ color: '#6B7280' }}>
+                    {new Date(appointment.scheduled_time).toLocaleString()}
+                  </div>
                 </div>
                 <div>
                   <span style={{ fontWeight: '700', color: '#2BB3A3' }}>{appointment.status}</span>

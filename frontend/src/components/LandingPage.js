@@ -9,22 +9,32 @@ const LandingPage = () => {
       alignItems: 'center',
       justifyContent: 'center',
       textAlign: 'center',
-      background: 'linear-gradient(135deg, #2BB3A3 0%, #A78BFA 100%)',
-      color: 'white',
+      background: '#81C784',
+      color: '#1565C0',
       padding: '0 20px'
     },
     heroContent: {
       maxWidth: '800px',
       animation: 'fadeInUp 1s ease-out'
     },
-    logo: {
+    logoRow: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '1rem',
+      flexWrap: 'wrap',
+      marginBottom: '1rem'
+    },
+    brandShort: {
       fontSize: '3rem',
       fontWeight: 'bold',
-      marginBottom: '1rem',
-      background: 'linear-gradient(45deg, #2BB3A3, #A78BFA)',
-      WebkitBackgroundClip: 'text',
-      WebkitTextFillColor: 'transparent',
-      backgroundClip: 'text'
+      color: '#2E7D32'
+    },
+    brandFull: {
+      fontSize: '1.2rem',
+      fontWeight: '700',
+      color: '#1565C0',
+      letterSpacing: '0.03em'
     },
     headline: {
       fontSize: '3.5rem',
@@ -44,24 +54,24 @@ const LandingPage = () => {
       flexWrap: 'wrap'
     },
     btnPrimary: {
-      backgroundColor: 'white',
-      color: '#2BB3A3',
+      backgroundColor: '#2196F3',
+      color: 'white',
       padding: '1.2rem 3rem',
       border: 'none',
       borderRadius: '50px',
       fontSize: '1.1rem',
       fontWeight: '600',
       cursor: 'pointer',
-      boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+      boxShadow: '0 10px 30px rgba(0,0,0,0.18)',
       transition: 'all 0.3s ease',
       textDecoration: 'none',
       display: 'inline-block'
     },
     btnSecondary: {
       backgroundColor: 'transparent',
-      color: 'white',
+      color: '#1565C0',
       padding: '1.2rem 3rem',
-      border: '2px solid white',
+      border: '2px solid #1565C0',
       borderRadius: '50px',
       fontSize: '1.1rem',
       fontWeight: '600',
@@ -94,14 +104,17 @@ const LandingPage = () => {
     <>
       <section style={styles.hero}>
         <div style={styles.heroContent}>
-          <div style={styles.logo}>🧠🌉 Afya Care Connect</div>
+          <div style={styles.logoRow}>
+            <span style={styles.brandShort}>Mecac</span>
+            <span style={styles.brandFull}>Mental Care Connect</span>
+          </div>
           <h1 style={styles.headline}>Bridging You and Your Therapist, Safely</h1>
           <p style={styles.description}>
             Find licensed therapists who understand you. Secure, confidential mental health support at your fingertips.
           </p>
           <div style={styles.buttons}>
-            <Link to="/login" style={styles.btnPrimary}>Find a Therapist</Link>
-            <Link to="/login" style={styles.btnSecondary}>Get Started</Link>
+            <Link to="/booking" style={styles.btnPrimary}>Find a Therapist</Link>
+            <Link to="/booking" style={styles.btnSecondary}>Get Started</Link>
           </div>
         </div>
       </section>
