@@ -214,6 +214,11 @@ class RageRoomBooking(Base):
     platform_fee = Column(Integer, nullable=True)
     is_student_rate = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+        # Liability Waiver Fields
+    waiver_signed = Column(Boolean, default=False)
+    waiver_signed_at = Column(DateTime(timezone=True), nullable=True)
+    signer_name = Column(String, nullable=True)
+    signer_id_number = Column(String, nullable=True)
 
     
 

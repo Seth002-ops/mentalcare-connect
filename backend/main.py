@@ -1245,6 +1245,10 @@ def book_rage_room(booking: RageRoomBookingCreate, db=Depends(get_db), current_u
         status="pending",
         payment_status="pending",
         is_student_rate=is_student,
+        waiver_signed=True,
+        waiver_signed_at=datetime.utcnow(),
+        signer_name=booking.signer_name,
+        signer_id_number=booking.signer_id_number,
     )
     db.add(db_booking)
     db.commit()

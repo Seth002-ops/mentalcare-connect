@@ -317,6 +317,8 @@ class RageRoomBookingCreate(BaseModel):
     package_id: int
     scheduled_time: datetime
     use_student_rate: bool = False
+    signer_name: str           # Add this
+    signer_id_number: str
 
     
 

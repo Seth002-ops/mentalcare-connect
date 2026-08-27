@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
+import RageRoomWaiver from './RageRoomWaiver';
 
 // ============ PROFESSIONAL ICONS ============
 const IconX = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
@@ -37,6 +38,7 @@ const RageRooms = ({ logout }) => {
   const [booked, setBooked] = useState(false);
   const [myBookings, setMyBookings] = useState([]);
   const [showMyBookings, setShowMyBookings] = useState(false);
+  const [showWaiverModal, setShowWaiverModal] = useState(false);
 
   const timeSlots = ['9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM'];
 
@@ -103,11 +105,17 @@ const RageRooms = ({ logout }) => {
     return `${hours.toString().padStart(2, '0')}:${minutes}:00`;
   };
 
-  const handleConfirmBooking = async () => {
+  const handleConfirmBooking = () => {
     if (!selectedDate || !selectedTime) {
       alert('Please select a date and time.');
       return;
     }
+    // Waiver must be signed BEFORE the booking is created
+    setShowBookingModal(false);
+    setShowWaiverModal(true);
+  };
+
+  const handleWaiverSigned = async (signerName, signerId) => {
     const token = localStorage.getItem('token');
     const isoTime = convertTo24Hour(selectedTime);
     try {
@@ -119,13 +127,15 @@ const RageRooms = ({ logout }) => {
           package_id: selectedPackage.id,
           scheduled_time: `${selectedDate}T${isoTime}`,
           use_student_rate: useStudentRate,
+          signer_name: signerName,
+          signer_id_number: signerId,
         }),
       });
       const data = await res.json();
       if (res.ok) {
         setBookingId(data.booking_id);
         setBookingAmount(data.amount);
-        setShowBookingModal(false);
+        setShowWaiverModal(false);
         setShowPaymentModal(true);
       } else {
         alert(data.detail || 'Booking failed');
@@ -365,12 +375,21 @@ const RageRooms = ({ logout }) => {
               width: '100%', padding: '0.85rem', background: !selectedDate || !selectedTime ? '#D1D5DB' : '#2E7D32',
               color: 'white', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: !selectedDate || !selectedTime ? 'not-allowed' : 'pointer', fontSize: '0.95rem',
             }}>
-              Proceed to Payment — KSh {getDisplayPrice(selectedPackage).toLocaleString()}
+               Continue → Sign Liability Waiver
             </button>
           </div>
         </div>
       )}
+      {/* LIABILITY WAIVER MODAL */}
+      {showWaiverModal && selectedPackage && (
+        <RageRoomWaiver
+          roomName={selectedRoom?.name}
+          onCancel={() => setShowWaiverModal(false)}
+          onSign={handleWaiverSigned}
+        />
+      )}
 
+    
       {/* PAYMENT MODAL */}
       {showPaymentModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,39,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
