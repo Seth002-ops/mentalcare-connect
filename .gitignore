@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+backend/afya_care.db
+backend/uploads/
+
+# Node
+node_modules/
+frontend/build/
+
+# Secrets - NEVER COMMIT
+.env
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+.env

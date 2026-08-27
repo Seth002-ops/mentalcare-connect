@@ -7,123 +7,117 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
-        .solid-bg { background: #81C784; }
-        .card-shadow { box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+        
+        /* Ensure React content starts below the navbar */
+        #root {
+            padding-top: 64px; /* Match navbar height */
+            min-height: 100vh;
+        }
+        
+        /* Smooth scrolling */
+        html { scroll-behavior: smooth; }
     </style>
 </head>
 <body class="bg-gray-50">
+    <!-- React mounts all your pages here -->
     <div id="root"></div>
-    
-    <nav class="bg-[#2E7D32] shadow-md">
+
+    <!-- ============ FIXED TOP NAVBAR (Reduced Height) ============ -->
+    <nav class="bg-[#2E7D32] shadow-md fixed top-0 left-0 right-0 z-50 h-16">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
+                <!-- Left: Menu Toggle -->
+                <button id="menu-toggle" class="text-white p-2 rounded-lg hover:bg-white/10 transition-all" aria-label="Open menu">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+                
+                <!-- Center: Logo & Title -->
                 <div class="flex items-center gap-3">
-                    <h1 class="text-2xl font-bold text-white">Mecac</h1>
-                    <span class="text-sm font-semibold text-[#E3F2FD]">Mental Care Connect</span>
+                    <h1 class="text-xl font-bold text-white tracking-wider">MECAC</h1>
+                    <a href="/">
+                        <img src="/logo.PNG" alt="Mecac" class="h-10 w-auto hidden sm:block">
+                    </a>
                 </div>
-                <div class="hidden md:flex space-x-8">
-                    <a href="#home" class="text-[#E3F2FD] hover:text-white">Home</a>
-                    <a href="#services" class="text-[#E3F2FD] hover:text-white">Services</a>
-                    <a href="#dashboard" class="text-[#E3F2FD] hover:text-white">Dashboard</a>
-                    <button onclick="logout()" class="bg-[#1565C0] text-white px-4 py-2 rounded-lg hover:bg-[#0D47A1]">Logout</button>
-                </div>
+                
+                <!-- Right: Spacer for balance -->
+                <div class="w-10"></div>
             </div>
         </div>
     </nav>
 
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <!-- Hero Section -->
-        <div id="home" class="solid-bg rounded-lg text-[#1565C0] p-12 mb-12 card-shadow">
-            <h2 class="text-4xl font-bold mb-4">Welcome to Mecac</h2>
-            <p class="text-xl mb-8">Your comprehensive healthcare platform connecting patients with therapists, managing appointments, and facilitating secure communication.</p>
-            <button onclick="navigateTo('login')" class="bg-[#2196F3] text-white font-bold px-8 py-3 rounded-lg hover:bg-[#1565C0]">Get Started</button>
+    <!-- ============ SIDEBAR OVERLAY ============ -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
+
+    <!-- ============ SLIDE-OUT SIDEBAR ============ -->
+    <aside id="sidebar" class="fixed top-0 left-0 h-full w-72 bg-white shadow-2xl z-50 transform -translate-x-full transition-transform duration-300 ease-in-out">
+        <div class="bg-[#2E7D32] p-4 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <img src="/logo.PNG" alt="Mecac" class="h-10 w-auto">
+                <span class="text-white font-bold text-lg">Menu</span>
+            </div>
+            <button id="sidebar-close" class="text-white p-2 rounded-lg hover:bg-white/10 transition-all" aria-label="Close menu">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
         </div>
 
-        <!-- Services Section -->
-        <div id="services" class="grid md:grid-cols-3 gap-8 mb-12">
-            <div class="bg-white p-8 rounded-lg card-shadow">
-                <div class="text-4xl mb-4"></div>
-                <h3 class="text-xl font-bold mb-2">Secure Chat</h3>
-                <p class="text-gray-600">End-to-end encrypted messaging with healthcare providers for confidential discussions.</p>
-            </div>
-            <div class="bg-white p-8 rounded-lg card-shadow">
-                <div class="text-4xl mb-4"></div>
-                <h3 class="text-xl font-bold mb-2">Easy Booking</h3>
-                <p class="text-gray-600">Schedule appointments with therapists and healthcare professionals effortlessly.</p>
-            </div>
-            <div class="bg-white p-8 rounded-lg card-shadow">
-                <div class="text-4xl mb-4"></div>
-                <h3 class="text-xl font-bold mb-2">Secure Payments</h3>
-                <p class="text-gray-600">Safe and secure payment processing for all healthcare services.</p>
-            </div>
-        </div>
-
-        <!-- Dashboard Section -->
-        <div id="dashboard" class="bg-white rounded-lg p-8 card-shadow">
-            <h3 class="text-2xl font-bold mb-6">Your Dashboard</h3>
-            <div class="grid md:grid-cols-2 gap-6">
-                <div class="border-l-4 border-purple-500 pl-4">
-                    <h4 class="font-bold text-gray-900">Upcoming Appointments</h4>
-                    <p class="text-gray-600 mt-2">No upcoming appointments. <a href="#" class="text-purple-600 hover:underline">Book now</a></p>
-                </div>
-                <div class="border-l-4 border-blue-500 pl-4">
-                    <h4 class="font-bold text-gray-900">Recent Messages</h4>
-                    <p class="text-gray-600 mt-2">No messages yet. Start a conversation with your provider.</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Stats Section -->
-        <div class="grid md:grid-cols-4 gap-6 mt-12">
-            <div class="bg-white p-6 rounded-lg text-center card-shadow">
-                <div class="text-3xl font-bold text-purple-600">1000+</div>
-                <p class="text-gray-600 mt-2">Healthcare Providers</p>
-            </div>
-            <div class="bg-white p-6 rounded-lg text-center card-shadow">
-                <div class="text-3xl font-bold text-purple-600">50K+</div>
-                <p class="text-gray-600 mt-2">Active Patients</p>
-            </div>
-            <div class="bg-white p-6 rounded-lg text-center card-shadow">
-                <div class="text-3xl font-bold text-purple-600">100K+</div>
-                <p class="text-gray-600 mt-2">Successful Bookings</p>
-            </div>
-            <div class="bg-white p-6 rounded-lg text-center card-shadow">
-                <div class="text-3xl font-bold text-purple-600">99.9%</div>
-                <p class="text-gray-600 mt-2">Uptime SLA</p>
-            </div>
-        </div>
-    </main>
-
-    <footer class="bg-[#1565C0] text-white mt-20">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div class="text-center">
-                <p>&copy; 2026 Mecac. All rights reserved. Secure Healthcare Platform.</p>
-                <p class="text-sm text-[#E3F2FD] mt-2">Backend API: <span id="api-status" class="text-[#81C784]">Connected</span></p>
-            </div>
-        </div>
-    </footer>
+        <nav class="p-4 space-y-1">
+            <a href="/dashboard" class="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-[#E8F5E9] hover:text-[#2E7D32] transition-all">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                <span class="font-medium">Dashboard</span>
+            </a>
+            <a href="/therapists" class="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-[#E8F5E9] hover:text-[#2E7D32] transition-all">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                <span class="font-medium">Browse Therapists</span>
+            </a>
+            <a href="/booking" class="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-[#E8F5E9] hover:text-[#2E7D32] transition-all">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                <span class="font-medium">Booking</span>
+            </a>
+            <hr class="my-4 border-gray-200">
+            <button onclick="logout()" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-all">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                <span class="font-medium">Logout</span>
+            </button>
+        </nav>
+    </aside>
 
     <script>
-        function navigateTo(page) {
-            alert('Navigation to ' + page + ' page');
-        }
-        
-        function logout() {
-            alert('Logged out successfully');
+        const menuToggle = document.getElementById('menu-toggle');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarClose = document.getElementById('sidebar-close');
+        const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+        function openSidebar() {
+            sidebar.classList.remove('-translate-x-full');
+            sidebarOverlay.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
         }
 
-        // Check backend API connection
-        window.addEventListener('load', () => {
-            fetch('http://localhost:8000/api/health', { mode: 'cors' })
-                .then(r => {
-                    document.getElementById('api-status').textContent = 'Connected ✓';
-                    document.getElementById('api-status').className = 'text-green-400';
-                })
-                .catch(e => {
-                    document.getElementById('api-status').textContent = 'Checking...';
-                    document.getElementById('api-status').className = 'text-yellow-400';
-                });
+        function closeSidebar() {
+            sidebar.classList.add('-translate-x-full');
+            sidebarOverlay.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        menuToggle.addEventListener('click', openSidebar);
+        sidebarClose.addEventListener('click', closeSidebar);
+        sidebarOverlay.addEventListener('click', closeSidebar);
+
+        document.querySelectorAll('#sidebar a').forEach(link => {
+            link.addEventListener('click', closeSidebar);
         });
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('userType');
+            localStorage.removeItem('email');
+            alert('Logged out successfully');
+            window.location.href = '/login';
+        }
     </script>
 </body>
 </html>

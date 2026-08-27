@@ -4,18 +4,31 @@ import { Link } from 'react-router-dom';
 const LandingPage = () => {
   const styles = {
     hero: {
+      position: 'relative',
       minHeight: '100vh',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       textAlign: 'center',
-      background: '#81C784',
-      color: '#1565C0',
-      padding: '0 20px'
+      backgroundImage: 'url(https://images.pexels.com/photos/6962625/pexels-photo-6962625.jpeg)',
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
+      padding: '0 20px',
+      color: 'white',
+      overflow: 'hidden'
+    },
+    heroOverlay: {
+      position: 'absolute',
+      inset: 0,
+      background: 'linear-gradient(180deg, rgba(10, 28, 34, 0.6), rgba(10, 28, 34, 0.75))',
+      pointerEvents: 'none'
     },
     heroContent: {
-      maxWidth: '800px',
-      animation: 'fadeInUp 1s ease-out'
+      position: 'relative',
+      maxWidth: '840px',
+      animation: 'fadeInUp 1s ease-out',
+      zIndex: 1
     },
     logoRow: {
       display: 'flex',
@@ -69,9 +82,9 @@ const LandingPage = () => {
     },
     btnSecondary: {
       backgroundColor: 'transparent',
-      color: '#1565C0',
+      color: 'white',
       padding: '1.2rem 3rem',
-      border: '2px solid #1565C0',
+      border: '2px solid white',
       borderRadius: '50px',
       fontSize: '1.1rem',
       fontWeight: '600',
@@ -88,7 +101,9 @@ const LandingPage = () => {
       display: 'grid',
       gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
       gap: '3rem',
-      marginTop: '5rem'
+      marginTop: '5rem',
+      maxWidth: '1200px',
+      margin: '5rem auto 0'
     },
     featureCard: {
       background: 'white',
@@ -103,6 +118,7 @@ const LandingPage = () => {
   return (
     <>
       <section style={styles.hero}>
+        <div style={styles.heroOverlay} />
         <div style={styles.heroContent}>
           <div style={styles.logoRow}>
             <span style={styles.brandShort}>Mecac</span>
@@ -113,8 +129,8 @@ const LandingPage = () => {
             Find licensed therapists who understand you. Secure, confidential mental health support at your fingertips.
           </p>
           <div style={styles.buttons}>
-            <Link to="/booking" style={styles.btnPrimary}>Find a Therapist</Link>
-            <Link to="/booking" style={styles.btnSecondary}>Get Started</Link>
+            <Link to="/therapists" style={styles.btnPrimary}>Find a Therapist</Link>
+            <Link to="/signup" style={styles.btnSecondary}>Get Started</Link>
           </div>
         </div>
       </section>
@@ -123,17 +139,17 @@ const LandingPage = () => {
         <div className="container">
           <div style={styles.featureGrid}>
             <div style={styles.featureCard}>
-              <div style={{ fontSize: '3rem', marginBottom: '1.5rem' }}>🔒</div>
+              <div style={{ fontSize: '3rem', marginBottom: '1.5rem' }}></div>
               <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Privacy First</h3>
               <p>All messages are end-to-end encrypted. Your conversations stay between you and your therapist.</p>
             </div>
             <div style={styles.featureCard}>
-              <div style={{ fontSize: '3rem', marginBottom: '1.5rem' }}>🎥</div>
+              <div style={{ fontSize: '3rem', marginBottom: '1.5rem' }}></div>
               <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Video & Voice</h3>
               <p>Connect face-to-face or by voice. Secure WebRTC calls with camera/microphone permissions.</p>
             </div>
             <div style={styles.featureCard}>
-              <div style={{ fontSize: '3rem', marginBottom: '1.5rem' }}>🤖</div>
+              <div style={{ fontSize: '3rem', marginBottom: '1.5rem' }}></div>
               <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>AI Support</h3>
               <p>Get instant coping tips while waiting for your therapist. Always gentle and encouraging.</p>
             </div>

@@ -16,7 +16,8 @@ const Login = ({ onLogin }) => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:8000/auth/login', {
+      // FIXED: Changed to relative URL to use the React proxy and avoid CORS errors
+      const response = await fetch('/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -27,19 +28,12 @@ const Login = ({ onLogin }) => {
         }),
       });
 
-      // ASYNC OPTIMIZATION: Read response body once instead of sequentially.
-      // WRONG: Awaiting response.json() twice is inefficient and technically fails
-      // (response bodies can only be read once). Sequential awaits waste time:
-      //   await response.json() #1: Wait 50ms for body parse
-      //   await response.json() #2: Wait 50ms again (but body already consumed)
-      // CORRECT: Read body once with response.text(), then parse locally.
-      // This pattern is used across Login, Signup, and all fetch calls.
       const text = await response.text();
       let data = null;
       try {
         data = text ? JSON.parse(text) : null;
       } catch (parseErr) {
-        // JSON parse failed, keep data null
+        // JSON parse failed
       }
 
       if (!response.ok) {
@@ -48,9 +42,15 @@ const Login = ({ onLogin }) => {
         return;
       }
 
+      // Save token to localStorage so the Booking page can find it later
+      if (data && data.access_token) {
+        localStorage.setItem('token', data.access_token);
+      }
+
       onLogin(data.access_token, data.user_type, email);
       navigate('/dashboard');
     } catch (err) {
+      console.error("Login error:", err);
       setError('Network error. Please try again.');
     } finally {
       setLoading(false);
@@ -63,15 +63,28 @@ const Login = ({ onLogin }) => {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background: '#F1F8E9'
+      backgroundImage: 'url(https://images.pexels.com/photos/32228687/pexels-photo-32228687.jpeg)',
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
+      position: 'relative',
+      padding: '2rem'
+    },
+    containerOverlay: {
+      position: 'absolute',
+      inset: 0,
+      background: 'rgba(10, 18, 38, 0.45)',
+      pointerEvents: 'none'
     },
     formContainer: {
-      background: 'white',
+      position: 'relative',
+      background: 'rgba(255, 255, 255, 0.94)',
       padding: '3rem',
-      borderRadius: '20px',
-      boxShadow: '0 25px 50px rgba(0,0,0,0.15)',
+      borderRadius: '24px',
+      boxShadow: '0 30px 70px rgba(0,0,0,0.18)',
       width: '100%',
-      maxWidth: '450px'
+      maxWidth: '450px',
+      backdropFilter: 'blur(18px)'
     },
     title: {
       textAlign: 'center',
@@ -138,6 +151,7 @@ const Login = ({ onLogin }) => {
 
   return (
     <div style={styles.container}>
+      <div style={styles.containerOverlay} />
       <div style={styles.formContainer}>
         <div style={styles.title}>Welcome Back</div>
         <form onSubmit={handleSubmit}>
