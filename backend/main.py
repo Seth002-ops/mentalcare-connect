@@ -63,6 +63,11 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title=settings.PROJECT_NAME)
 
+from fastapi.staticfiles import StaticFiles
+
+app = FastAPI(title=settings.PROJECT_NAME)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 # Rate limiter setup
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
@@ -124,6 +129,7 @@ async def enforce_authentication(request: Request, call_next):
     is_public = (
         path in PUBLIC_PATHS
         or path.startswith("/static")
+        or path.startswith("/uploads")
         or path.startswith("/favicon.ico")
         or path.startswith("/ws")
     )
@@ -275,6 +281,55 @@ async def upload_license(
         "verification_status": current_user.verification_status
     }
 
+@app.post("/therapist/profile-photo")
+async def upload_profile_photo(
+    file: UploadFile = File(...),
+    db=Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    if current_user.user_type != "therapist":
+        raise HTTPException(status_code=403, detail="Only therapists can upload profile photos")
+
+    allowed_types = ["image/jpeg", "image/png", "image/jpg", "image/webp"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Only JPG, PNG, and WEBP images are allowed")
+
+    # Limit file size to 5MB
+    contents = await file.read()
+    if len(contents) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 5MB.")
+
+    # Create safe filename
+    file_extension = file.filename.split(".")[-1].lower()
+    safe_filename = f"profile_{current_user.id}_{int(datetime.now().timestamp())}.{file_extension}"
+    
+    # Save file
+    upload_dir = "uploads/profiles"
+    os.makedirs(upload_dir, exist_ok=True)
+    file_path = os.path.join(upload_dir, safe_filename)
+    
+    with open(file_path, "wb") as f:
+        f.write(contents)
+
+    # Delete old photo if exists (save disk space)
+    if current_user.profile_photo_url:
+        old_path = current_user.profile_photo_url.lstrip("/")
+        if os.path.exists(old_path):
+            try:
+                os.remove(old_path)
+            except:
+                pass
+
+    # Update user record with URL path (frontend uses /uploads/...)
+    photo_url = f"/uploads/profiles/{safe_filename}"
+    current_user.profile_photo_url = photo_url
+    db.commit()
+    db.refresh(current_user)
+
+    return {
+        "message": "Profile photo uploaded successfully!",
+        "photo_url": photo_url,
+    }
 
 @app.put("/therapist/profile")
 def update_therapist_profile(

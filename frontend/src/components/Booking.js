@@ -66,6 +66,7 @@ const Booking = () => {
             specialty: user.specializations || 'Therapist',
             rating: user.rating || 4.8,
             price: user.hourly_rate || 2500,
+            photo: user.profile_photo_url || null,
           }))
         );
       } catch (error) {
@@ -360,9 +361,18 @@ const Booking = () => {
                     gap: '0.5rem',
                   }}
                 >
-                  <h4 style={{ color: '#111827', fontSize: '1.3rem', margin: 0 }}>
-                    {therapist.name}
-                  </h4>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    {therapist.photo ? (
+                      <img src={therapist.photo} alt={therapist.name} style={{ width: '52px', height: '52px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #2BB3A3' }} />
+                    ) : (
+                      <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: '#E3F2FD', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2BB3A3', fontWeight: '700', fontSize: '1.2rem', flexShrink: 0 }}>
+                        {therapist.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <h4 style={{ color: '#111827', fontSize: '1.3rem', margin: 0 }}>
+                      {therapist.name}
+                    </h4>
+                  </div>
 
                   <div style={{ textAlign: 'right' }}>
                     <div

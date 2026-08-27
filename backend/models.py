@@ -21,6 +21,7 @@ class User(Base):
     hourly_rate = Column(Integer, nullable=True)
     license_number = Column(String, nullable=True)
     license_document_path = Column(String, nullable=True)
+    profile_photo_url = Column(String, nullable=True, default=None)
     university_id = Column(Integer, ForeignKey("universities.id"), nullable=True)
     is_verified_student = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)

@@ -65,7 +65,7 @@ class UserResponse(UserBase):
     license_number: Optional[str] = None
     languages: Optional[str] = None
     # =======================================================
-
+    profile_photo_url: Optional[str] = None
     class Config:
         from_attributes = True
 
@@ -245,11 +245,12 @@ class TherapistVerificationResponse(BaseModel):
     name: Optional[str] = None
     user_type: str
     verification_status: str
+    profile_photo_url: Optional[str] = None   # ← SAME indent
     specializations: Optional[str] = None
     experience_years: Optional[int] = None
     hourly_rate: Optional[float] = None
     license_number: Optional[str] = None
-    languages: Optional[str] = None  # <-- CHANGED: Now Optional
+    languages: Optional[str] = None
     bio: Optional[str] = None
     created_at: datetime
 
