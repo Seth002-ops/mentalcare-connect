@@ -26,7 +26,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from database import engine, get_db, Base, SessionLocal
-from models import User, Message, SessionBooking, Review, PlatformWithdrawal, RageRoom, RageRoomPackage, RageRoomBooking, University, EmailVerificationToken, TherapistAvailability
+from models import User, Message, SessionBooking, Review, PlatformWithdrawal, RageRoom, RageRoomPackage, RageRoomBooking, University, EmailVerificationToken, TherapistAvailability, SessionNote
 from schemas import (
     UserCreate, UserLogin, Token, UserResponse, MessageCreate,
     MessageResponse, BookingCreate, PaymentRequest, PaymentResponse,
@@ -35,7 +35,8 @@ from schemas import (
     TherapistProfileUpdate, TherapistVerificationResponse, AiChatHistoryResponse,
     RageRoomCreate, RageRoomResponse, RageRoomPackageCreate,
     RageRoomPackageResponse, RageRoomBookingCreate,
-    UniversityCreate, UniversityResponse, StudentSignupRequest
+    UniversityCreate, UniversityResponse, StudentSignupRequest,
+    SessionNoteCreate, SessionNoteResponse
 )
 from crud import (
     get_user_by_email, get_user_by_id, authenticate_user, create_user,
@@ -464,6 +465,21 @@ def read_booking(booking_id: int, db=Depends(get_db), current_user=Depends(get_c
         "therapist_name": get_user_name(booking.therapist_id),
     }
 
+# ============ TELEHEALTH VIDEO CALL ROUTES ============
+
+@app.get("/bookings/{booking_id}/video-room")
+def get_video_room(booking_id: int, db=Depends(get_db), current_user=Depends(get_current_user)):
+    booking = get_booking_by_id(db, booking_id)
+    if not booking or current_user.id not in {booking.client_id, booking.therapist_id}:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    # Generate a private room ID if one doesn't exist yet
+    if not booking.video_room_id:
+        booking.video_room_id = f"mecac-session-{secrets.token_urlsafe(8)}"
+        db.commit()
+        db.refresh(booking)
+
+    return {"room_id": booking.video_room_id, "booking_id": booking.id}
 
 # ============ USERS ROUTES ============
 
@@ -1104,6 +1120,81 @@ def cancel_booking(booking_id: int, db=Depends(get_db), current_user=Depends(get
 
     return {"message": "Session cancelled", "booking_id": booking_id}
 
+# ============ SECURE CLINICAL SESSION NOTES ROUTES ============
+
+@app.get("/therapist/session-notes", response_model=List[SessionNoteResponse])
+def list_my_session_notes(db=Depends(get_db), current_user=Depends(get_current_user)):
+    if current_user.user_type != "therapist":
+        raise HTTPException(status_code=403, detail="Only therapists can view clinical notes")
+    return db.query(SessionNote).filter(
+        SessionNote.therapist_id == current_user.id
+    ).order_by(SessionNote.updated_at.desc()).all()
+
+
+@app.get("/therapist/session-notes/{booking_id}", response_model=SessionNoteResponse)
+def get_session_note(booking_id: int, db=Depends(get_db), current_user=Depends(get_current_user)):
+    if current_user.user_type != "therapist":
+        raise HTTPException(status_code=403, detail="Only therapists can access clinical notes")
+
+    booking = get_booking_by_id(db, booking_id)
+    if not booking or booking.therapist_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    note = db.query(SessionNote).filter(SessionNote.booking_id == booking_id).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="No notes found for this session")
+    return note
+
+
+@app.post("/therapist/session-notes/{booking_id}", response_model=SessionNoteResponse)
+def create_or_update_session_note(
+    booking_id: int,
+    note_data: SessionNoteCreate,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    if current_user.user_type != "therapist":
+        raise HTTPException(status_code=403, detail="Only therapists can write clinical notes")
+
+    booking = get_booking_by_id(db, booking_id)
+    if not booking or booking.therapist_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    existing_note = db.query(SessionNote).filter(SessionNote.booking_id == booking_id).first()
+
+    if existing_note:
+        existing_note.subjective = note_data.subjective
+        existing_note.objective = note_data.objective
+        existing_note.assessment = note_data.assessment
+        existing_note.plan = note_data.plan
+        existing_note.private_notes = note_data.private_notes
+        existing_note.risk_level = note_data.risk_level or "low"
+        existing_note.follow_up_required = bool(note_data.follow_up_required)
+        existing_note.updated_at = datetime.utcnow()
+        existing_note.treatment_approach = note_data.treatment_approach
+        existing_note.techniques_used = note_data.techniques_used
+        db.commit()
+        db.refresh(existing_note)
+        return existing_note
+
+    new_note = SessionNote(
+        booking_id=booking.id,
+        therapist_id=booking.therapist_id,
+        client_id=booking.client_id,
+        subjective=note_data.subjective,
+        objective=note_data.objective,
+        assessment=note_data.assessment,
+        plan=note_data.plan,
+        private_notes=note_data.private_notes,
+        risk_level=note_data.risk_level or "low",
+        follow_up_required=bool(note_data.follow_up_required),
+        treatment_approach=note_data.treatment_approach,
+        techniques_used=note_data.techniques_used,
+    )
+    db.add(new_note)
+    db.commit()
+    db.refresh(new_note)
+    return new_note
 
 # ============ THERAPIST CLIENTS ROUTES ============
 

@@ -1,218 +1,232 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import NotificationBell from './NotificationBell';
 
-const TherapistSessionNotes = ({ logout }) => {
+const TherapistSessionNotes = () => {
   const navigate = useNavigate();
-  const { clientId } = useParams();
-  const [sessions, setSessions] = useState([]);
-  const [clientName, setClientName] = useState('');
+  const { bookingId } = useParams();
+
+  const [bookings, setBookings] = useState([]);
+  const [selectedBookingId, setSelectedBookingId] = useState(bookingId || '');
   const [loading, setLoading] = useState(true);
-  const [selectedSession, setSelectedSession] = useState(null);
-  const [noteText, setNoteText] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
-  useEffect(() => {
-    fetchSessions();
-  }, [clientId]);
+  const [form, setForm] = useState({
+    subjective: '',
+    objective: '',
+    assessment: '',
+    plan: '',
+    private_notes: '',
+    risk_level: 'low',
+    follow_up_required: false,
+    treatment_approach: '',
+    techniques_used: '',
+  });
 
-  const fetchSessions = async () => {
+  useEffect(() => { fetchBookings(); }, []);
+  useEffect(() => { if (selectedBookingId) fetchNote(selectedBookingId); }, [selectedBookingId]);
+
+  const fetchBookings = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('/bookings/me', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch('/bookings/me', { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) {
-        const bookings = await res.json();
-        const clientSessions = bookings.filter(b => b.client_id === parseInt(clientId));
-        setSessions(clientSessions);
-        if (clientSessions.length > 0) {
-          setClientName(clientSessions[0].client_name);
-        }
+        const data = await res.json();
+        // Sort descending so newest are at the top
+        data.sort((a, b) => new Date(b.scheduled_time) - new Date(a.scheduled_time));
+        setBookings(data);
       }
     } catch (err) {
-      console.error('Failed to fetch sessions', err);
+      console.error('Failed to fetch bookings', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSaveNote = async () => {
-    if (!selectedSession || !noteText.trim()) return;
+  const fetchNote = async (id) => {
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`/therapist/session-notes/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const data = await res.json();
+        setForm({
+          subjective: data.subjective || '',
+          objective: data.objective || '',
+          assessment: data.assessment || '',
+          plan: data.plan || '',
+          private_notes: data.private_notes || '',
+          risk_level: data.risk_level || 'low',
+          follow_up_required: Boolean(data.follow_up_required),
+          treatment_approach: data.treatment_approach || '',
+          techniques_used: data.techniques_used || '',
+        });
+      } else if (res.status === 404) {
+        // Clear form if no note exists yet
+        setForm({
+          subjective: '', objective: '', assessment: '', plan: '', private_notes: '',
+          risk_level: 'low', follow_up_required: false, treatment_approach: '', techniques_used: '',
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load note', err);
+    }
+  };
 
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setForm({ ...form, [name]: type === 'checkbox' ? checked : value });
+  };
+
+  const handleSave = async () => {
+    if (!selectedBookingId) { alert('Please select a session first.'); return; }
     setSaving(true);
     setMessage('');
-
     const token = localStorage.getItem('token');
-    try {
-      const res = await fetch(`/bookings/${selectedSession.id}/complete`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ notes: noteText }),
-      });
 
+    try {
+      const res = await fetch(`/therapist/session-notes/${selectedBookingId}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
       if (res.ok) {
-        setMessage('Session note saved and marked as completed!');
-        setNoteText('');
-        setSelectedSession(null);
-        fetchSessions();
-        setTimeout(() => setMessage(''), 3000);
+        setMessage('✅ Clinical notes saved successfully.');
       } else {
-        setMessage('Failed to save note');
+        const data = await res.json();
+        setMessage(`❌ ${data.detail || 'Failed to save notes.'}`);
       }
     } catch (err) {
-      setMessage('Error saving note');
+      setMessage('❌ Failed to save notes.');
     } finally {
       setSaving(false);
+      setTimeout(() => setMessage(''), 3000);
     }
   };
 
-  const handleCompleteSession = async (sessionId) => {
-    const token = localStorage.getItem('token');
-    try {
-      const res = await fetch(`/bookings/${sessionId}/complete`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        fetchSessions();
-      }
-    } catch (err) {
-      console.error('Failed to complete session', err);
-    }
-  };
+  const selectedBooking = bookings.find((b) => String(b.id) === String(selectedBookingId));
 
-  if (loading) {
-    return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
-  }
+  const styles = {
+    page: { minHeight: '100vh', background: '#F9FAFB', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
+    header: { background: '#FFFFFF', borderBottom: '1px solid #E5E7EB', padding: '1rem 20px', position: 'sticky', top: 0, zIndex: 50 },
+    headerInner: { maxWidth: '900px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+    backBtn: { padding: '0.55rem 0.9rem', background: '#F3F4F6', border: '1px solid #E5E7EB', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', color: '#374151' },
+    main: { maxWidth: '900px', margin: '0 auto', padding: '2rem 20px' },
+    card: { background: 'white', borderRadius: '18px', padding: '1.5rem', border: '1px solid #E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: '1.5rem' },
+    label: { display: 'block', marginBottom: '0.35rem', fontSize: '0.85rem', fontWeight: '700', color: '#374151' },
+    input: { width: '100%', padding: '0.75rem', border: '1px solid #D1D5DB', borderRadius: '10px', fontSize: '0.95rem', boxSizing: 'border-box' },
+    textarea: { width: '100%', minHeight: '90px', padding: '0.75rem', border: '1px solid #D1D5DB', borderRadius: '10px', fontSize: '0.95rem', boxSizing: 'border-box', resize: 'vertical' },
+  };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#F9FAFB' }}>
-      <header style={{ background: '#2E7D32', color: 'white', padding: '1.25rem 0' }}>
-        <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '1200px', margin: '0 auto', padding: '0 20px' }}>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: '700' }}>Session Notes - {clientName}</h1>
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            <NotificationBell />
-            <button onClick={() => navigate('/therapist/clients')} style={{ padding: '0.6rem 1.25rem', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '8px', color: 'white', cursor: 'pointer' }}>
-              Back to Clients
-            </button>
-            <button onClick={logout} style={{ padding: '0.6rem 1.25rem', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '8px', color: 'white', cursor: 'pointer' }}>
-              Logout
-            </button>
+    <div style={styles.page}>
+      <header style={styles.header}>
+        <div style={styles.headerInner}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: '1.2rem', color: '#111827' }}>Clinical Session Notes</h1>
+            <p style={{ margin: '0.25rem 0 0', color: '#6B7280', fontSize: '0.85rem' }}>Private, encrypted SOAP notes & treatment tracking</p>
           </div>
-        </nav>
+          <button style={styles.backBtn} onClick={() => navigate('/dashboard')}>Back</button>
+        </div>
       </header>
 
-      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 20px' }}>
+      <main style={styles.main}>
         {message && (
-          <div style={{ padding: '1rem', background: message.includes('success') || message.includes('saved') ? '#E8F5E9' : '#FEE2E2', color: message.includes('success') || message.includes('saved') ? '#1B5E20' : '#991B1B', borderRadius: '8px', marginBottom: '1rem' }}>
+          <div style={{ padding: '0.85rem 1rem', borderRadius: '10px', marginBottom: '1rem', background: message.startsWith('✅') ? '#E8F5E9' : '#FEE2E2', color: message.startsWith('✅') ? '#1B5E20' : '#991B1B', fontWeight: '700' }}>
             {message}
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-          {/* Sessions List */}
-          <div style={{ background: 'white', borderRadius: '16px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '1rem' }}>All Sessions</h2>
-            {sessions.length === 0 ? (
-              <p style={{ color: '#6B7280' }}>No sessions found for this client.</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {sessions.map(session => (
-                  <div
-                    key={session.id}
-                    style={{
-                      padding: '1rem',
-                      background: selectedSession?.id === session.id ? '#E8F5E9' : '#F9FAFB',
-                      borderRadius: '8px',
-                      border: selectedSession?.id === session.id ? '2px solid #2E7D32' : '1px solid #E5E7EB',
-                      cursor: 'pointer',
-                    }}
-                    onClick={() => setSelectedSession(session)}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                      <div>
-                        <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>
-                          {new Date(session.scheduled_time).toLocaleDateString()} at{' '}
-                          {new Date(session.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </div>
-                        <div style={{ fontSize: '0.875rem', color: '#6B7280' }}>
-                          KSh {session.amount}
-                        </div>
-                      </div>
-                      <span style={{
-                        padding: '0.25rem 0.75rem',
-                        borderRadius: '999px',
-                        fontSize: '0.75rem',
-                        fontWeight: '600',
-                        background: session.status === 'completed' ? '#E8F5E9' : session.status === 'confirmed' ? '#E0F2FE' : '#FEF3C7',
-                        color: session.status === 'completed' ? '#1B5E20' : session.status === 'confirmed' ? '#0369A1' : '#92400E',
-                      }}>
-                        {session.status}
-                      </span>
-                    </div>
-                    {session.status !== 'completed' && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCompleteSession(session.id);
-                        }}
-                        style={{ marginTop: '0.5rem', padding: '0.4rem 0.75rem', background: '#2E7D32', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', cursor: 'pointer' }}
-                      >
-                        Mark as Completed
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+        <div style={styles.card}>
+          <label style={styles.label}>Select Session</label>
+          {loading ? (
+            <p style={{ color: '#6B7280' }}>Loading sessions...</p>
+          ) : bookings.length === 0 ? (
+            <p style={{ color: '#B91C1C', fontWeight: '600' }}>No sessions found yet.</p>
+          ) : (
+            <select value={selectedBookingId} onChange={(e) => setSelectedBookingId(e.target.value)} style={styles.input}>
+              <option value="">Choose a session...</option>
+              {bookings.map((booking) => (
+                <option key={booking.id} value={booking.id}>
+                  #{booking.id} — {booking.client_name || 'Client'} — {new Date(booking.scheduled_time).toLocaleString()}
+                </option>
+              ))}
+            </select>
+          )}
+          {selectedBooking && (
+            <div style={{ marginTop: '1rem', padding: '0.9rem', background: '#F9FAFB', borderRadius: '10px', border: '1px solid #E5E7EB' }}>
+              <strong>Client:</strong> {selectedBooking.client_name || 'Client'}<br />
+              <strong>Status:</strong> {selectedBooking.status}<br />
+              <strong>Time:</strong> {new Date(selectedBooking.scheduled_time).toLocaleString()}
+            </div>
+          )}
+        </div>
+
+        <div style={styles.card}>
+          <h2 style={{ marginTop: 0, fontSize: '1rem', color: '#111827' }}>Treatment Approach & Techniques</h2>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+            <div>
+              <label style={styles.label}>Treatment Approach</label>
+              <select name="treatment_approach" value={form.treatment_approach} onChange={handleChange} style={styles.input}>
+                <option value="">Select approach...</option>
+                <option value="CBT">CBT (Cognitive Behavioral)</option>
+                <option value="DBT">DBT (Dialectical Behavior)</option>
+                <option value="EMDR">EMDR (Eye Movement Desensitization)</option>
+                <option value="Psychodynamic">Psychodynamic</option>
+                <option value="Person-Centered">Person-Centered</option>
+                <option value="Play Therapy">Play Therapy</option>
+                <option value="Art/Music Therapy">Art/Music Therapy</option>
+                <option value="Faith-Based">Faith-Based Counseling</option>
+                <option value="Custom">Custom / Integrative</option>
+              </select>
+            </div>
+            <div>
+              <label style={styles.label}>Risk Level</label>
+              <select name="risk_level" value={form.risk_level} onChange={handleChange} style={styles.input}>
+                <option value="low">Low Risk</option>
+                <option value="medium">Medium Risk</option>
+                <option value="high">High Risk</option>
+              </select>
+            </div>
           </div>
 
-          {/* Note Editor */}
-          <div style={{ background: 'white', borderRadius: '16px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '1rem' }}>
-              {selectedSession ? 'Write Session Note' : 'Select a Session'}
-            </h2>
-            {selectedSession ? (
-              <>
-                <div style={{ padding: '1rem', background: '#F9FAFB', borderRadius: '8px', marginBottom: '1rem' }}>
-                  <div style={{ fontSize: '0.875rem', color: '#6B7280' }}>Session Date:</div>
-                  <div style={{ fontWeight: '600' }}>
-                    {new Date(selectedSession.scheduled_time).toLocaleString()}
-                  </div>
-                </div>
-                <textarea
-                  value={noteText}
-                  onChange={(e) => setNoteText(e.target.value)}
-                  placeholder="Write your session notes here... Include observations, progress, techniques used, and next steps."
-                  rows={10}
-                  style={{ width: '100%', padding: '0.75rem', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '1rem', resize: 'vertical', marginBottom: '1rem' }}
-                />
-                <button
-                  onClick={handleSaveNote}
-                  disabled={saving || !noteText.trim()}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    background: saving || !noteText.trim() ? '#9CA3AF' : '#2E7D32',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontWeight: '600',
-                    cursor: saving || !noteText.trim() ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  {saving ? 'Saving...' : 'Save Note & Mark Complete'}
-                </button>
-              </>
-            ) : (
-              <p style={{ color: '#6B7280' }}>Click on a session from the left to write notes.</p>
-            )}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={styles.label}>Techniques Used in this Session</label>
+            <textarea name="techniques_used" value={form.techniques_used} onChange={handleChange} placeholder="e.g., Grounding exercises, exposure therapy, guided imagery, active listening..." style={styles.textarea} />
           </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+            <input type="checkbox" name="follow_up_required" checked={form.follow_up_required} onChange={handleChange} style={{ width: '18px', height: '18px' }} />
+            <span style={{ fontWeight: '600', color: '#374151' }}>Follow-up or safety plan required</span>
+          </div>
+        </div>
+
+        <div style={styles.card}>
+          <h2 style={{ marginTop: 0, fontSize: '1rem', color: '#111827' }}>SOAP Notes</h2>
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={styles.label}>Subjective (Client's reported experience)</label>
+            <textarea name="subjective" value={form.subjective} onChange={handleChange} placeholder="What the client says they are feeling/experiencing..." style={styles.textarea} />
+          </div>
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={styles.label}>Objective (Therapist's observations)</label>
+            <textarea name="objective" value={form.objective} onChange={handleChange} placeholder="Observable behavior, affect, mood, appearance..." style={styles.textarea} />
+          </div>
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={styles.label}>Assessment (Clinical impression)</label>
+            <textarea name="assessment" value={form.assessment} onChange={handleChange} placeholder="Progress towards goals, clinical formulation..." style={styles.textarea} />
+          </div>
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={styles.label}>Plan (Next steps)</label>
+            <textarea name="plan" value={form.plan} onChange={handleChange} placeholder="Homework, focus for next session, referrals..." style={styles.textarea} />
+          </div>
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={styles.label}>Private Supervisor / Personal Notes</label>
+            <textarea name="private_notes" value={form.private_notes} onChange={handleChange} placeholder="Strictly confidential notes not for official records..." style={{ ...styles.textarea, background: '#FFF9E6' }} />
+          </div>
+
+          <button onClick={handleSave} disabled={saving || !selectedBookingId} style={{ width: '100%', padding: '0.9rem', background: saving || !selectedBookingId ? '#9CA3AF' : '#2E7D32', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '800', cursor: saving || !selectedBookingId ? 'not-allowed' : 'pointer' }}>
+            {saving ? 'Saving...' : 'Save Clinical Notes'}
+          </button>
         </div>
       </main>
     </div>

@@ -143,8 +143,7 @@ const TherapistDashboard = ({ logout }) => {
     const clientName = clientAppts[0]?.client_name || `Client #${clientId}`;
     const completed = clientAppts.filter(a => a.status === 'completed').length;
     const progress = Math.min(100, completed * 25); 
-    const milestones = ['Initial Assessment', 'CBT Techniques', 'Cognitive Restructuring', 'Relapse Prevention', 'Maintenance'];
-    
+    const milestones = ['Intake & Assessment', 'Goal Setting', 'Skill Building', 'Integration', 'Maintenance & Review'];
     return {
       id: clientId,
       name: clientName,
@@ -225,7 +224,7 @@ const TherapistDashboard = ({ logout }) => {
             </button>
           </div>
         </div>
-
+        <SessionReminder />
         {/* EARNINGS SECTION */}
         {earnings && (
           <div style={{ ...styles.card, border: '2px solid #2E7D32', background: 'linear-gradient(135deg, #F0FDF4 0%, #FFFFFF 100%)' }}>
@@ -318,7 +317,15 @@ const TherapistDashboard = ({ logout }) => {
                       {new Date(s.scheduled_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>
-                  <span style={styles.statusBadge(s.status)}>{s.status}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <button
+                      onClick={() => navigate(`/session/video/${s.id}`)}
+                      style={{ padding: '0.45rem 0.9rem', background: '#2E7D32', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <IconVideo /> Join
+                    </button>
+                    <span style={styles.statusBadge(s.status)}>{s.status}</span>
+                  </div>
                 </div>
               ))
             )}

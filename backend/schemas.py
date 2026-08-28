@@ -1,43 +1,15 @@
-from pydantic import BaseModel, EmailStr, Field, validator
+from typing import List, Optional
 from datetime import datetime
-from typing import Optional, List
-import re
-
-ALLOWED_USER_TYPES = {"client", "therapist", "admin"}
+from pydantic import BaseModel, EmailStr
 
 
-class UserBase(BaseModel):
+# ============ AUTH & USER SCHEMAS ============
+
+class UserCreate(BaseModel):
     email: EmailStr
-    user_type: str
+    password: str
     name: Optional[str] = None
-
-    @validator("user_type")
-    def validate_user_type(cls, value):
-        if value not in ALLOWED_USER_TYPES:
-            raise ValueError("user_type must be either 'client', 'therapist', or 'admin'")
-        return value
-
-
-class UserCreate(UserBase):
-    password: str = Field(..., min_length=8)
-
-    @validator('name', always=True)
-    def therapist_requires_name(cls, value, values):
-        if values.get('user_type') == 'therapist' and (not value or not value.strip()):
-            raise ValueError('Therapists must provide their professional name')
-        return value
-
-    @validator('password')
-    def password_strength(cls, v):
-        if not re.search(r'[A-Z]', v):
-            raise ValueError('Password must contain at least one uppercase letter')
-        if not re.search(r'[a-z]', v):
-            raise ValueError('Password must contain at least one lowercase letter')
-        if not re.search(r'\d', v):
-            raise ValueError('Password must contain at least one number')
-        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', v):
-            raise ValueError('Password must contain at least one special character')
-        return v
+    user_type: str = "client"
 
 
 class UserLogin(BaseModel):
@@ -45,305 +17,323 @@ class UserLogin(BaseModel):
     password: str
 
 
-class UserResponse(UserBase):
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user_type: Optional[str] = None
+
+
+class UserResponse(BaseModel):
     id: int
+    email: EmailStr
     name: Optional[str] = None
-    is_active: bool
-    created_at: datetime
-    
-    # ============ TERMS ACCEPTANCE FIELDS ============
+    user_type: str
+    is_active: bool = True
     terms_accepted: bool = False
-    terms_accepted_at: Optional[datetime] = None
-    # =================================================
-    
-    # ============ THERAPIST VERIFICATION FIELDS ============
+    created_at: Optional[datetime] = None
     verification_status: Optional[str] = None
     specializations: Optional[str] = None
     bio: Optional[str] = None
     experience_years: Optional[int] = None
-    hourly_rate: Optional[int] = None
+    hourly_rate: Optional[float] = None
     license_number: Optional[str] = None
-    languages: Optional[str] = None
-    # =======================================================
     profile_photo_url: Optional[str] = None
-    class Config:
-        from_attributes = True
-
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-    user_type: str
-
-
-class MessageBase(BaseModel):
-    room_id: int
-    content: str = Field(..., min_length=1, max_length=2000)
-    sender_type: str
-
-    @validator("sender_type")
-    def validate_sender_type(cls, value):
-        if value not in ALLOWED_USER_TYPES:
-            raise ValueError("sender_type must be either 'client', 'therapist', or 'admin'")
-        return value
-
-
-class MessageCreate(MessageBase):
-    pass
-
-
-class MessageResponse(MessageBase):
-    id: int
-    timestamp: datetime
-    encrypted: bool
+    languages: Optional[str] = None
+    rating: Optional[float] = None
+    university_id: Optional[int] = None
+    is_verified_student: Optional[bool] = None
 
     class Config:
         from_attributes = True
 
 
-class BookingCreate(BaseModel):
-    therapist_id: int
-    scheduled_time: datetime
-    amount: int
-
-    @validator("therapist_id", "amount")
-    def positive_int(cls, value):
-        if value <= 0:
-            raise ValueError("Value must be greater than zero")
-        return value
-
-    @validator("scheduled_time")
-    def scheduled_time_in_future(cls, value):
-        if value <= datetime.utcnow():
-            raise ValueError("scheduled_time must be in the future")
-        return value
-
-
-class PaymentRequest(BaseModel):
-    phone: str
-    amount: int
-    booking_id: int
-
-    @validator("phone")
-    def validate_phone(cls, value):
-        if not re.fullmatch(r"254[17]\d{8}", value):
-            raise ValueError("Phone number must be in the format 2547XXXXXXXX or 2541XXXXXXXX")
-        return value
-
-    @validator("amount")
-    def amount_positive(cls, value):
-        if value <= 0:
-            raise ValueError("Amount must be greater than zero")
-        return value
-
-
-class PaymentResponse(BaseModel):
-    success: bool
-    transaction_id: Optional[str]
-    message: str
-
-
-# ============ WAVE 2: MOOD TRACKER SCHEMAS ============
-class MoodEntryCreate(BaseModel):
-    mood_score: str  # "excellent", "good", "neutral", "low", "very_low"
-    note: Optional[str] = None
-
-
-class MoodEntryResponse(BaseModel):
-    id: int
-    mood_score: str
-    note: Optional[str]
-    entry_date: datetime
-
-    class Config:
-        from_attributes = True
-
-
-# ============ REVIEWS SCHEMAS ============
-class ReviewCreate(BaseModel):
-    therapist_id: int
-    booking_id: int
-    rating: int = Field(..., ge=1, le=5)  # Must be 1-5
-    comment: Optional[str] = None
-
-    @validator('therapist_id', 'booking_id')
-    def positive_int(cls, value):
-        if value <= 0:
-            raise ValueError("Value must be greater than zero")
-        return value
-
-
-class ReviewResponse(BaseModel):
-    id: int
-    client_id: int
-    therapist_id: int
-    booking_id: Optional[int]
-    rating: int
-    comment: Optional[str]
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-# ============ NOTIFICATIONS SCHEMAS ============
-class NotificationResponse(BaseModel):
-    id: int
-    message: str
-    type: str
-    is_read: bool
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-# ============ ADMIN SCHEMAS ============
 class AdminUserResponse(BaseModel):
     id: int
     email: EmailStr
+    name: Optional[str] = None
     user_type: str
-    name: Optional[str]
-    is_active: bool
-    terms_accepted: bool
-    terms_accepted_at: Optional[datetime]
-    created_at: datetime
+    is_active: bool = True
+    terms_accepted: bool = False
+    created_at: Optional[datetime] = None
+    verification_status: Optional[str] = None
+    university_id: Optional[int] = None
+    is_verified_student: Optional[bool] = None
 
     class Config:
         from_attributes = True
 
 
 class AdminStatsResponse(BaseModel):
-    total_users: int
-    total_clients: int
-    total_therapists: int
-    total_bookings: int
-    completed_bookings: int
-    pending_bookings: int
-    total_revenue: int
-    total_platform_revenue: int      # ← Your 15% earnings
-    total_therapist_payouts: int     # ← What therapists earned
-    total_reviews: int
-    average_rating: float
-    total_messages: int
-    total_mood_entries: int
+    total_users: int = 0
+    total_clients: int = 0
+    total_therapists: int = 0
+    total_bookings: int = 0
+    total_revenue: float = 0.0
 
 
-# ============ THERAPIST REGISTRATION SCHEMAS ============
+class StudentSignupRequest(BaseModel):
+    email: EmailStr
+    password: str
+    name: Optional[str] = None
+    university_id: int
+
+
+# ============ THERAPIST SCHEMAS ============
+
 class TherapistProfileUpdate(BaseModel):
+    name: Optional[str] = None
     specializations: Optional[str] = None
     bio: Optional[str] = None
     experience_years: Optional[int] = None
-    hourly_rate: Optional[int] = None
+    hourly_rate: Optional[float] = None
     license_number: Optional[str] = None
     languages: Optional[str] = None
 
 
 class TherapistVerificationResponse(BaseModel):
     id: int
-    email: str
+    email: EmailStr
     name: Optional[str] = None
     user_type: str
-    verification_status: str
-    profile_photo_url: Optional[str] = None   # ← SAME indent
+    verification_status: Optional[str] = None
     specializations: Optional[str] = None
+    bio: Optional[str] = None
     experience_years: Optional[int] = None
     hourly_rate: Optional[float] = None
     license_number: Optional[str] = None
+    license_document_path: Optional[str] = None
     languages: Optional[str] = None
-    bio: Optional[str] = None
-    created_at: datetime
+    profile_photo_url: Optional[str] = None
+    created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
 
 
-# ============ AI CHAT HISTORY SCHEMAS ============
-class AiChatHistoryResponse(BaseModel):
+# ============ MESSAGE SCHEMAS ============
+
+class MessageCreate(BaseModel):
+    room_id: int
+    content: str
+    sender_type: str
+
+
+class MessageResponse(BaseModel):
+    id: int
+    room_id: int
+    content: str
+    sender_type: str
+    timestamp: Optional[datetime] = None
+    encrypted: bool = False
+
+    class Config:
+        from_attributes = True
+
+
+# ============ BOOKING SCHEMAS ============
+
+class BookingCreate(BaseModel):
+    therapist_id: int
+    scheduled_time: datetime
+    amount: float
+
+
+class PaymentRequest(BaseModel):
+    booking_id: int
+    phone: str
+    amount: float
+
+
+class PaymentResponse(BaseModel):
+    success: bool
+    message: Optional[str] = None
+    transaction_id: Optional[str] = None
+    phone: Optional[str] = None
+    amount: Optional[float] = None
+
+
+# ============ MOOD SCHEMAS ============
+
+class MoodEntryCreate(BaseModel):
+    mood: str
+    notes: Optional[str] = None
+    intensity: Optional[int] = None
+
+
+class MoodEntryResponse(BaseModel):
+    id: int
+    mood: str
+    notes: Optional[str] = None
+    intensity: Optional[int] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ============ REVIEW SCHEMAS ============
+
+class ReviewCreate(BaseModel):
+    booking_id: int
+    therapist_id: int
+    rating: int
+    comment: Optional[str] = None
+
+
+class ReviewResponse(BaseModel):
+    id: int
+    booking_id: int
+    client_id: Optional[int] = None
+    therapist_id: int
+    rating: int
+    comment: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ============ NOTIFICATION SCHEMAS ============
+
+class NotificationResponse(BaseModel):
     id: int
     user_id: int
+    message: str
+    type: Optional[str] = None
+    is_read: bool = False
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ============ AI CHAT SCHEMAS ============
+
+class AiChatHistoryResponse(BaseModel):
+    id: int
+    user_id: Optional[int] = None
     role: str
     content: str
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
 
-        
 
 # ============ RAGE ROOM SCHEMAS ============
-class RageRoomPackageCreate(BaseModel):
-    tier: str
-    name: str
-    description: Optional[str] = None
-    duration_minutes: int = 30
-    price: int
-    student_price: Optional[int] = None
-
-
-class RageRoomPackageResponse(RageRoomPackageCreate):
-    id: int
-    rage_room_id: int
-
-    class Config:
-        from_attributes = True
-
 
 class RageRoomCreate(BaseModel):
     name: str
-    location: str
+    location: Optional[str] = None
     description: Optional[str] = None
-    available_days: str
-    available_hours: str
+    available_days: Optional[str] = None
+    available_hours: Optional[str] = None
+    is_active: bool = True
+
+
+class RageRoomPackageResponse(BaseModel):
+    id: int
+    rage_room_id: Optional[int] = None
+    name: str
+    tier: Optional[str] = None
+    price: float
+    duration_minutes: Optional[int] = None
+    description: Optional[str] = None
+    student_price: Optional[float] = None
+
+    class Config:
+        from_attributes = True
 
 
 class RageRoomResponse(BaseModel):
     id: int
     name: str
-    location: str
+    location: Optional[str] = None
     description: Optional[str] = None
-    available_days: str
-    available_hours: str
-    is_active: bool
-    created_at: datetime
+    available_days: Optional[str] = None
+    available_hours: Optional[str] = None
+    is_active: bool = True
+    created_at: Optional[datetime] = None
     packages: List[RageRoomPackageResponse] = []
 
     class Config:
         from_attributes = True
 
 
+class RageRoomPackageCreate(BaseModel):
+    name: str
+    tier: Optional[str] = None
+    price: float
+    duration_minutes: Optional[int] = None
+    description: Optional[str] = None
+    student_price: Optional[float] = None
+
+
 class RageRoomBookingCreate(BaseModel):
-    rage_room_id: int
     package_id: int
+    rage_room_id: Optional[int] = None
     scheduled_time: datetime
     use_student_rate: bool = False
-    signer_name: str           # Add this
-    signer_id_number: str
+    signer_name: Optional[str] = None
+    signer_id_number: Optional[str] = None
 
-    
 
 # ============ UNIVERSITY SCHEMAS ============
+
 class UniversityCreate(BaseModel):
     name: str
     email_domain: str
-    subscription_tier: str = "starter"
+    subscription_tier: Optional[str] = None
+    subscription_expires: Optional[datetime] = None
     rage_room_credit_pool: int = 0
+    is_active: bool = True
 
 
 class UniversityResponse(BaseModel):
     id: int
     name: str
     email_domain: str
-    subscription_tier: str
-    rage_room_credit_pool: int
-    is_active: bool
+    subscription_tier: Optional[str] = None
+    subscription_expires: Optional[datetime] = None
+    rage_room_credit_pool: int = 0
+    is_active: bool = True
+    created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
 
 
-class StudentSignupRequest(BaseModel):
-    email: str
-    password: str
-    name: Optional[str] = None
-    university_id: int
+# ============ SESSION NOTE SCHEMAS (NEW) ============
+
+class SessionNoteCreate(BaseModel):
+    subjective: Optional[str] = None
+    objective: Optional[str] = None
+    assessment: Optional[str] = None
+    plan: Optional[str] = None
+    private_notes: Optional[str] = None
+    risk_level: Optional[str] = "low"
+    follow_up_required: Optional[bool] = False
+    treatment_approach: Optional[str] = None
+    techniques_used: Optional[str] = None
+    
+
+
+class SessionNoteResponse(BaseModel):
+    id: int
+    booking_id: int
+    therapist_id: int
+    client_id: int
+    subjective: Optional[str] = None
+    objective: Optional[str] = None
+    assessment: Optional[str] = None
+    plan: Optional[str] = None
+    private_notes: Optional[str] = None
+    risk_level: Optional[str] = None
+    follow_up_required: bool = False
+    treatment_approach: Optional[str] = None
+    techniques_used: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True

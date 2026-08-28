@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
+import SessionReminder from './SessionReminder';
 
 // ============ PROFESSIONAL LINE ICONS ============
 const IconMenu = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>;
@@ -420,7 +421,7 @@ const ClientDashboard = ({ logout }) => {
           </div>
         </div>
       )}
-
+      <SessionReminder />
       {/* ===== MAIN CONTENT ===== */}
       <main className="cd-main">
 

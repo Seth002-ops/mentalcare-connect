@@ -27,6 +27,7 @@ import VerifyEmail from './components/VerifyEmail';
 import AdminUniversities from './components/AdminUniversities';
 import AICompanion from './components/AICompanion';
 import TherapistAvailability from './components/TherapistAvailability';
+import VideoCall from './components/VideoCall';
 import './App.css';
 
 const App = () => {
@@ -157,6 +158,8 @@ const App = () => {
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/services" element={<Services />} />
+          <Route path="/therapist/session-notes" element={user && userType === 'therapist' ? <TherapistSessionNotes /> : <Navigate to="/login" />} />
+          <Route path="/therapist/session-notes/:bookingId" element={user && userType === 'therapist' ? <TherapistSessionNotes /> : <Navigate to="/login" />} />
 
           {/* Terms Acceptance Gate */}
           <Route
@@ -376,6 +379,16 @@ const App = () => {
             element={
               user && userType === 'therapist' ? (
                 <TherapistAvailability />
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          />
+            <Route
+            path="/session/video/:bookingId"
+            element={
+              user ? (
+                <VideoCall />
               ) : (
                 <Navigate to="/login" />
               )

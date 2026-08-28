@@ -52,7 +52,7 @@ class SessionBooking(Base):
     platform_fee = Column(Integer, nullable=True)
     therapist_earning = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-
+    video_room_id = Column(String, nullable=True)
 
 class Review(Base):
     __tablename__ = "reviews"
@@ -258,3 +258,27 @@ class TherapistAvailability(Base):
     end_time = Column(String, nullable=False)      # e.g., "17:00"
     is_available = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class SessionNote(Base):
+    __tablename__ = "session_notes"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    booking_id = Column(Integer, ForeignKey("session_bookings.id"), nullable=False, unique=True)
+    therapist_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    client_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    subjective = Column(Text, nullable=True)
+    objective = Column(Text, nullable=True)
+    assessment = Column(Text, nullable=True)
+    plan = Column(Text, nullable=True)
+
+    private_notes = Column(Text, nullable=True)
+    risk_level = Column(String, default="low")
+    follow_up_required = Column(Boolean, default=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+       
+    treatment_approach = Column(String, nullable=True)
+    techniques_used = Column(Text, nullable=True)
