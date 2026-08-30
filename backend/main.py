@@ -53,6 +53,7 @@ from crud import (
 from auth import create_access_token, get_current_user
 from config import settings
 from sqlalchemy import func
+from datetime import timedelta
 
 # Initialize Groq AI client
 client = AsyncOpenAI(
@@ -683,6 +684,72 @@ def require_admin(current_user=Depends(get_current_user)):
 @app.get("/admin/stats", response_model=AdminStatsResponse)
 def admin_get_stats(db=Depends(get_db), admin=Depends(require_admin)):
     return get_admin_stats(db)
+
+# ============ ADMIN ANALYTICS TIME-SERIES ============
+
+@app.get("/admin/analytics/timeseries")
+def get_admin_analytics(
+    days: int = 30,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    if current_user.user_type != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    start_date = datetime.utcnow() - timedelta(days=days)
+    
+    # Daily revenue from completed bookings
+    revenue_query = db.query(
+        func.date(SessionBooking.scheduled_time).label('date'),
+        func.sum(SessionBooking.amount).label('revenue'),
+        func.count(SessionBooking.id).label('bookings')
+    ).filter(
+        SessionBooking.status == 'completed',
+        SessionBooking.scheduled_time >= start_date
+    ).group_by(func.date(SessionBooking.scheduled_time)).all()
+    
+    revenue_dict = {str(row.date): {'revenue': float(row.revenue or 0), 'bookings': int(row.bookings)} for row in revenue_query}
+    
+    # Daily new users
+    users_query = db.query(
+        func.date(User.created_at).label('date'),
+        func.count(User.id).label('count')
+    ).filter(
+        User.created_at >= start_date
+    ).group_by(func.date(User.created_at)).all()
+    
+    users_dict = {str(row.date): int(row.count) for row in users_query}
+    
+    # Daily rage room bookings
+    rage_query = db.query(
+        func.date(RageRoomBooking.scheduled_time).label('date'),
+        func.count(RageRoomBooking.id).label('count'),
+        func.sum(RageRoomBooking.amount).label('revenue')
+    ).filter(
+        RageRoomBooking.scheduled_time >= start_date,
+        RageRoomBooking.payment_status == 'completed'
+    ).group_by(func.date(RageRoomBooking.scheduled_time)).all()
+    
+    rage_dict = {str(row.date): {'count': int(row.count), 'revenue': float(row.revenue or 0)} for row in rage_query}
+    
+    # Build the timeline
+    timeline = []
+    for i in range(days):
+        date = (datetime.utcnow() - timedelta(days=days - 1 - i)).date()
+        date_str = str(date)
+        
+        rev_data = revenue_dict.get(date_str, {'revenue': 0, 'bookings': 0})
+        
+        timeline.append({
+            'date': date.strftime('%b %d'),
+            'revenue': rev_data['revenue'],
+            'bookings': rev_data['bookings'],
+            'new_users': users_dict.get(date_str, 0),
+            'rage_bookings': rage_dict.get(date_str, {}).get('count', 0),
+            'rage_revenue': rage_dict.get(date_str, {}).get('revenue', 0),
+        })
+    
+    return timeline
 
 
 @app.get("/admin/users", response_model=List[AdminUserResponse])

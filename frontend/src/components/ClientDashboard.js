@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
 import SessionReminder from './SessionReminder';
+import ReviewModal from './ReviewModal';
 
 // ============ PROFESSIONAL LINE ICONS ============
 const IconMenu = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>;
@@ -24,6 +25,7 @@ const IconSettings = () => <svg width="20" height="20" viewBox="0 0 24 24" fill=
 const IconChevronDown = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>;
 const IconZap = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>;
 const IconBot = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path></svg>;
+
 // ============ PROFESSIONAL MOOD FACE ICONS ============
 const MoodFace = ({ type, color }) => {
   const eyes = (
@@ -132,7 +134,9 @@ const ClientDashboard = ({ logout }) => {
   const [dailyTip, setDailyTip] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
-  const [avatar, setAvatar] = useState(null); // {type:'preset',value:n} or {type:'upload',value:dataUrl}
+  const [avatar, setAvatar] = useState(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewingBooking, setReviewingBooking] = useState(null);
 
   useEffect(() => {
     fetchUserData();
@@ -283,7 +287,6 @@ const ClientDashboard = ({ logout }) => {
     { to: '/therapists', icon: <IconUsers />, title: 'Find Therapist', desc: 'Browse professionals' },
     { to: '/booking', icon: <IconCalendar />, title: 'Book Session', desc: 'Schedule appointment' },
     { to: '/chat/1', icon: <IconMessage />, title: 'Messages', desc: 'Chat with therapist' },
-    { to: '/leave-review', icon: <IconStar />, title: 'Leave Review', desc: 'Rate your session' },
   ];
 
   return (
@@ -302,7 +305,6 @@ const ClientDashboard = ({ logout }) => {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <NotificationBell />
-            {/* Enhanced user visibility: avatar + name chip */}
             <button onClick={() => setAvatarModalOpen(true)} className="cd-avatar-chip">
               <AvatarDisplay size={36} />
               <span className="cd-avatar-text">
@@ -315,7 +317,7 @@ const ClientDashboard = ({ logout }) => {
         </div>
       </header>
 
-      {/* ===== HAMBURGER DRAWER (Quick Actions live here) ===== */}
+      {/* ===== HAMBURGER DRAWER ===== */}
       {drawerOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,39,0.45)', zIndex: 900 }} onClick={() => setDrawerOpen(false)}>
           <div className="cd-drawer" onClick={(e) => e.stopPropagation()}>
@@ -370,7 +372,6 @@ const ClientDashboard = ({ logout }) => {
               <button onClick={() => setAvatarModalOpen(false)} className="cd-icon-btn" aria-label="Close"><IconX /></button>
             </div>
 
-            {/* Current preview */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', background: '#F9FAFB', borderRadius: '12px', border: '1px solid #E5E7EB', marginBottom: '1.25rem' }}>
               <AvatarDisplay size={56} />
               <div>
@@ -379,7 +380,6 @@ const ClientDashboard = ({ logout }) => {
               </div>
             </div>
 
-            {/* Upload option */}
             <button
               onClick={() => fileInputRef.current?.click()}
               style={{ width: '100%', padding: '0.85rem', background: '#2E7D32', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '1.25rem', fontSize: '0.95rem' }}
@@ -388,7 +388,6 @@ const ClientDashboard = ({ logout }) => {
             </button>
             <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleUpload} />
 
-            {/* Preset avatars */}
             <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#6B7280', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Or pick an illustration
             </div>
@@ -421,11 +420,27 @@ const ClientDashboard = ({ logout }) => {
           </div>
         </div>
       )}
+
+      {/* ===== REVIEW MODAL ===== */}
+      {showReviewModal && reviewingBooking && (
+        <ReviewModal
+          booking={reviewingBooking}
+          onClose={() => {
+            setShowReviewModal(false);
+            setReviewingBooking(null);
+          }}
+          onSubmitted={() => {
+            setShowReviewModal(false);
+            setReviewingBooking(null);
+          }}
+        />
+      )}
+
       <SessionReminder />
+
       {/* ===== MAIN CONTENT ===== */}
       <main className="cd-main">
 
-        {/* Welcome banner (flat, no gradient) */}
         <div className="cd-banner">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', color: '#C8E6C9', fontSize: '0.85rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -437,7 +452,6 @@ const ClientDashboard = ({ logout }) => {
           <div style={{ color: '#E8F5E9' }}><IconSunrise /></div>
         </div>
 
-        {/* Zen journey stepper */}
         <div className="cd-stepper">
           {[
             { icon: <IconHeart />, label: 'Check In' },
@@ -550,7 +564,46 @@ const ClientDashboard = ({ logout }) => {
               )}
             </div>
 
-            {/* AI Companion (flat lavender, no gradient) */}
+            {/* Past Sessions - Rate completed sessions */}
+            <div className="cd-card">
+              <h3 className="cd-card-title">Past Sessions</h3>
+              {bookings.filter(b => (b.status === 'confirmed' || b.status === 'completed') && new Date(b.scheduled_time) < new Date()).length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '1.25rem', background: '#F9FAFB', borderRadius: '12px', border: '1px solid #E5E7EB' }}>
+                  <p style={{ color: '#6B7280', margin: 0, fontSize: '0.9rem' }}>No completed sessions yet.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {bookings
+                    .filter(b => (b.status === 'confirmed' || b.status === 'completed') && new Date(b.scheduled_time) < new Date())
+                    .sort((a, b) => new Date(b.scheduled_time) - new Date(a.scheduled_time))
+                    .slice(0, 5)
+                    .map(booking => (
+                    <div key={booking.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', background: '#F9FAFB', borderRadius: '10px', border: '1px solid #E5E7EB' }}>
+                      <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#E8F5E9', color: '#2E7D32', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '0.95rem', flexShrink: 0 }}>
+                        {(booking.therapist_name || 'T').charAt(0)}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: '600', color: '#111827', fontSize: '0.88rem' }}>{booking.therapist_name}</div>
+                        <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                          {new Date(booking.scheduled_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setReviewingBooking(booking);
+                          setShowReviewModal(true);
+                        }}
+                        style={{ padding: '0.45rem 0.85rem', background: '#F59E0B', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <IconStar /> Rate
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* AI Companion */}
             <div style={{ background: '#EDE9FE', borderRadius: '16px', padding: '1.5rem', border: '1px solid #DDD6FE' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
                 <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: '#4C1D95' }}>AI Companion</h3>
@@ -564,7 +617,7 @@ const ClientDashboard = ({ logout }) => {
               </button>
             </div>
 
-            {/* Daily wellness tip (flat amber) */}
+            {/* Daily wellness tip */}
             {dailyTip && (
               <div style={{ background: '#FFF7ED', borderRadius: '16px', padding: '1.5rem', border: '1px solid #FED7AA' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.6rem' }}>
@@ -581,7 +634,6 @@ const ClientDashboard = ({ logout }) => {
         </div>
       </main>
 
-      {/* ===== RESPONSIVE + COMPONENT STYLES ===== */}
       <style>{`
         .cd-header { background: #FFFFFF; border-bottom: 1px solid #E5E7EB; position: sticky; top: 0; z-index: 100; }
         .cd-header-inner { max-width: 1200px; margin: 0 auto; padding: 0.75rem 20px; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }

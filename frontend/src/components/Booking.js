@@ -39,9 +39,7 @@ const Booking = () => {
 
       try {
         const response = await fetch('/users?user_type=therapist', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         });
 
         if (response.status === 401) {
@@ -54,21 +52,39 @@ const Booking = () => {
         }
 
         const data = await response.json();
+        const therapistList = Array.isArray(data) ? data : data.users || data.data || [];
 
-        const therapistList = Array.isArray(data)
-          ? data
-          : data.users || data.data || [];
+        // Fetch average rating for each therapist
+        const therapistsWithRatings = await Promise.all(
+          therapistList.map(async (user) => {
+            let avgRating = user.rating || 0;
+            let reviewCount = 0;
+            try {
+              const revRes = await fetch(`/reviews/therapist/${user.id}`, {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              if (revRes.ok) {
+                const reviews = await revRes.json();
+                reviewCount = reviews.length;
+                if (reviewCount > 0) {
+                  avgRating = (reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount).toFixed(1);
+                }
+              }
+            } catch (e) { /* ignore rating fetch errors */ }
 
-        setTherapists(
-          therapistList.map((user) => ({
-            id: user.id,
-            name: user.name || user.email,
-            specialty: user.specializations || 'Therapist',
-            rating: user.rating || 4.8,
-            price: user.hourly_rate || 2500,
-            photo: user.profile_photo_url || null,
-          }))
+            return {
+              id: user.id,
+              name: user.name || user.email,
+              specialty: user.specializations || 'Therapist',
+              rating: Number(avgRating) || 4.8,
+              reviewCount: reviewCount,
+              price: user.hourly_rate || 2500,
+              photo: user.profile_photo_url || null,
+            };
+          })
         );
+
+        setTherapists(therapistsWithRatings);
       } catch (error) {
         console.error('Therapist fetch error:', error);
         setErrorMessage('Could not load therapists. Make sure the backend is running.');
@@ -385,13 +401,8 @@ const Booking = () => {
                       KSh {therapist.price.toLocaleString()}
                     </div>
 
-                    <div
-                      style={{
-                        color: '#F97373',
-                        fontWeight: '600',
-                      }}
-                    >
-                      ★ {therapist.rating}
+                     <div style={{ color: '#F59E0B', fontWeight: '600', fontSize: '0.85rem' }}>
+                      ★ {therapist.rating} {therapist.reviewCount > 0 && <span style={{ color: '#9CA3AF', fontWeight: '400' }}>({therapist.reviewCount})</span>}
                     </div>
                   </div>
                 </div>

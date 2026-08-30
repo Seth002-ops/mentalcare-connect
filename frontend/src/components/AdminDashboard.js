@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
+import AdminAnalytics from './AdminAnalytics';
 
 // ============ PROFESSIONAL ICONS ============
 const IconGradCap = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5"></path></svg>;
@@ -153,13 +154,14 @@ const AdminDashboard = ({ logout }) => {
   };
 
   const handlePlatformWithdrawal = async () => {
-    if (!stats || stats.total_platform_revenue <= 0) {
+    const platformRevenue = stats?.total_platform_revenue || 0;
+    if (platformRevenue <= 0) {
       alert('No platform earnings available for withdrawal.');
       return;
     }
 
     const amount = prompt(
-      `Available balance: KSh ${stats.total_platform_revenue.toLocaleString()}\nEnter withdrawal amount (KSh):`
+      `Available balance: KSh ${platformRevenue.toLocaleString()}\nEnter withdrawal amount (KSh):`
     );
     
     if (!amount || isNaN(amount) || parseInt(amount) <= 0) {
@@ -167,7 +169,7 @@ const AdminDashboard = ({ logout }) => {
       return;
     }
 
-    if (parseInt(amount) > stats.total_platform_revenue) {
+    if (parseInt(amount) > platformRevenue) {
       alert('Amount exceeds available balance.');
       return;
     }
@@ -198,6 +200,19 @@ const AdminDashboard = ({ logout }) => {
       alert('Failed to submit withdrawal request.');
     }
   };
+
+  // Safe stat values with fallbacks
+  const totalUsers = stats?.total_users || 0;
+  const totalClients = stats?.total_clients || 0;
+  const totalTherapists = stats?.total_therapists || 0;
+  const totalBookings = stats?.total_bookings || 0;
+  const completedBookings = stats?.completed_bookings || 0;
+  const averageRating = stats?.average_rating || 0;
+  const totalMessages = stats?.total_messages || 0;
+  const totalMoodEntries = stats?.total_mood_entries || 0;
+  const totalPlatformRevenue = stats?.total_platform_revenue || 0;
+  const totalRevenue = stats?.total_revenue || 0;
+  const totalTherapistPayouts = stats?.total_therapist_payouts || 0;
 
   const styles = {
     container: { minHeight: '100vh', backgroundColor: '#F9FAFB', overflowX: 'hidden' },
@@ -385,6 +400,8 @@ const AdminDashboard = ({ logout }) => {
       </header>
 
       <main style={styles.main}>
+      <AdminAnalytics />
+
         {/* Platform Earnings & Withdrawal Section */}
         {stats && (
           <div style={styles.earningsSection}>
@@ -395,7 +412,7 @@ const AdminDashboard = ({ logout }) => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.5rem' }}>
               <div>
                 <div style={styles.earningsAmount}>
-                  KSh {stats.total_platform_revenue.toLocaleString()}
+                  KSh {totalPlatformRevenue.toLocaleString()}
                 </div>
                 <div style={styles.earningsSubtitle}>
                   Total available for withdrawal (15% commission from all sessions)
@@ -404,19 +421,19 @@ const AdminDashboard = ({ logout }) => {
                   <div>
                     <div style={{ fontSize: '0.8rem', color: '#6B7280' }}>Total Revenue</div>
                     <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#111827' }}>
-                      KSh {stats.total_revenue.toLocaleString()}
+                      KSh {totalRevenue.toLocaleString()}
                     </div>
                   </div>
                   <div>
                     <div style={{ fontSize: '0.8rem', color: '#6B7280' }}>Therapist Payouts</div>
                     <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#111827' }}>
-                      KSh {stats.total_therapist_payouts.toLocaleString()}
+                      KSh {totalTherapistPayouts.toLocaleString()}
                     </div>
                   </div>
                   <div>
                     <div style={{ fontSize: '0.8rem', color: '#6B7280' }}>Your Share (5% each × 3)</div>
                     <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#2E7D32' }}>
-                      KSh {Math.round(stats.total_platform_revenue / 3).toLocaleString()} per person
+                      KSh {Math.round(totalPlatformRevenue / 3).toLocaleString()} per person
                     </div>
                   </div>
                 </div>
@@ -436,14 +453,14 @@ const AdminDashboard = ({ logout }) => {
         {stats && (
           <div style={styles.statsGrid}>
             {[
-              { label: 'Total Users', value: stats.total_users },
-              { label: 'Clients', value: stats.total_clients },
-              { label: 'Therapists', value: stats.total_therapists },
-              { label: 'Total Bookings', value: stats.total_bookings },
-              { label: 'Completed', value: stats.completed_bookings },
-              { label: 'Avg Rating', value: stats.average_rating.toFixed(1) },
-              { label: 'Messages', value: stats.total_messages },
-              { label: 'Mood Entries', value: stats.total_mood_entries },
+              { label: 'Total Users', value: totalUsers },
+              { label: 'Clients', value: totalClients },
+              { label: 'Therapists', value: totalTherapists },
+              { label: 'Total Bookings', value: totalBookings },
+              { label: 'Completed', value: completedBookings },
+              { label: 'Avg Rating', value: averageRating.toFixed(1) },
+              { label: 'Messages', value: totalMessages },
+              { label: 'Mood Entries', value: totalMoodEntries },
             ].map((stat) => (
               <div key={stat.label} style={styles.statCard}>
                 <div style={styles.statValue}>{stat.value}</div>
