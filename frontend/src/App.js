@@ -28,6 +28,7 @@ import AdminUniversities from './components/AdminUniversities';
 import AICompanion from './components/AICompanion';
 import TherapistAvailability from './components/TherapistAvailability';
 import VideoCall from './components/VideoCall';
+import AdminAnalyticsPage from './components/AdminAnalyticsPage';
 import './App.css';
 
 const App = () => {
@@ -152,6 +153,16 @@ const App = () => {
               )
             }
           />
+          <Route
+  path="/admin/analytics"
+  element={
+    user && userType === 'admin' ? (
+      <AdminAnalyticsPage />
+    ) : (
+      <Navigate to="/login" />
+    )
+  }
+/>
           <Route path="/login" element={<Login onLogin={login} />} />
           <Route path="/signup" element={<Signup onLogin={login} />} />
           <Route path="/verify-email" element={<VerifyEmail />} />

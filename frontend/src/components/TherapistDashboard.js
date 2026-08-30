@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
+import SessionReminder from './SessionReminder';
+import TherapistStats from './TherapistStats';
 
 // ============ PROFESSIONAL SVG ICONS ============
 const IconCalendar = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>;
@@ -11,6 +13,7 @@ const IconVideo = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="no
 const IconMessage = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>;
 const IconBook = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>;
 const IconChevronRight = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>;
+const IconDollarSign = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>;
 
 const TherapistDashboard = ({ logout }) => {
   const [appointments, setAppointments] = useState([]);
@@ -21,8 +24,8 @@ const TherapistDashboard = ({ logout }) => {
   const [earnings, setEarnings] = useState(null);
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawPhone, setWithdrawPhone] = useState('');
-  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [withdrawLoading, setWithdrawLoading] = useState(false);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
 
   useEffect(() => {
     fetchAppointments();
@@ -31,9 +34,9 @@ const TherapistDashboard = ({ logout }) => {
   }, []);
 
   const fetchAppointments = async () => {
+    const token = localStorage.getItem('token');
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/bookings/me', { 
+      const res = await fetch('/bookings/me', {
         headers: { Authorization: `Bearer ${token}` } 
       });
       if (res.ok) {
@@ -169,7 +172,7 @@ const TherapistDashboard = ({ logout }) => {
     bannerBtnSecondary: { display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0.6rem 1.25rem', background: 'rgba(255,255,255,0.15)', color: 'white', borderRadius: '999px', fontSize: '0.875rem', fontWeight: '600', textDecoration: 'none', border: '1px solid rgba(255,255,255,0.3)', cursor: 'pointer' },
     statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' },
     statCard: { background: 'white', borderRadius: '16px', padding: '1.25rem', border: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' },
-    statIconBox: (bg) => ({ width: '44px', height: '44px', borderRadius: '12px', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: '0' }),
+    statIconBox: (bg) => ({ width: '44px', height: '44px', borderRadius: '12px', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }),
     statValue: { fontSize: '1.5rem', fontWeight: '700', color: '#111827', lineHeight: '1.2' },
     statLabel: { fontSize: '0.8rem', color: '#6B7280', fontWeight: '500' },
     twoColGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' },
@@ -178,12 +181,12 @@ const TherapistDashboard = ({ logout }) => {
     cardTitle: { fontSize: '1.1rem', fontWeight: '600', color: '#111827' },
     viewAllLink: { display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: '#2E7D32', textDecoration: 'none', fontWeight: '500' },
     sessionItem: { padding: '1rem', background: '#F9FAFB', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '0.75rem' },
-    sessionIconBox: { width: '40px', height: '40px', borderRadius: '10px', background: '#E8F5E9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: '0', color: '#2E7D32' },
+    sessionIconBox: { width: '40px', height: '40px', borderRadius: '10px', background: '#E8F5E9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#2E7D32' },
     sessionClient: { fontWeight: '600', fontSize: '0.9rem', color: '#111827' },
     sessionTime: { fontSize: '0.8rem', color: '#6B7280' },
     statusBadge: (status) => ({ padding: '0.25rem 0.75rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600', background: status === 'confirmed' ? '#E8F5E9' : '#FEF3C7', color: status === 'confirmed' ? '#1B5E20' : '#92400E', textTransform: 'capitalize' }),
     quickActionLink: { display: 'flex', alignItems: 'center', gap: '14px', padding: '1rem 1.25rem', background: 'white', borderRadius: '14px', border: '1px solid #E5E7EB', textDecoration: 'none', transition: 'all 0.2s ease', marginBottom: '0.75rem', cursor: 'pointer' },
-    actionIconBox: (bg) => ({ width: '40px', height: '40px', borderRadius: '10px', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: '0' }),
+    actionIconBox: (bg) => ({ width: '40px', height: '40px', borderRadius: '10px', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }),
     actionTitle: { fontWeight: '600', fontSize: '0.9rem', color: '#111827' },
     actionDesc: { fontSize: '0.8rem', color: '#6B7280' },
     progressBarBg: { height: '8px', background: '#E5E7EB', borderRadius: '4px', overflow: 'hidden', marginTop: '0.5rem', marginBottom: '0.5rem' },
@@ -224,12 +227,19 @@ const TherapistDashboard = ({ logout }) => {
             </button>
           </div>
         </div>
+
         <SessionReminder />
+
+        {/* THERAPIST PERFORMANCE METRICS */}
+        <TherapistStats />
+
         {/* EARNINGS SECTION */}
         {earnings && (
           <div style={{ ...styles.card, border: '2px solid #2E7D32', background: 'linear-gradient(135deg, #F0FDF4 0%, #FFFFFF 100%)' }}>
             <div style={styles.cardHeader}>
-              <h3 style={{ ...styles.cardTitle, color: '#1B5E20', fontSize: '1.25rem' }}>💰 My Earnings & Wallet</h3>
+              <h3 style={{ ...styles.cardTitle, color: '#1B5E20', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <IconDollarSign /> My Earnings & Wallet
+              </h3>
               <button
                 onClick={() => navigate('/therapist/withdrawals')}
                 style={{
@@ -246,26 +256,26 @@ const TherapistDashboard = ({ logout }) => {
                   gap: '6px',
                 }}
               >
-                💳 Manage Withdrawals
+                <IconDollarSign /> Manage Withdrawals
               </button>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
               <div style={{ background: 'white', padding: '1.25rem', borderRadius: '12px', border: '1px solid #E5E7EB', textAlign: 'center' }}>
                 <div style={{ fontSize: '1.75rem', fontWeight: '800', color: '#2E7D32' }}>
-                  KSh {earnings.total_earned.toLocaleString()}
+                  KSh {(earnings.total_earned || 0).toLocaleString()}
                 </div>
                 <div style={{ fontSize: '0.8rem', color: '#6B7280', marginTop: '4px' }}>Total Earned</div>
               </div>
               <div style={{ background: '#FEF3C7', padding: '1.25rem', borderRadius: '12px', border: '1px solid #FDE68A', textAlign: 'center' }}>
                 <div style={{ fontSize: '1.75rem', fontWeight: '800', color: '#92400E' }}>
-                  KSh {earnings.balance.toLocaleString()}
+                  KSh {(earnings.balance || 0).toLocaleString()}
                 </div>
                 <div style={{ fontSize: '0.8rem', color: '#6B7280', marginTop: '4px' }}>Available Balance</div>
               </div>
               <div style={{ background: '#F3F4F6', padding: '1.25rem', borderRadius: '12px', border: '1px solid #E5E7EB', textAlign: 'center' }}>
                 <div style={{ fontSize: '1.75rem', fontWeight: '800', color: '#374151' }}>
-                  KSh {earnings.total_withdrawn.toLocaleString()}
+                  KSh {(earnings.total_withdrawn || 0).toLocaleString()}
                 </div>
                 <div style={{ fontSize: '0.8rem', color: '#6B7280', marginTop: '4px' }}>Total Withdrawn</div>
               </div>

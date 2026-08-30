@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
-import AdminAnalytics from './AdminAnalytics';
+import AdminBookings from './AdminBookings';
 
 // ============ PROFESSIONAL ICONS ============
 const IconGradCap = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5"></path></svg>;
@@ -400,8 +400,7 @@ const AdminDashboard = ({ logout }) => {
       </header>
 
       <main style={styles.main}>
-      <AdminAnalytics />
-
+     
         {/* Platform Earnings & Withdrawal Section */}
         {stats && (
           <div style={styles.earningsSection}>
@@ -469,6 +468,22 @@ const AdminDashboard = ({ logout }) => {
             ))}
           </div>
         )}
+        {/* ===== ANALYTICS CARD ===== */}
+        <div
+          style={styles.uniManageBtn}
+          onClick={() => navigate('/admin/analytics')}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2E7D32'; e.currentTarget.style.background = '#E8F5E9'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.background = 'white'; }}
+        >
+          <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#DBEAFE', color: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: '700', fontSize: '1rem', color: '#111827' }}>View Analytics</div>
+            <div style={{ fontSize: '0.8rem', color: '#6B7280' }}>Charts, trends & smart insights on how the platform is performing</div>
+          </div>
+          <span style={{ color: '#9CA3AF' }}><IconArrowRight /></span>
+        </div>
 
         {/* ===== UNIVERSITY MANAGEMENT CARD ===== */}
         <div
@@ -500,6 +515,12 @@ const AdminDashboard = ({ logout }) => {
             onClick={() => setActiveTab('pending')}
           >
             <IconClock /> Pending Approvals ({pendingTherapists.length})
+          </button>
+          <button
+            style={styles.tab(activeTab === 'bookings')}
+            onClick={() => setActiveTab('bookings')}
+          >
+            <IconDollarSign /> Bookings & Refunds
           </button>
         </div>
 
@@ -660,6 +681,13 @@ const AdminDashboard = ({ logout }) => {
                 </div>
               ))
             )}
+          </div>
+        )}
+        {/* Bookings & Refunds Tab */}
+        {activeTab === 'bookings' && (
+          <div style={styles.section}>
+            <h2 style={styles.sectionTitle}>All Bookings & Refunds</h2>
+            <AdminBookings />
           </div>
         )}
       </main>

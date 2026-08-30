@@ -1638,11 +1638,11 @@ def student_signup(data: StudentSignupRequest, db=Depends(get_db)):
             server.sendmail(email_user, data.email, msg.as_string())
             server.quit()
 
-            print(f"✅ Verification email sent to {data.email}")
+            print(f" Verification email sent to {data.email}")
 
     except Exception as e:
-        print(f"❌ Email send failed: {e}")
-        print(f"   🔗 Manual link: {verify_link}")
+        print(f" Email send failed: {e}")
+        print(f"    Manual link: {verify_link}")
 
     return {
         "requires_verification": True,
@@ -1793,6 +1793,77 @@ def get_available_slots(
         "available_slots": sorted(available_slots)
     }
 
+# ============ THERAPIST PERFORMANCE METRICS ============
+
+@app.get("/therapist/stats")
+def get_therapist_stats(db=Depends(get_db), current_user=Depends(get_current_user)):
+    if current_user.user_type != "therapist":
+        raise HTTPException(status_code=403, detail="Therapist access required")
+
+    all_bookings = db.query(SessionBooking).filter(
+        SessionBooking.therapist_id == current_user.id
+    ).all()
+    completed = [b for b in all_bookings if b.status == 'completed']
+
+    def earning(b):
+        e = getattr(b, 'therapist_earning', None)
+        if e is not None:
+            return float(e)
+        return float(b.amount or 0) * 0.85
+
+    total_earnings = sum(earning(b) for b in completed)
+
+    reviews = db.query(Review).filter(Review.therapist_id == current_user.id).all()
+    avg_rating = sum(r.rating for r in reviews) / len(reviews) if reviews else 0
+    completion_rate = (len(completed) / len(all_bookings) * 100) if all_bookings else 0
+
+    return {
+        "total_sessions": len(all_bookings),
+        "completed_sessions": len(completed),
+        "total_earnings": round(total_earnings, 2),
+        "review_count": len(reviews),
+        "average_rating": round(avg_rating, 1),
+        "completion_rate": round(completion_rate, 1),
+    }
+
+# ============ ADMIN BOOKING MANAGEMENT & REFUNDS ============
+
+@app.get("/admin/bookings")
+def get_all_bookings(db=Depends(get_db), current_user=Depends(get_current_user)):
+    if current_user.user_type != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    bookings = db.query(SessionBooking).order_by(SessionBooking.scheduled_time.desc()).limit(100).all()
+    result = []
+    for b in bookings:
+        client = get_user_by_id(db, b.client_id)
+        therapist = get_user_by_id(db, b.therapist_id)
+        result.append({
+            "id": b.id,
+            "client_name": (client.name or client.email) if client else "Unknown",
+            "therapist_name": (therapist.name or therapist.email) if therapist else "Unknown",
+            "scheduled_time": b.scheduled_time,
+            "amount": b.amount,
+            "status": b.status,
+            "payment_status": b.payment_status,
+        })
+    return result
+
+
+@app.put("/admin/bookings/{booking_id}/refund")
+def refund_booking(booking_id: int, db=Depends(get_db), current_user=Depends(get_current_user)):
+    if current_user.user_type != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    booking = get_booking_by_id(db, booking_id)
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    booking.status = "refunded"
+    booking.payment_status = "refunded"
+    db.commit()
+    db.refresh(booking)
+    return {"success": True, "message": "Booking refunded successfully"}
 # ============ MAIN ENTRY POINT ============
 
 if __name__ == "__main__":
