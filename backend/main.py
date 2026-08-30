@@ -9,10 +9,15 @@ from email.mime.multipart import MIMEMultipart
 from pydantic import BaseModel
 from openai import AsyncOpenAI
 from fastapi.responses import StreamingResponse
+from sanitize import sanitize_text
 from dotenv import load_dotenv
 
 load_dotenv()
 
+from fastapi import Request
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, Request, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
@@ -64,6 +69,9 @@ client = AsyncOpenAI(
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title=settings.PROJECT_NAME)
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 from fastapi.staticfiles import StaticFiles
 
@@ -88,7 +96,33 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- NEW: SECURITY HEADERS MIDDLEWARE ---
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+
+    # Prevent browsers from MIME-sniffing
+    response.headers["X-Content-Type-Options"] = "nosniff"
+
+    # Prevent your API from being embedded in iframes (Clickjacking protection)
+    response.headers["X-Frame-Options"] = "DENY"
+
+    # Controls referrer information
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+    # Basic browser XSS filter for older browsers
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+
+    # Content Security Policy for API responses
+    response.headers["Content-Security-Policy"] = "frame-ancestors 'none';"
+
+    # HSTS (Forces HTTPS in production, safe to ignore on local HTTP)
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+    return response
+
 PUBLIC_PATHS = {"/", "/auth/register", "/auth/login", "/auth/student-signup", "/auth/verify-email", "/api/health", "/universities"}
+
 
 # Crisis detection
 CRISIS_KEYWORDS = [
@@ -614,6 +648,7 @@ def read_root():
 def submit_review(review: ReviewCreate, db=Depends(get_db), current_user=Depends(get_current_user)):
     if current_user.user_type != "client":
         raise HTTPException(status_code=403, detail="Only clients can submit reviews")
+    review.comment = sanitize_text(review.comment)
 
     booking = get_booking_by_id(db, review.booking_id)
     if not booking or booking.client_id != current_user.id:
@@ -1222,6 +1257,12 @@ def create_or_update_session_note(
 ):
     if current_user.user_type != "therapist":
         raise HTTPException(status_code=403, detail="Only therapists can write clinical notes")
+    note_data.subjective = sanitize_text(note_data.subjective)
+    note_data.objective = sanitize_text(note_data.objective)
+    note_data.assessment = sanitize_text(note_data.assessment)
+    note_data.plan = sanitize_text(note_data.plan)
+    note_data.private_notes = sanitize_text(note_data.private_notes)
+    note_data.techniques_used = sanitize_text(note_data.techniques_used)
 
     booking = get_booking_by_id(db, booking_id)
     if not booking or booking.therapist_id != current_user.id:
