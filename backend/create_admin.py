@@ -19,7 +19,8 @@ else:
         hashed_password=pwd_context.hash("Admin@123456"),
         user_type="admin",
         name="Platform Admin",
-        terms_accepted=True
+        terms_accepted=True,
+        is_active=True,
     )
     db.add(admin)
     db.commit()

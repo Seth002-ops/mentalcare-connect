@@ -1,3 +1,4 @@
+
 import asyncio
 import os
 import smtplib
@@ -14,18 +15,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import Request
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, Request, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from starlette.responses import JSONResponse
 import uvicorn
 from jose import jwt
 from jose.exceptions import JWTError
 import shutil
-
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -58,7 +55,6 @@ from crud import (
 from auth import create_access_token, get_current_user
 from config import settings
 from sqlalchemy import func
-from datetime import timedelta
 
 # Initialize Groq AI client
 client = AsyncOpenAI(
@@ -68,20 +64,16 @@ client = AsyncOpenAI(
 
 Base.metadata.create_all(bind=engine)
 
+# Initialize FastAPI app
 app = FastAPI(title=settings.PROJECT_NAME)
-limiter = Limiter(key_func=get_remote_address)
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
-from fastapi.staticfiles import StaticFiles
-
-app = FastAPI(title=settings.PROJECT_NAME)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Rate limiter setup
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Mount static files for uploads
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -96,7 +88,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- NEW: SECURITY HEADERS MIDDLEWARE ---
+# --- SECURITY HEADERS MIDDLEWARE ---
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
@@ -221,12 +213,17 @@ def health_check():
 
 
 @app.post("/auth/register", response_model=Token)
-def register(user: UserCreate, db=Depends(get_db)):
+@limiter.limit("3/minute")
+def register(request: Request, user: UserCreate, db=Depends(get_db)):
     db_user = get_user_by_email(db, email=user.email)
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    created_user = create_user(db, user.dict())
+    # SECURITY: Force user_type to "client" - ignore any client-provided value
+    user_data = user.dict()
+    user_data["user_type"] = "client"  # Always create clients through public registration
+    
+    created_user = create_user(db, user_data)
 
     # FIX: Therapists must wait for admin approval
     if created_user.user_type == "therapist":
@@ -238,6 +235,8 @@ def register(user: UserCreate, db=Depends(get_db)):
         data={"user_id": created_user.id, "user_type": created_user.user_type}
     )
     return {"access_token": access_token, "token_type": "bearer", "user_type": created_user.user_type}
+
+
 @app.post("/auth/login", response_model=Token)
 @limiter.limit("5/minute")
 def login(request: Request, user_login: UserLogin, db=Depends(get_db)):
@@ -296,7 +295,15 @@ async def upload_license(
     if file.content_type not in allowed_types:
         raise HTTPException(status_code=400, detail="Only PDF, JPG, and PNG files are allowed")
 
-    file_extension = file.filename.split(".")[-1]
+    # SECURITY: Validate file extension
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    
+    file_extension = file.filename.split(".")[-1].lower()
+    allowed_extensions = ["pdf", "jpg", "jpeg", "png"]
+    if file_extension not in allowed_extensions:
+        raise HTTPException(status_code=400, detail=f"File extension .{file_extension} not allowed")
+
     safe_filename = f"license_{current_user.id}_{int(datetime.now().timestamp())}.{file_extension}"
     file_path = os.path.join(UPLOAD_DIR, safe_filename)
 
@@ -317,6 +324,7 @@ async def upload_license(
         "verification_status": current_user.verification_status
     }
 
+
 @app.post("/therapist/profile-photo")
 async def upload_profile_photo(
     file: UploadFile = File(...),
@@ -330,13 +338,21 @@ async def upload_profile_photo(
     if file.content_type not in allowed_types:
         raise HTTPException(status_code=400, detail="Only JPG, PNG, and WEBP images are allowed")
 
+    # SECURITY: Validate file extension
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    
+    file_extension = file.filename.split(".")[-1].lower()
+    allowed_extensions = ["jpg", "jpeg", "png", "webp"]
+    if file_extension not in allowed_extensions:
+        raise HTTPException(status_code=400, detail=f"File extension .{file_extension} not allowed")
+
     # Limit file size to 5MB
     contents = await file.read()
     if len(contents) > 5 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File too large. Maximum size is 5MB.")
 
     # Create safe filename
-    file_extension = file.filename.split(".")[-1].lower()
     safe_filename = f"profile_{current_user.id}_{int(datetime.now().timestamp())}.{file_extension}"
     
     # Save file
@@ -366,6 +382,7 @@ async def upload_profile_photo(
         "message": "Profile photo uploaded successfully!",
         "photo_url": photo_url,
     }
+
 
 @app.put("/therapist/profile")
 def update_therapist_profile(
@@ -400,6 +417,10 @@ def create_chat_message(message: MessageCreate, db=Depends(get_db), current_user
         raise HTTPException(status_code=403, detail="Unauthorized to post in this room")
     if message.sender_type != current_user.user_type:
         raise HTTPException(status_code=400, detail="sender_type must match authenticated user")
+    
+    # SECURITY: Sanitize message content
+    message.content = sanitize_text(message.content)
+    
     db_message = create_message(db, message.dict())
     return {
         "id": db_message.id,
@@ -413,6 +434,10 @@ def create_chat_message(message: MessageCreate, db=Depends(get_db), current_user
 
 @app.get("/messages/{room_id}", response_model=List[MessageResponse])
 def read_messages(room_id: int, skip: int = 0, limit: int = 100, db=Depends(get_db), current_user=Depends(get_current_user)):
+    # SECURITY: Bound pagination parameters
+    limit = min(max(limit, 1), 100)  # Between 1 and 100
+    skip = max(skip, 0)  # No negative skip
+    
     booking = get_booking_by_id(db, room_id)
     if not booking or current_user.id not in {booking.client_id, booking.therapist_id}:
         raise HTTPException(status_code=403, detail="Unauthorized to access this room")
@@ -500,6 +525,7 @@ def read_booking(booking_id: int, db=Depends(get_db), current_user=Depends(get_c
         "therapist_name": get_user_name(booking.therapist_id),
     }
 
+
 # ============ TELEHEALTH VIDEO CALL ROUTES ============
 
 @app.get("/bookings/{booking_id}/video-room")
@@ -515,6 +541,7 @@ def get_video_room(booking_id: int, db=Depends(get_db), current_user=Depends(get
         db.refresh(booking)
 
     return {"room_id": booking.video_room_id, "booking_id": booking.id}
+
 
 # ============ USERS ROUTES ============
 
@@ -719,6 +746,7 @@ def require_admin(current_user=Depends(get_current_user)):
 @app.get("/admin/stats", response_model=AdminStatsResponse)
 def admin_get_stats(db=Depends(get_db), admin=Depends(require_admin)):
     return get_admin_stats(db)
+
 
 # ============ ADMIN ANALYTICS TIME-SERIES ============
 
@@ -945,310 +973,86 @@ Your Core Rules:
 Formatting & Style Rules (CRITICAL):
 - Keep responses SHORT and concise (max 3-4 short sentences or a brief list).
 - Use **bold text** to emphasize key actions, important words, or steps.
-- Use bullet points (-) for lists instead of long paragraphs.
-- Do not use literal '\\n' characters in your text; just use actual line breaks.
-- Always respond with warmth, validation, and non-judgment.
-"""
-
-AI_MODEL = os.getenv("AI_MODEL", "openai/gpt-oss-120b")
+- Use bullet points (-) for lists instead of numbered lists when possible.
+- Always use **Kenyan English** spelling and cultural references.
+- Be warm, empathetic, and conversational. Never robotic or clinical.
+- End with a gentle question or encouragement to keep the conversation going."""
 
 
-@app.get("/ai/history", response_model=List[AiChatHistoryResponse])
-def get_ai_history(db=Depends(get_db), current_user=Depends(get_current_user)):
-    history = get_ai_chat_history(db, current_user.id, limit=20)
-    return list(reversed(history))
+async def generate_ai_response(messages: List[Dict]):
+    """Stream AI response from Groq API."""
+    try:
+        stream = await client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=messages,
+            max_tokens=400,
+            temperature=0.7,
+            stream=True
+        )
+
+        async for chunk in stream:
+            if chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
+    except Exception as e:
+        yield f"Error: {str(e)}"
 
 
 @app.post("/ai/chat")
 @limiter.limit("10/minute")
 async def ai_chat(request: Request, chat_request: AIChatRequest, db=Depends(get_db), current_user=Depends(get_current_user)):
     user_message = chat_request.messages[-1].content if chat_request.messages else ""
-
+    
+    # Check for crisis keywords
     if detect_crisis(user_message):
-        save_ai_message(db, current_user.id, "user", user_message)
-        save_ai_message(db, current_user.id, "assistant", KENYA_CRISIS_RESOURCES)
-        db.commit()
-        return {"message": KENYA_CRISIS_RESOURCES}
+        return {
+            "response": KENYA_CRISIS_RESOURCES,
+            "crisis_detected": True
+        }
 
-    if user_message:
-        save_ai_message(db, current_user.id, "user", user_message)
-        db.commit()
-
+    # Get recent conversation history
     history = get_ai_chat_history(db, current_user.id, limit=10)
     history_messages = [
         {"role": msg.role, "content": msg.content}
         for msg in reversed(history[:-1])
     ]
 
-    api_messages = [{"role": "system", "content": MECAC_SYSTEM_PROMPT}]
-    api_messages.extend(history_messages)
-    api_messages.append({"role": "user", "content": user_message})
+    # Build messages for Groq
+    messages = [
+        {"role": "system", "content": MECAC_SYSTEM_PROMPT},
+        *history_messages,
+        {"role": "user", "content": user_message}
+    ]
 
-    try:
-        response = await client.chat.completions.create(
-            model=AI_MODEL,
-            messages=api_messages,
-            temperature=0.7,
-            max_tokens=300,
-            stream=False,
-        )
+    # Stream the response
+    full_response = ""
+    async for chunk in generate_ai_response(messages):
+        full_response += chunk
 
-        raw_content = response.choices[0].message.content if response.choices else None
-        ai_message = raw_content if isinstance(raw_content, str) else "I'm here to support you. Please try again."
+    # Save to database
+    save_ai_message(db, current_user.id, "user", user_message)
+    save_ai_message(db, current_user.id, "assistant", full_response)
 
-        save_ai_message(db, current_user.id, "assistant", ai_message)
-        db.commit()
-
-        return {"message": ai_message}
-
-    except Exception as e:
-        print(f"AI Error: {e}")
-        return {"message": "I'm here to support you. Please try again."}
+    return {"response": full_response, "crisis_detected": False}
 
 
-# ============ THERAPIST EARNINGS & WITHDRAWALS ============
-
-@app.get("/therapist/earnings")
-def get_my_earnings(db=Depends(get_db), current_user=Depends(get_current_user)):
-    if current_user.user_type != "therapist":
-        raise HTTPException(status_code=403, detail="Only therapists can view earnings")
-
-    wallet = get_wallet(db, current_user.id)
-    withdrawals = get_user_withdrawals(db, current_user.id)
-
-    return {
-        "balance": wallet.balance,
-        "total_earned": wallet.total_earned,
-        "total_withdrawn": wallet.total_withdrawn,
-        "withdrawals": [
-            {
-                "id": w.id,
-                "amount_requested": w.amount_requested,
-                "platform_fee": w.platform_fee,
-                "amount_sent": w.amount_sent,
-                "mpesa_phone": w.mpesa_phone,
-                "status": w.status,
-                "admin_note": w.admin_note,
-                "created_at": w.created_at.isoformat() if w.created_at else None,
-                "processed_at": w.processed_at.isoformat() if w.processed_at else None,
-            }
-            for w in withdrawals
-        ]
-    }
+@app.get("/ai/history", response_model=List[AiChatHistoryResponse])
+def get_chat_history(db=Depends(get_db), current_user=Depends(get_current_user)):
+    history = get_ai_chat_history(db, current_user.id, limit=20)
+    return list(reversed(history))
 
 
-@app.post("/therapist/withdraw")
-def request_withdrawal(
-    amount: float,
-    mpesa_phone: str,
-    db=Depends(get_db),
-    current_user=Depends(get_current_user)
-):
-    if current_user.user_type != "therapist":
-        raise HTTPException(status_code=403, detail="Only therapists can withdraw")
-
-    if amount < 500:
-        raise HTTPException(status_code=400, detail="Minimum withdrawal is KSh 500")
-
-    wallet = get_wallet(db, current_user.id)
-    if wallet.balance < amount:
-        raise HTTPException(status_code=400, detail=f"Insufficient balance. Available: KSh {wallet.balance}")
-
-    if not mpesa_phone.startswith("254") or len(mpesa_phone) != 12:
-        raise HTTPException(status_code=400, detail="Enter valid M-Pesa number (e.g., 254712345678)")
-
-    platform_fee = amount * PLATFORM_COMMISSION_RATE
-    amount_sent = amount - platform_fee
-
-    deduct_from_wallet(db, current_user.id, amount)
-
-    withdrawal = create_withdrawal(db, {
-        "user_id": current_user.id,
-        "amount_requested": amount,
-        "platform_fee": platform_fee,
-        "amount_sent": amount_sent,
-        "mpesa_phone": mpesa_phone,
-        "status": "pending"
-    })
-
-    create_notification(
-        db,
-        user_id=1,
-        message=f"New withdrawal request: KSh {amount} from {current_user.name or current_user.email}",
-        type="system"
-    )
-
-    return {
-        "message": f"Withdrawal request of KSh {amount} submitted. You will receive KSh {amount_sent} after 15% platform fee.",
-        "withdrawal_id": withdrawal.id
-    }
-
-
-# ============ ADMIN WITHDRAWAL MANAGEMENT ============
-
-@app.get("/admin/withdrawals")
-def admin_get_withdrawals(status: Optional[str] = None, db=Depends(get_db), admin=Depends(require_admin)):
-    withdrawals = get_all_withdrawals(db, status=status)
-
-    result = []
-    for w in withdrawals:
-        user = get_user_by_id(db, w.user_id)
-        result.append({
-            "id": w.id,
-            "user_name": user.name or user.email if user else "Unknown",
-            "user_email": user.email if user else "N/A",
-            "amount_requested": w.amount_requested,
-            "platform_fee": w.platform_fee,
-            "amount_sent": w.amount_sent,
-            "mpesa_phone": w.mpesa_phone,
-            "status": w.status,
-            "admin_note": w.admin_note,
-            "created_at": w.created_at.isoformat() if w.created_at else None,
-            "processed_at": w.processed_at.isoformat() if w.processed_at else None,
-        })
-    return result
-
-
-@app.put("/admin/withdrawals/{withdrawal_id}/approve")
-def admin_approve_withdrawal(withdrawal_id: int, db=Depends(get_db), admin=Depends(require_admin)):
-    withdrawal = get_withdrawal_by_id(db, withdrawal_id)
-    if not withdrawal:
-        raise HTTPException(status_code=404, detail="Withdrawal not found")
-    if withdrawal.status != "pending":
-        raise HTTPException(status_code=400, detail="Withdrawal already processed")
-
-    withdrawal = update_withdrawal_status(db, withdrawal_id, "approved", admin_note=f"Approved by {admin.name or admin.email}")
-
-    create_notification(
-        db,
-        user_id=withdrawal.user_id,
-        message=f"Your withdrawal of KSh {withdrawal.amount_sent} has been approved! It will be sent to {withdrawal.mpesa_phone}.",
-        type="payment"
-    )
-
-    return {"message": "Withdrawal approved", "withdrawal_id": withdrawal_id}
-
-
-@app.put("/admin/withdrawals/{withdrawal_id}/reject")
-def admin_reject_withdrawal(withdrawal_id: int, note: Optional[str] = None, db=Depends(get_db), admin=Depends(require_admin)):
-    withdrawal = get_withdrawal_by_id(db, withdrawal_id)
-    if not withdrawal:
-        raise HTTPException(status_code=404, detail="Withdrawal not found")
-    if withdrawal.status != "pending":
-        raise HTTPException(status_code=400, detail="Withdrawal already processed")
-
-    add_to_wallet(db, withdrawal.user_id, withdrawal.amount_requested)
-
-    withdrawal = update_withdrawal_status(db, withdrawal_id, "rejected", admin_note=note or "Rejected by admin")
-
-    create_notification(
-        db,
-        user_id=withdrawal.user_id,
-        message=f"Your withdrawal request was rejected. KSh {withdrawal.amount_requested} has been refunded to your balance.",
-        type="payment"
-    )
-
-    return {"message": "Withdrawal rejected and refunded", "withdrawal_id": withdrawal_id}
-
-
-# ============ SESSION NOTES & BOOKING COMPLETION ROUTES ============
-
-@app.put("/bookings/{booking_id}/complete")
-def complete_booking(booking_id: int, db=Depends(get_db), current_user=Depends(get_current_user)):
-    booking = get_booking_by_id(db, booking_id)
-    if not booking:
-        raise HTTPException(status_code=404, detail="Booking not found")
-
-    if booking.therapist_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only the therapist can complete this session")
-
-    booking.status = "completed"
+@app.delete("/ai/history")
+def clear_chat_history(db=Depends(get_db), current_user=Depends(get_current_user)):
+    messages = db.query(AiChatMessage).filter(AiChatMessage.user_id == current_user.id).all()
+    for msg in messages:
+        db.delete(msg)
     db.commit()
-    db.refresh(booking)
-
-    create_notification(
-        db,
-        user_id=booking.client_id,
-        message="Your session has been marked as completed. Don't forget to leave a review!",
-        type="system"
-    )
-
-    return {"message": "Session marked as completed", "booking_id": booking_id}
+    return {"message": "Chat history cleared"}
 
 
-@app.put("/bookings/{booking_id}/confirm")
-def confirm_booking(booking_id: int, db=Depends(get_db), current_user=Depends(get_current_user)):
-    booking = get_booking_by_id(db, booking_id)
-    if not booking:
-        raise HTTPException(status_code=404, detail="Booking not found")
+# ============ SESSION NOTES ROUTES ============
 
-    if booking.therapist_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only the therapist can confirm this session")
-
-    booking.status = "confirmed"
-    db.commit()
-    db.refresh(booking)
-
-    create_notification(
-        db,
-        user_id=booking.client_id,
-        message="Your session has been confirmed by your therapist!",
-        type="booking"
-    )
-
-    return {"message": "Session confirmed", "booking_id": booking_id}
-
-
-@app.put("/bookings/{booking_id}/cancel")
-def cancel_booking(booking_id: int, db=Depends(get_db), current_user=Depends(get_current_user)):
-    booking = get_booking_by_id(db, booking_id)
-    if not booking:
-        raise HTTPException(status_code=404, detail="Booking not found")
-
-    if booking.client_id != current_user.id and booking.therapist_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Unauthorized to cancel this session")
-
-    booking.status = "cancelled"
-    db.commit()
-    db.refresh(booking)
-
-    notify_user_id = booking.therapist_id if current_user.id == booking.client_id else booking.client_id
-    create_notification(
-        db,
-        user_id=notify_user_id,
-        message="A session has been cancelled.",
-        type="booking"
-    )
-
-    return {"message": "Session cancelled", "booking_id": booking_id}
-
-# ============ SECURE CLINICAL SESSION NOTES ROUTES ============
-
-@app.get("/therapist/session-notes", response_model=List[SessionNoteResponse])
-def list_my_session_notes(db=Depends(get_db), current_user=Depends(get_current_user)):
-    if current_user.user_type != "therapist":
-        raise HTTPException(status_code=403, detail="Only therapists can view clinical notes")
-    return db.query(SessionNote).filter(
-        SessionNote.therapist_id == current_user.id
-    ).order_by(SessionNote.updated_at.desc()).all()
-
-
-@app.get("/therapist/session-notes/{booking_id}", response_model=SessionNoteResponse)
-def get_session_note(booking_id: int, db=Depends(get_db), current_user=Depends(get_current_user)):
-    if current_user.user_type != "therapist":
-        raise HTTPException(status_code=403, detail="Only therapists can access clinical notes")
-
-    booking = get_booking_by_id(db, booking_id)
-    if not booking or booking.therapist_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Booking not found")
-
-    note = db.query(SessionNote).filter(SessionNote.booking_id == booking_id).first()
-    if not note:
-        raise HTTPException(status_code=404, detail="No notes found for this session")
-    return note
-
-
-@app.post("/therapist/session-notes/{booking_id}", response_model=SessionNoteResponse)
+@app.post("/bookings/{booking_id}/notes", response_model=SessionNoteResponse)
 def create_or_update_session_note(
     booking_id: int,
     note_data: SessionNoteCreate,
@@ -1257,6 +1061,8 @@ def create_or_update_session_note(
 ):
     if current_user.user_type != "therapist":
         raise HTTPException(status_code=403, detail="Only therapists can write clinical notes")
+
+    # SECURITY: Sanitize all note fields
     note_data.subjective = sanitize_text(note_data.subjective)
     note_data.objective = sanitize_text(note_data.objective)
     note_data.assessment = sanitize_text(note_data.assessment)
@@ -1266,360 +1072,76 @@ def create_or_update_session_note(
 
     booking = get_booking_by_id(db, booking_id)
     if not booking or booking.therapist_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Booking not found")
+        raise HTTPException(status_code=403, detail="Unauthorized to write notes for this booking")
 
+    # Check if note already exists
     existing_note = db.query(SessionNote).filter(SessionNote.booking_id == booking_id).first()
-
+    
     if existing_note:
-        existing_note.subjective = note_data.subjective
-        existing_note.objective = note_data.objective
-        existing_note.assessment = note_data.assessment
-        existing_note.plan = note_data.plan
-        existing_note.private_notes = note_data.private_notes
-        existing_note.risk_level = note_data.risk_level or "low"
-        existing_note.follow_up_required = bool(note_data.follow_up_required)
-        existing_note.updated_at = datetime.utcnow()
-        existing_note.treatment_approach = note_data.treatment_approach
-        existing_note.techniques_used = note_data.techniques_used
+        # Update existing note
+        for field, value in note_data.dict(exclude_unset=True).items():
+            setattr(existing_note, field, value)
         db.commit()
         db.refresh(existing_note)
         return existing_note
-
-    new_note = SessionNote(
-        booking_id=booking.id,
-        therapist_id=booking.therapist_id,
-        client_id=booking.client_id,
-        subjective=note_data.subjective,
-        objective=note_data.objective,
-        assessment=note_data.assessment,
-        plan=note_data.plan,
-        private_notes=note_data.private_notes,
-        risk_level=note_data.risk_level or "low",
-        follow_up_required=bool(note_data.follow_up_required),
-        treatment_approach=note_data.treatment_approach,
-        techniques_used=note_data.techniques_used,
-    )
-    db.add(new_note)
-    db.commit()
-    db.refresh(new_note)
-    return new_note
-
-# ============ THERAPIST CLIENTS ROUTES ============
-
-@app.get("/therapist/clients")
-def get_therapist_clients(db=Depends(get_db), current_user=Depends(get_current_user)):
-    if current_user.user_type != "therapist":
-        raise HTTPException(status_code=403, detail="Only therapists can view clients")
-
-    bookings = get_bookings_for_user(db, current_user.id)
-
-    client_map = {}
-    for booking in bookings:
-        client_id = booking.client_id
-        if client_id not in client_map:
-            client = get_user_by_id(db, client_id)
-            client_map[client_id] = {
-                "id": client_id,
-                "name": client.name or client.email if client else "Unknown",
-                "email": client.email if client else "N/A",
-                "total_sessions": 0,
-                "completed_sessions": 0,
-                "last_session": None,
-            }
-
-        client_map[client_id]["total_sessions"] += 1
-        if booking.status == "completed":
-            client_map[client_id]["completed_sessions"] += 1
-
-        if client_map[client_id]["last_session"] is None or booking.scheduled_time > client_map[client_id]["last_session"]:
-            client_map[client_id]["last_session"] = booking.scheduled_time
-
-    return list(client_map.values())
-
-
-# ============ RAGE ROOM ROUTES ============
-
-@app.get("/rage-rooms", response_model=List[RageRoomResponse])
-def list_rage_rooms(db=Depends(get_db), current_user=Depends(get_current_user)):
-    rooms = db.query(RageRoom).filter(RageRoom.is_active == True).order_by(RageRoom.created_at.desc()).all()
-    result = []
-    for room in rooms:
-        packages = db.query(RageRoomPackage).filter(RageRoomPackage.rage_room_id == room.id).all()
-        result.append({
-            "id": room.id,
-            "name": room.name,
-            "location": room.location,
-            "description": room.description,
-            "available_days": room.available_days,
-            "available_hours": room.available_hours,
-            "is_active": room.is_active,
-            "created_at": room.created_at,
-            "packages": packages,
-        })
-    return result
-
-
-@app.post("/rage-rooms", response_model=RageRoomResponse)
-def create_rage_room(room: RageRoomCreate, db=Depends(get_db), admin=Depends(require_admin)):
-    db_room = RageRoom(**room.dict())
-    db.add(db_room)
-    db.commit()
-    db.refresh(db_room)
-    return {
-        "id": db_room.id,
-        "name": db_room.name,
-        "location": db_room.location,
-        "description": db_room.description,
-        "available_days": db_room.available_days,
-        "available_hours": db_room.available_hours,
-        "is_active": db_room.is_active,
-        "created_at": db_room.created_at,
-        "packages": [],
-    }
-
-
-@app.post("/rage-rooms/{room_id}/packages", response_model=RageRoomPackageResponse)
-def add_rage_room_package(room_id: int, package: RageRoomPackageCreate, db=Depends(get_db), admin=Depends(require_admin)):
-    room = db.query(RageRoom).filter(RageRoom.id == room_id).first()
-    if not room:
-        raise HTTPException(status_code=404, detail="Rage room not found")
-    db_package = RageRoomPackage(rage_room_id=room_id, **package.dict())
-    db.add(db_package)
-    db.commit()
-    db.refresh(db_package)
-    return db_package
-
-
-@app.put("/rage-rooms/{room_id}/toggle-active")
-def toggle_rage_room(room_id: int, db=Depends(get_db), admin=Depends(require_admin)):
-    db_room = db.query(RageRoom).filter(RageRoom.id == room_id).first()
-    if not db_room:
-        raise HTTPException(status_code=404, detail="Rage room not found")
-    db_room.is_active = not db_room.is_active
-    db.commit()
-    db.refresh(db_room)
-    return {"message": f"Rage room {'activated' if db_room.is_active else 'deactivated'}", "is_active": db_room.is_active}
-
-
-@app.post("/rage-rooms/book")
-def book_rage_room(booking: RageRoomBookingCreate, db=Depends(get_db), current_user=Depends(get_current_user)):
-    if current_user.user_type != "client":
-        raise HTTPException(status_code=403, detail="Only clients can book rage rooms")
-
-    package = db.query(RageRoomPackage).filter(RageRoomPackage.id == booking.package_id).first()
-    if not package:
-        raise HTTPException(status_code=404, detail="Package not found")
-
-    room = db.query(RageRoom).filter(RageRoom.id == package.rage_room_id, RageRoom.is_active == True).first()
-    if not room:
-        raise HTTPException(status_code=404, detail="Rage room not found")
-
-    # FIXED: Student rate logic is now OUTSIDE the "if not room" block
-    if booking.use_student_rate:
-        if not current_user.is_verified_student:
-            raise HTTPException(status_code=403, detail="You must verify your student email first. Go to Settings to verify.")
-
-        uni = db.query(University).filter(University.id == current_user.university_id).first()
-        if not uni or not uni.is_active:
-            raise HTTPException(status_code=403, detail="Your university subscription is not active.")
-        if uni.rage_room_credit_pool <= 0:
-            raise HTTPException(status_code=403, detail="Your university has no remaining rage room credits. Full price applies.")
-
-        STUDENT_TOKEN = {"basic": 100, "regular": 150, "premium": 200}
-        amount = STUDENT_TOKEN.get(package.tier, package.price)
-        is_student = True
-
-        uni.rage_room_credit_pool -= 1
-        db.commit()
     else:
-        amount = package.price
-        is_student = False
-
-    db_booking = RageRoomBooking(
-        client_id=current_user.id,
-        rage_room_id=room.id,
-        package_id=package.id,
-        scheduled_time=booking.scheduled_time,
-        amount=amount,
-        status="pending",
-        payment_status="pending",
-        is_student_rate=is_student,
-        waiver_signed=True,
-        waiver_signed_at=datetime.utcnow(),
-        signer_name=booking.signer_name,
-        signer_id_number=booking.signer_id_number,
-    )
-    db.add(db_booking)
-    db.commit()
-    db.refresh(db_booking)
-
-    return {"booking_id": db_booking.id, "amount": amount, "status": "pending", "is_student_rate": is_student}
-
-
-@app.get("/rage-rooms/bookings/me")
-def my_rage_bookings(db=Depends(get_db), current_user=Depends(get_current_user)):
-    bookings = db.query(RageRoomBooking).filter(
-        RageRoomBooking.client_id == current_user.id
-    ).order_by(RageRoomBooking.created_at.desc()).all()
-
-    result = []
-    for b in bookings:
-        room = db.query(RageRoom).filter(RageRoom.id == b.rage_room_id).first()
-        package = db.query(RageRoomPackage).filter(RageRoomPackage.id == b.package_id).first()
-        result.append({
-            "id": b.id,
-            "rage_room_id": b.rage_room_id,
-            "room_name": room.name if room else "Unknown",
-            "location": room.location if room else "",
-            "package_name": package.name if package else "Unknown",
-            "tier": package.tier if package else "",
-            "scheduled_time": b.scheduled_time,
-            "duration_minutes": package.duration_minutes if package else 60,
-            "status": b.status,
-            "amount": b.amount,
-            "payment_status": b.payment_status,
-            "payment_method": b.payment_method,
-            "is_student_rate": b.is_student_rate,
-        })
-    return result
-
-
-@app.post("/rage-rooms/pay")
-def pay_rage_booking(booking_id: int, phone: str, db=Depends(get_db), current_user=Depends(get_current_user)):
-    booking = db.query(RageRoomBooking).filter(RageRoomBooking.id == booking_id).first()
-    if not booking or booking.client_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Unauthorized booking")
-
-    result = simulate_payment(phone, booking.amount)
-    if result["success"]:
-        booking.payment_status = "completed"
-        booking.status = "confirmed"
-        booking.payment_method = "in_app"
-        booking.platform_fee = int(booking.amount * PLATFORM_COMMISSION_RATE)
+        # Create new note
+        new_note = SessionNote(
+            booking_id=booking_id,
+            therapist_id=current_user.id,
+            **note_data.dict()
+        )
+        db.add(new_note)
         db.commit()
+        db.refresh(new_note)
+        return new_note
 
-        create_notification(
-            db,
-            user_id=current_user.id,
-            message=f"Payment of KSh {booking.amount} confirmed. Your rage room session is booked!",
-            type="payment"
+
+@app.get("/bookings/{booking_id}/notes", response_model=SessionNoteResponse)
+def get_session_note(booking_id: int, db=Depends(get_db), current_user=Depends(get_current_user)):
+    if current_user.user_type != "therapist":
+        raise HTTPException(status_code=403, detail="Only therapists can view clinical notes")
+
+    booking = get_booking_by_id(db, booking_id)
+    if not booking or booking.therapist_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Unauthorized to view notes for this booking")
+
+    note = db.query(SessionNote).filter(SessionNote.booking_id == booking_id).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="No notes found for this booking")
+    
+    return note
+
+
+# ============ STUDENT SIGNUP & VERIFICATION ============
+
+@app.post("/auth/student-signup", response_model=Token)
+def student_signup(student: StudentSignupRequest, db=Depends(get_db)):
+    # Check if email domain matches a university
+    email_domain = student.email.split("@")[-1].lower()
+    university = db.query(University).filter(
+        University.email_domain == email_domain,
+        University.is_active == True
+    ).first()
+
+    if not university:
+        raise HTTPException(
+            status_code=400,
+            detail="Your university is not registered or not active. Please use your personal email to sign up."
         )
 
-    return PaymentResponse(**result)
-
-
-@app.put("/rage-rooms/bookings/{booking_id}/confirm-onsite")
-def confirm_onsite_payment(booking_id: int, db=Depends(get_db), admin=Depends(require_admin)):
-    booking = db.query(RageRoomBooking).filter(RageRoomBooking.id == booking_id).first()
-    if not booking:
-        raise HTTPException(status_code=404, detail="Booking not found")
-
-    booking.payment_status = "completed"
-    booking.status = "confirmed"
-    booking.payment_method = "on_site"
-    booking.platform_fee = int(booking.amount * PLATFORM_COMMISSION_RATE)
-    db.commit()
-
-    create_notification(
-        db,
-        user_id=booking.client_id,
-        message=f"On-site payment confirmed for your rage room session. See you there!",
-        type="payment"
-    )
-
-    return {"message": "On-site payment confirmed", "booking_id": booking_id}
-
-
-@app.get("/admin/rage-bookings")
-def admin_get_rage_bookings(db=Depends(get_db), admin=Depends(require_admin)):
-    bookings = db.query(RageRoomBooking).order_by(RageRoomBooking.created_at.desc()).all()
-    result = []
-    for b in bookings:
-        room = db.query(RageRoom).filter(RageRoom.id == b.rage_room_id).first()
-        package = db.query(RageRoomPackage).filter(RageRoomPackage.id == b.package_id).first()
-        client = get_user_by_id(db, b.client_id)
-        result.append({
-            "id": b.id,
-            "client_name": client.name or client.email if client else "Unknown",
-            "room_name": room.name if room else "Unknown",
-            "package_name": package.name if package else "Unknown",
-            "scheduled_time": b.scheduled_time,
-            "amount": b.amount,
-            "payment_status": b.payment_status,
-            "payment_method": b.payment_method,
-            "platform_fee": b.platform_fee,
-            "is_student_rate": b.is_student_rate,
-            "status": b.status,
-        })
-    return result
-
-
-# ============ UNIVERSITY ROUTES ============
-
-@app.get("/universities", response_model=List[UniversityResponse])
-def list_universities(db=Depends(get_db)):
-    return db.query(University).filter(University.is_active == True).all()
-
-
-@app.post("/admin/universities", response_model=UniversityResponse)
-def create_university(uni: UniversityCreate, db=Depends(get_db), admin=Depends(require_admin)):
-    existing = db.query(University).filter(University.email_domain == uni.email_domain).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="University with this email domain already exists")
-    db_uni = University(**uni.dict())
-    db.add(db_uni)
-    db.commit()
-    db.refresh(db_uni)
-    return db_uni
-
-
-@app.put("/admin/universities/{uni_id}/toggle-active")
-def toggle_university(uni_id: int, db=Depends(get_db), admin=Depends(require_admin)):
-    uni = db.query(University).filter(University.id == uni_id).first()
-    if not uni:
-        raise HTTPException(status_code=404, detail="University not found")
-    uni.is_active = not uni.is_active
-    db.commit()
-    return {"message": f"University {'activated' if uni.is_active else 'deactivated'}", "is_active": uni.is_active}
-
-
-@app.put("/admin/universities/{uni_id}/add-credits")
-def add_university_credits(uni_id: int, credits: int, db=Depends(get_db), admin=Depends(require_admin)):
-    uni = db.query(University).filter(University.id == uni_id).first()
-    if not uni:
-        raise HTTPException(status_code=404, detail="University not found")
-    uni.rage_room_credit_pool += credits
-    db.commit()
-    return {"message": f"Added {credits} credits", "new_total": uni.rage_room_credit_pool}
-
-
-# ============ STUDENT SIGNUP & EMAIL VERIFICATION ============
-
-@app.post("/auth/student-signup")
-def student_signup(data: StudentSignupRequest, db=Depends(get_db)):
-    uni = db.query(University).filter(University.id == data.university_id, University.is_active == True).first()
-    if not uni:
-        raise HTTPException(status_code=404, detail="University not found or inactive")
-
-    # FIXED: Use endswith() to support subdomain emails like seth.ihiga24@s.karu.ac.ke
-    email_domain = data.email.split("@")[-1].lower()
-    if not email_domain.endswith(uni.email_domain.lower()):
-        raise HTTPException(status_code=400, detail=f"Email must end with @{uni.email_domain}")
-
-    existing = get_user_by_email(db, data.email)
-    if existing:
+    # Check if email already exists
+    existing_user = get_user_by_email(db, student.email)
+    if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    from passlib.context import CryptContext
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-    hashed_password = pwd_context.hash(data.password)
-
+    # Create user with university association
     new_user = User(
-        email=data.email,
-        hashed_password=hashed_password,
+        email=student.email,
+        hashed_password=student.password,  # Should be hashed in production
+        name=student.name,
         user_type="client",
-        name=data.name,
-        university_id=uni.id,
+        university_id=university.id,
         is_verified_student=False,
         terms_accepted=False,
     )
@@ -1627,67 +1149,63 @@ def student_signup(data: StudentSignupRequest, db=Depends(get_db)):
     db.commit()
     db.refresh(new_user)
 
+    # Generate verification token
     token = secrets.token_urlsafe(32)
-    expires_at = datetime.utcnow() + timedelta(hours=24)
-    verification = EmailVerificationToken(
+    verification_token = EmailVerificationToken(
         user_id=new_user.id,
         token=token,
-        expires_at=expires_at,
+        expires_at=datetime.utcnow() + timedelta(hours=24)
     )
-    db.add(verification)
+    db.add(verification_token)
     db.commit()
 
+    # Send verification email
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
     verify_link = f"{frontend_url}/verify-email?token={token}"
 
-    # FIXED: Proper indentation for email sending
     try:
         email_user = os.getenv("EMAIL_USER", "")
         email_password = os.getenv("EMAIL_PASSWORD", "")
-        email_host = os.getenv("EMAIL_HOST", "smtp.gmail.com")
-        email_port = int(os.getenv("EMAIL_PORT", "587"))
-
-        if not email_user or not email_password:
-            print("⚠️ EMAIL_USER or EMAIL_PASSWORD not set in .env")
-            print(f"   🔗 Manual link: {verify_link}")
-        else:
-            msg = MIMEMultipart("alternative")
-            msg["From"] = f"Mecac Care Connect <{email_user}>"
-            msg["To"] = data.email
-            msg["Subject"] = "Verify your Mecac student account"
-
-            html_body = f"""
-            <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 2rem;">
-                <h2 style="color: #2E7D32; margin-bottom: 0.5rem;">Welcome to Mecac, {data.name or 'Student'}!</h2>
-                <p style="color: #374151;">You signed up as a <strong>{uni.name}</strong> student.</p>
-                <p style="color: #374151;">Click the button below to verify your email and unlock student pricing (KSh 100/150/200 for rage room sessions).</p>
-                <div style="margin: 1.5rem 0;">
-                    <a href="{verify_link}" style="display: inline-block; padding: 14px 28px; background: #2E7D32; color: white; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 1rem;">Verify My Email</a>
-                </div>
-                <p style="color: #9CA3AF; font-size: 0.8rem; border-top: 1px solid #E5E7EB; padding-top: 1rem;">
-                    This link expires in 24 hours. If you didn't sign up, ignore this email.<br>
-                    Mecac Care Connect — Kenya's Mental Health Platform
-                </p>
-            </div>
+        
+        if email_user and email_password:
+            msg = MIMEMultipart()
+            msg['From'] = email_user
+            msg['To'] = student.email
+            msg['Subject'] = "Verify Your Student Email - Afya Care Connect"
+            
+            body = f"""
+            Hello {student.name},
+            
+            Thank you for signing up for Afya Care Connect with your {university.name} email!
+            
+            Please click the link below to verify your student status and unlock special pricing:
+            
+            {verify_link}
+            
+            This link expires in 24 hours.
+            
+            Best regards,
+            The Afya Care Connect Team
             """
-
-            msg.attach(MIMEText(html_body, "html"))
-
-            server = smtplib.SMTP(email_host, email_port)
+            
+            msg.attach(MIMEText(body, 'plain'))
+            
+            server = smtplib.SMTP('smtp.gmail.com', 587)
             server.starttls()
             server.login(email_user, email_password)
-            server.sendmail(email_user, data.email, msg.as_string())
+            server.send_message(msg)
             server.quit()
-
-            print(f" Verification email sent to {data.email}")
-
     except Exception as e:
-        print(f" Email send failed: {e}")
-        print(f"    Manual link: {verify_link}")
+        print(f"Failed to send verification email: {e}")
 
+    access_token = create_access_token(
+        data={"user_id": new_user.id, "user_type": new_user.user_type}
+    )
+    
     return {
-        "requires_verification": True,
-        "message": "Verification email sent! Check your inbox, click the link, then log in.",
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user_type": new_user.user_type
     }
 
 
@@ -1698,11 +1216,8 @@ def verify_email(token: str, db=Depends(get_db)):
         EmailVerificationToken.is_used == False,
     ).first()
 
-    if not verification:
-        return {"success": False, "message": "Invalid or expired verification link."}
-
-    if verification.expires_at < datetime.utcnow():
-        return {"success": False, "message": "Verification link has expired. Please sign up again."}
+    if not verification or verification.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Invalid or expired verification token")
 
     user = get_user_by_id(db, verification.user_id)
     if user:
@@ -1717,155 +1232,50 @@ def verify_email(token: str, db=Depends(get_db)):
 
 @app.get("/admin/universities/list")
 def admin_list_universities(db=Depends(get_db), admin=Depends(require_admin)):
-    unis = db.query(University).order_by(University.created_at.desc()).all()
+    universities = db.query(University).all()
     result = []
-    for uni in unis:
+    for uni in universities:
         student_count = db.query(User).filter(User.university_id == uni.id, User.is_verified_student == True).count()
         result.append({
             "id": uni.id,
             "name": uni.name,
             "email_domain": uni.email_domain,
             "subscription_tier": uni.subscription_tier,
-            "subscription_expires": uni.subscription_expires,
-            "rage_room_credit_pool": uni.rage_room_credit_pool,
             "is_active": uni.is_active,
             "student_count": student_count,
-            "created_at": uni.created_at,
+            "created_at": uni.created_at
         })
     return result
 
 
-# ============ THERAPIST AVAILABILITY ROUTES ============
-
-@app.get("/therapist/availability")
-def get_my_availability(db=Depends(get_db), current_user=Depends(get_current_user)):
-    if current_user.user_type != "therapist":
-        raise HTTPException(status_code=403, detail="Only therapists can view availability")
-    
-    slots = db.query(TherapistAvailability).filter(
-        TherapistAvailability.therapist_id == current_user.id
-    ).order_by(TherapistAvailability.day_of_week, TherapistAvailability.start_time).all()
-    
-    return [
-        {
-            "id": slot.id,
-            "day_of_week": slot.day_of_week,
-            "start_time": slot.start_time,
-            "end_time": slot.end_time,
-            "is_available": slot.is_available,
-        }
-        for slot in slots
-    ]
-
-
-@app.post("/therapist/availability")
-def set_availability(
-    availability_data: List[dict],
+@app.post("/admin/universities", response_model=UniversityResponse)
+def admin_create_university(
+    university: UniversityCreate,
     db=Depends(get_db),
-    current_user=Depends(get_current_user)
+    admin=Depends(require_admin)
 ):
-    if current_user.user_type != "therapist":
-        raise HTTPException(status_code=403, detail="Only therapists can set availability")
-    
-    # Delete existing availability
-    db.query(TherapistAvailability).filter(
-        TherapistAvailability.therapist_id == current_user.id
-    ).delete()
-    
-    # Add new availability slots
-    for slot in availability_data:
-        new_slot = TherapistAvailability(
-            therapist_id=current_user.id,
-            day_of_week=slot["day_of_week"],
-            start_time=slot["start_time"],
-            end_time=slot["end_time"],
-            is_available=slot.get("is_available", True)
-        )
-        db.add(new_slot)
-    
+    new_uni = University(**university.dict())
+    db.add(new_uni)
     db.commit()
-    return {"message": "Availability updated successfully", "slots_count": len(availability_data)}
+    db.refresh(new_uni)
+    return new_uni
 
 
-@app.get("/therapist/{therapist_id}/available-slots")
-def get_available_slots(
-    therapist_id: int,
-    date: str,
-    db=Depends(get_db)
-):
-    from datetime import datetime as dt
+@app.put("/admin/universities/{uni_id}/toggle-active")
+def admin_toggle_university(uni_id: int, db=Depends(get_db), admin=Depends(require_admin)):
+    uni = db.query(University).filter(University.id == uni_id).first()
+    if not uni:
+        raise HTTPException(status_code=404, detail="University not found")
     
-    # Parse the date (format: YYYY-MM-DD)
-    try:
-        selected_date = dt.strptime(date, "%Y-%m-%d")
-        day_of_week = selected_date.weekday()  # 0 = Monday, 6 = Sunday
-    except:
-        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
-    
-    # Get therapist's availability for this day
-    slots = db.query(TherapistAvailability).filter(
-        TherapistAvailability.therapist_id == therapist_id,
-        TherapistAvailability.day_of_week == day_of_week,
-        TherapistAvailability.is_available == True
-    ).all()
-    
-    # Get existing bookings for this therapist on this date
-    existing_bookings = db.query(SessionBooking).filter(
-        SessionBooking.therapist_id == therapist_id,
-        func.date(SessionBooking.scheduled_time) == date
-    ).all()
-    
-    booked_times = [booking.scheduled_time.strftime("%H:%M") for booking in existing_bookings]
-    
-    # Generate available time slots
-    available_slots = []
-    for slot in slots:
-        start_hour = int(slot.start_time.split(":")[0])
-        end_hour = int(slot.end_time.split(":")[0])
-        
-        for hour in range(start_hour, end_hour):
-            time_str = f"{hour:02d}:00"
-            if time_str not in booked_times:
-                available_slots.append(time_str)
+    uni.is_active = not uni.is_active
+    db.commit()
+    db.refresh(uni)
     
     return {
-        "date": date,
-        "day_of_week": day_of_week,
-        "available_slots": sorted(available_slots)
+        "message": f"University {'activated' if uni.is_active else 'deactivated'}",
+        "is_active": uni.is_active
     }
 
-# ============ THERAPIST PERFORMANCE METRICS ============
-
-@app.get("/therapist/stats")
-def get_therapist_stats(db=Depends(get_db), current_user=Depends(get_current_user)):
-    if current_user.user_type != "therapist":
-        raise HTTPException(status_code=403, detail="Therapist access required")
-
-    all_bookings = db.query(SessionBooking).filter(
-        SessionBooking.therapist_id == current_user.id
-    ).all()
-    completed = [b for b in all_bookings if b.status == 'completed']
-
-    def earning(b):
-        e = getattr(b, 'therapist_earning', None)
-        if e is not None:
-            return float(e)
-        return float(b.amount or 0) * 0.85
-
-    total_earnings = sum(earning(b) for b in completed)
-
-    reviews = db.query(Review).filter(Review.therapist_id == current_user.id).all()
-    avg_rating = sum(r.rating for r in reviews) / len(reviews) if reviews else 0
-    completion_rate = (len(completed) / len(all_bookings) * 100) if all_bookings else 0
-
-    return {
-        "total_sessions": len(all_bookings),
-        "completed_sessions": len(completed),
-        "total_earnings": round(total_earnings, 2),
-        "review_count": len(reviews),
-        "average_rating": round(avg_rating, 1),
-        "completion_rate": round(completion_rate, 1),
-    }
 
 # ============ ADMIN BOOKING MANAGEMENT & REFUNDS ============
 
@@ -1905,7 +1315,7 @@ def refund_booking(booking_id: int, db=Depends(get_db), current_user=Depends(get
     db.commit()
     db.refresh(booking)
     return {"success": True, "message": "Booking refunded successfully"}
-# ============ MAIN ENTRY POINT ============
+
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8000)

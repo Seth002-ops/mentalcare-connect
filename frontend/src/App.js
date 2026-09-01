@@ -29,6 +29,7 @@ import AICompanion from './components/AICompanion';
 import TherapistAvailability from './components/TherapistAvailability';
 import VideoCall from './components/VideoCall';
 import AdminAnalyticsPage from './components/AdminAnalyticsPage';
+import AICompanionWidget from './components/AICompanionWidget';
 import './App.css';
 
 const App = () => {
@@ -154,15 +155,15 @@ const App = () => {
             }
           />
           <Route
-  path="/admin/analytics"
-  element={
-    user && userType === 'admin' ? (
-      <AdminAnalyticsPage />
-    ) : (
-      <Navigate to="/login" />
-    )
-  }
-/>
+            path="/admin/analytics"
+            element={
+              user && userType === 'admin' ? (
+                <AdminAnalyticsPage />
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          />
           <Route path="/login" element={<Login onLogin={login} />} />
           <Route path="/signup" element={<Signup onLogin={login} />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
@@ -385,7 +386,7 @@ const App = () => {
               )
             }
           />
-            <Route
+          <Route
             path="/therapist-availability"
             element={
               user && userType === 'therapist' ? (
@@ -395,7 +396,7 @@ const App = () => {
               )
             }
           />
-            <Route
+          <Route
             path="/session/video/:bookingId"
             element={
               user ? (
@@ -405,7 +406,7 @@ const App = () => {
               )
             }
           />
-                    {/* Rage Room Booking */}
+          {/* Rage Room Booking */}
           <Route
             path="/rage-rooms"
             element={
@@ -418,6 +419,14 @@ const App = () => {
           />
 
         </Routes>
+
+        {/* ============ AI COMPANION WIDGET ============ */}
+        {/* Shows for clients (support) AND therapists (work assistant) */}
+        {/* Hidden for admins and logged-out visitors */}
+        {user && (userType === 'client' || userType === 'therapist') && (
+          <AICompanionWidget userType={userType} />
+        )}
+
       </div>
     </Router>
   );
