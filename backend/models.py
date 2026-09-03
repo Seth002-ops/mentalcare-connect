@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Text, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Text, ForeignKey, DateTime
 from sqlalchemy.sql import func
 from datetime import datetime
 from database import Base
@@ -282,13 +282,13 @@ class SessionNote(Base):
        
     treatment_approach = Column(String, nullable=True)
     techniques_used = Column(Text, nullable=True)
-
-
-    class AiChatMessage(Base):
+class AiChatMessage(Base):
     __tablename__ = "ai_chat_messages"
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
-    role = Column(String)  # 'user' or 'assistant'
+    role = Column(String)
     content = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
