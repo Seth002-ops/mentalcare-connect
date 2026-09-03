@@ -282,3 +282,13 @@ class SessionNote(Base):
        
     treatment_approach = Column(String, nullable=True)
     techniques_used = Column(Text, nullable=True)
+
+
+    class AiChatMessage(Base):
+    __tablename__ = "ai_chat_messages"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    role = Column(String)  # 'user' or 'assistant'
+    content = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
