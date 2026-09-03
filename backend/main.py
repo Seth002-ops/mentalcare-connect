@@ -84,6 +84,8 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://mecac-backend.onrender.com",
+    # If you buy a custom domain later (like mecac.com), add it here!
 ]
 
 app.add_middleware(
@@ -92,6 +94,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # This regex allows ANY project deployed on Vercel (including preview deployments)
+    allow_origin_regex=r"https://.*\.vercel\.app",
 )
 
 # --- SECURITY HEADERS MIDDLEWARE ---
