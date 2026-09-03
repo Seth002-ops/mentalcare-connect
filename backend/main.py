@@ -40,6 +40,7 @@ from schemas import (
     UniversityCreate, UniversityResponse, StudentSignupRequest,
     SessionNoteCreate, SessionNoteResponse
 )
+from models import User, Message, SessionBooking, Review, PlatformWithdrawal, RageRoom, RageRoomPackage, RageRoomBooking, University, EmailVerificationToken, TherapistAvailability, SessionNote, AiChatMessage
 from crud import (
     get_user_by_email, get_user_by_id, authenticate_user, create_user,
     create_message, get_messages_by_room, create_booking, simulate_payment,
@@ -71,6 +72,11 @@ app = FastAPI(title=settings.PROJECT_NAME)
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Ensure the uploads directory exists for static files
+os.makedirs("uploads", exist_ok=True)
+os.makedirs("uploads/licenses", exist_ok=True)
+os.makedirs("uploads/profiles", exist_ok=True)
 
 # Mount static files for uploads
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
