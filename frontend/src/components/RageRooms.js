@@ -51,7 +51,7 @@ const RageRooms = ({ logout }) => {
   const fetchStudentStatus = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('/users/me/student-status', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch('https://mecac-backend.onrender.com/users/me/student-status', { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) {
         const data = await res.json();
         if (data.is_verified_student) {
@@ -67,7 +67,7 @@ const RageRooms = ({ logout }) => {
   const fetchRooms = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('/rage-rooms', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch('https://mecac-backend.onrender.com/rage-rooms', { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) setRooms(await res.json());
     } catch (err) {
       console.error('Failed to fetch rage rooms', err);
@@ -79,7 +79,7 @@ const RageRooms = ({ logout }) => {
   const fetchMyBookings = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('/rage-rooms/bookings/me', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch('https://mecac-backend.onrender.com/rage-rooms/bookings/me', { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) setMyBookings(await res.json());
     } catch (err) {
       console.error('Failed to fetch bookings', err);
@@ -119,7 +119,7 @@ const RageRooms = ({ logout }) => {
     const token = localStorage.getItem('token');
     const isoTime = convertTo24Hour(selectedTime);
     try {
-      const res = await fetch('/rage-rooms/book', {
+      const res = await fetch('https://mecac-backend.onrender.com/rage-rooms/book', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({

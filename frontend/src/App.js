@@ -50,7 +50,7 @@ const App = () => {
       setUser({ email: storedEmail, token });
       setUserType(storedType);
 
-      fetch('/users/me', {
+      fetch('https://mecac-backend.onrender.com/users/me', {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((res) => (res.ok ? res.json() : null))
@@ -80,7 +80,7 @@ const App = () => {
     setUser({ email, token });
     setUserType(type);
     
-    fetch('/users/me', {
+    fetch('https://mecac-backend.onrender.com/users/me', {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => (res.ok ? res.json() : null))

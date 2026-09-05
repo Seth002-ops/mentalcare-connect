@@ -32,7 +32,7 @@ const LeaveReview = () => {
     const token = localStorage.getItem('token');
 
     try {
-      const response = await fetch('/reviews', {
+      const response = await fetch('https://mecac-backend.onrender.com/reviews', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

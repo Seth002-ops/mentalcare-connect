@@ -10,7 +10,7 @@ const NotificationBell = () => {
     const token = localStorage.getItem('token');
     if (!token) return;
     try {
-      const res = await fetch('/notifications/me', {
+      const res = await fetch('https://mecac-backend.onrender.com/notifications/me', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -27,7 +27,7 @@ const NotificationBell = () => {
     const token = localStorage.getItem('token');
     if (!token) return;
     try {
-      const res = await fetch('/notifications/unread-count', {
+      const res = await fetch('https://mecac-backend.onrender.com/notifications/unread-count', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -75,7 +75,7 @@ const NotificationBell = () => {
   const handleMarkAllRead = async () => {
     const token = localStorage.getItem('token');
     try {
-      await fetch('/notifications/read-all', {
+      await fetch('https://mecac-backend.onrender.com/notifications/read-all', {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
       });

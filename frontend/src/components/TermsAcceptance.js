@@ -18,7 +18,7 @@ const TermsAcceptance = ({ onAccept }) => {
     const token = localStorage.getItem('token');
 
     try {
-      const response = await fetch('/terms/accept', {
+      const response = await fetch('https://mecac-backend.onrender.com/terms/accept', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });

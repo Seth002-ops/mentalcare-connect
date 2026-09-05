@@ -36,7 +36,7 @@ const App = () => {
       setUserType(storedType);
 
       // Check if user has accepted terms
-      fetch('/users/me', {
+      fetch('https://mecac-backend.onrender.com/users/me', {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((res) => (res.ok ? res.json() : null))

@@ -9,7 +9,7 @@ const AdminBookings = () => {
   const fetchBookings = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('/admin/bookings', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch('https://mecac-backend.onrender.com/admin/bookings', { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) setBookings(await res.json());
     } catch (err) { console.error(err); }
     finally { setLoading(false); }

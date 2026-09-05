@@ -13,7 +13,7 @@ const ClientDashboard = ({ logout }) => {
         return;
       }
       try {
-        const response = await fetch('/bookings/me', {
+        const response = await fetch('https://mecac-backend.onrender.com/mport.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || '') + '/bookings/me', {
           headers: {
             'Authorization': `Bearer ${token}`
           }

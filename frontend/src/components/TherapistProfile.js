@@ -28,7 +28,7 @@ const TherapistProfile = () => {
   const fetchProfile = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('/therapist/status', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch('https://mecac-backend.onrender.com/therapist/status', { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) {
         const data = await res.json();
         setProfile(data);
@@ -69,7 +69,7 @@ const TherapistProfile = () => {
     formData.append('file', file);
 
     try {
-      const res = await fetch('/therapist/profile-photo', {
+      const res = await fetch('https://mecac-backend.onrender.com/therapist/profile-photo', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -99,7 +99,7 @@ const TherapistProfile = () => {
     const token = localStorage.getItem('token');
 
     try {
-      const res = await fetch('/therapist/profile', {
+      const res = await fetch('https://mecac-backend.onrender.com/therapist/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({

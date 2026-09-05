@@ -85,7 +85,7 @@ const Signup = ({ onLogin }) => {
 
   useEffect(() => {
     if (userRole === 'student') {
-      fetch('/universities')
+      fetch('https://mecac-backend.onrender.com/mport.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || '') + '/universities')
         .then(res => res.ok ? res.json() : [])
         .then(data => setUniversities(data))
         .catch(() => setUniversities([]));

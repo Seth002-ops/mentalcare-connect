@@ -8,7 +8,7 @@ const SessionReminder = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
       try {
-        const res = await fetch('/bookings/me', {
+        const res = await fetch('https://mecac-backend.onrender.com/bookings/me', {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) return;

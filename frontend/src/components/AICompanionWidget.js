@@ -167,7 +167,7 @@ const AICompanionWidget = ({ userType = 'client' }) => {
   const fetchHistory = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('/ai/history', {
+      const res = await fetch('https://mecac-backend.onrender.com/ai/history', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -231,7 +231,7 @@ const AICompanionWidget = ({ userType = 'client' }) => {
     
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('/ai/chat', {
+      const res = await fetch('https://mecac-backend.onrender.com/ai/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -306,7 +306,7 @@ const AICompanionWidget = ({ userType = 'client' }) => {
   const clearHistory = async () => {
     const token = localStorage.getItem('token');
     try {
-      await fetch('/ai/history', {
+      await fetch('https://mecac-backend.onrender.com/ai/history', {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });

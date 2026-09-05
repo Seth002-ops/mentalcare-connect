@@ -165,15 +165,15 @@ const ClientDashboard = ({ logout }) => {
   const fetchUserData = async () => {
     const token = localStorage.getItem('token');
     try {
-      const userRes = await fetch('/users/me', { headers: { Authorization: `Bearer ${token}` } });
+      const userRes = await fetch('https://mecac-backend.onrender.com/users/me', { headers: { Authorization: `Bearer ${token}` } });
       if (userRes.ok) {
         const userData = await userRes.json();
         setUserName(userData.name || userData.email?.split('@')[0] || 'Friend');
         setUserEmail(userData.email || '');
       }
-      const bookingsRes = await fetch('/bookings/me', { headers: { Authorization: `Bearer ${token}` } });
+      const bookingsRes = await fetch('https://mecac-backend.onrender.com/bookings/me', { headers: { Authorization: `Bearer ${token}` } });
       if (bookingsRes.ok) setBookings(await bookingsRes.json());
-      const moodsRes = await fetch('/mood/entries', { headers: { Authorization: `Bearer ${token}` } });
+      const moodsRes = await fetch('https://mecac-backend.onrender.com/mood/entries', { headers: { Authorization: `Bearer ${token}` } });
       if (moodsRes.ok) setMoodEntries(await moodsRes.json());
     } catch (err) {
       console.error('Failed to fetch dashboard data', err);
@@ -191,7 +191,7 @@ const ClientDashboard = ({ logout }) => {
     if (!selectedMood) return;
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('/mood/log', {
+      const res = await fetch('https://mecac-backend.onrender.com/mood/log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ mood_score: selectedMood.value, note: moodNote || null }),

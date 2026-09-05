@@ -17,7 +17,7 @@ const Login = ({ onLogin }) => {
 
     try {
       // FIXED: Changed to relative URL to use the React proxy and avoid CORS errors
-      const response = await fetch('/auth/login', {
+      const response = await fetch('https://mecac-backend.onrender.com/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

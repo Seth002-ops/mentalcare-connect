@@ -36,7 +36,7 @@ const TherapistDashboard = ({ logout }) => {
   const fetchAppointments = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('/bookings/me', {
+      const res = await fetch('https://mecac-backend.onrender.com/bookings/me', {
         headers: { Authorization: `Bearer ${token}` } 
       });
       if (res.ok) {
@@ -77,7 +77,7 @@ const TherapistDashboard = ({ logout }) => {
     const token = localStorage.getItem('token');
     if (!token) return;
     try {
-      const res = await fetch('/therapist/earnings', {
+      const res = await fetch('https://mecac-backend.onrender.com/therapist/earnings', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {

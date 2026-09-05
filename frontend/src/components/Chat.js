@@ -57,7 +57,7 @@ const Chat = ({ user, userType }) => {
       const token = localStorage.getItem('token');
       if (!token) return;
       try {
-        const res = await fetch('/ai/history', {
+        const res = await fetch('https://mecac-backend.onrender.com/ai/history', {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res.ok) {
@@ -275,7 +275,7 @@ const Chat = ({ user, userType }) => {
     setNewMessage('');
 
     try {
-      await fetch('/messages', {
+      await fetch('https://mecac-backend.onrender.com/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ room_id: Number(roomId), content: plainText, sender_type: userType })
@@ -302,7 +302,7 @@ const Chat = ({ user, userType }) => {
     setAiLoading(true);
     
     try {
-      const response = await fetch('/ai/chat', {
+      const response = await fetch('https://mecac-backend.onrender.com/ai/chat', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',  

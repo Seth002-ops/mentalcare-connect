@@ -17,7 +17,7 @@ const ReviewModal = ({ booking, onClose, onSubmitted }) => {
     const token = localStorage.getItem('token');
 
     try {
-      const res = await fetch('/reviews', {
+      const res = await fetch('https://mecac-backend.onrender.com/mport.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || '') + '/reviews', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({

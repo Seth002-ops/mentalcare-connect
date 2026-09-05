@@ -46,7 +46,7 @@ const Payment = () => {
     }
 
     try {
-      const response = await fetch('/payments/simulate', {
+      const response = await fetch('https://mecac-backend.onrender.com/payments/simulate', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

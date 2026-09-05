@@ -33,7 +33,7 @@ const AICompanion = ({ logout }) => {
   const loadHistory = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('/ai/history', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch('https://mecac-backend.onrender.com/ai/history', { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) {
         const data = await res.json();
         setMessages(data.map(m => ({ role: m.role, content: m.content })));
@@ -50,7 +50,7 @@ const AICompanion = ({ logout }) => {
     setLoading(true);
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('/ai/chat', {
+      const res = await fetch('https://mecac-backend.onrender.com/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ messages: newMessages.slice(-10) }),

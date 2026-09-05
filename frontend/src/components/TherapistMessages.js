@@ -14,7 +14,7 @@ const TherapistMessages = ({ logout }) => {
   const fetchConversations = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('/bookings/me', {
+      const res = await fetch('https://mecac-backend.onrender.com/bookings/me', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {

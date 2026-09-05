@@ -38,7 +38,7 @@ const Booking = () => {
       setErrorMessage('');
 
       try {
-        const response = await fetch('/users?user_type=therapist', {
+        const response = await fetch('https://mecac-backend.onrender.com/users?user_type=therapist', {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -164,7 +164,7 @@ const Booking = () => {
 
     // selectedTime is now in "09:00" format from the backend
     try {
-      const response = await fetch('/bookings', {
+      const response = await fetch('https://mecac-backend.onrender.com/bookings', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

@@ -39,7 +39,7 @@ const AdminDashboard = ({ logout }) => {
   const fetchStats = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('/admin/stats', {
+      const res = await fetch('https://mecac-backend.onrender.com/admin/stats', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) setStats(await res.json());
@@ -70,7 +70,7 @@ const AdminDashboard = ({ logout }) => {
   const fetchPendingTherapists = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('/admin/therapists/pending', {
+      const res = await fetch('https://mecac-backend.onrender.com/admin/therapists/pending', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) setPendingTherapists(await res.json());
@@ -136,7 +136,7 @@ const AdminDashboard = ({ logout }) => {
   const handleExportCSV = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('/admin/export/users', {
+      const res = await fetch('https://mecac-backend.onrender.com/admin/export/users', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {

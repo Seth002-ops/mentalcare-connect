@@ -12,7 +12,7 @@ const BrowseTherapists = () => {
     const fetchTherapists = async () => {
       const token = localStorage.getItem('token');
       try {
-        const response = await fetch('/users?user_type=therapist', {
+        const response = await fetch('https://mecac-backend.onrender.com/users?user_type=therapist', {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (response.ok) {

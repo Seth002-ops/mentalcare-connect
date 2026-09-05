@@ -36,7 +36,7 @@ const AdminUniversities = ({ logout }) => {
   const fetchUniversities = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('/admin/universities/list', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch('https://mecac-backend.onrender.com/admin/universities/list', { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) setUniversities(await res.json());
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
@@ -48,7 +48,7 @@ const AdminUniversities = ({ logout }) => {
     if (!newUni.name || !newUni.email_domain) { alert('Fill all fields'); return; }
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('/admin/universities', {
+      const res = await fetch('https://mecac-backend.onrender.com/admin/universities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(newUni),

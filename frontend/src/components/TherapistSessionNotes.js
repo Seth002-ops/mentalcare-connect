@@ -29,7 +29,7 @@ const TherapistSessionNotes = () => {
   const fetchBookings = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('/bookings/me', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch('https://mecac-backend.onrender.com/bookings/me', { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) {
         const data = await res.json();
         // Sort descending so newest are at the top

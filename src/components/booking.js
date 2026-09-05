@@ -24,7 +24,7 @@ const Booking = () => {
 
     const fetchTherapists = async () => {
       try {
-        const response = await fetch('/users?user_type=therapist', {
+        const response = await fetch('https://mecac-backend.onrender.com/mport.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || '') + '/users?user_type=therapist', {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -73,7 +73,7 @@ const Booking = () => {
     }
 
     try {
-      const response = await fetch('/bookings', {
+      const response = await fetch('https://mecac-backend.onrender.com/mport.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || '') + '/bookings', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

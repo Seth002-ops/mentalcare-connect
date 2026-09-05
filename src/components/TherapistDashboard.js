@@ -9,7 +9,7 @@ const TherapistDashboard = ({ logout }) => {
     // Fetch clients/bookings from backend; do not hardcode demo data
     const fetchData = async () => {
       try {
-        const res = await fetch('/bookings/me', { credentials: 'include' });
+        const res = await fetch('https://mecac-backend.onrender.com/bookings/me', { credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
           setClients(data);

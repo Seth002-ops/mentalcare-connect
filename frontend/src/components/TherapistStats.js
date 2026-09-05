@@ -10,7 +10,7 @@ const TherapistStats = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    fetch('/therapist/stats', { headers: { Authorization: `Bearer ${token}` } })
+    fetch('https://mecac-backend.onrender.com/mport.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || '') + '/therapist/stats', { headers: { Authorization: `Bearer ${token}` } })
       .then(res => res.ok ? res.json() : null)
       .then(data => setStats(data))
       .catch(err => console.error(err));
