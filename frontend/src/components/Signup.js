@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { API_URL } from '../config'; // <-- Centralized URL import
 
 // ============ PROFESSIONAL ICONS ============
 const IconUser = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>;
@@ -85,7 +86,8 @@ const Signup = ({ onLogin }) => {
 
   useEffect(() => {
     if (userRole === 'student') {
-      fetch('https://mecac-backend.onrender.com/mport.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || '') + '/universities')
+      // FIXED: Cleanly using API_URL from config.js
+      fetch(`${API_URL}/universities`)
         .then(res => res.ok ? res.json() : [])
         .then(data => setUniversities(data))
         .catch(() => setUniversities([]));
@@ -152,7 +154,7 @@ const Signup = ({ onLogin }) => {
 
       if (userRole === 'student') {
         const activeUni = universities.find(u => u.email_domain.toLowerCase() === selectedUni.domain.toLowerCase());
-        endpoint = '/auth/student-signup';
+        endpoint = `${API_URL}/auth/student-signup`; // FIXED: Using API_URL
         body = {
           email: formData.email,
           password: formData.password,
@@ -160,7 +162,7 @@ const Signup = ({ onLogin }) => {
           university_id: activeUni.id,
         };
       } else {
-        endpoint = '/auth/register';
+        endpoint = `${API_URL}/auth/register`; // FIXED: Using API_URL
         body = {
           email: formData.email,
           password: formData.password,
@@ -185,7 +187,6 @@ const Signup = ({ onLogin }) => {
         }
       } else {
         if (Array.isArray(data.detail)) {
-          // Pydantic validation errors — extract readable messages
           const errorMsgs = data.detail.map(e => e.msg).join(', ');
           setError(errorMsgs || 'Validation failed');
         } else {
@@ -199,7 +200,6 @@ const Signup = ({ onLogin }) => {
     }
   };
 
-  // ===== VERIFICATION SENT SCREEN =====
   if (verifySent) {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#F9FAFB', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
@@ -223,18 +223,15 @@ const Signup = ({ onLogin }) => {
     );
   }
 
-  // ===== MAIN SIGNUP FORM =====
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#F9FAFB', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
       <div style={{ background: 'white', borderRadius: '20px', padding: '2rem', maxWidth: '460px', width: '100%', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
 
-        {/* LOGO */}
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '800', color: '#2E7D32', letterSpacing: '-0.02em' }}>MECAC</h2>
           <p style={{ margin: '0.25rem 0 0', color: '#6B7280', fontSize: '0.85rem' }}>Care Connect — Create Account</p>
         </div>
 
-        {/* ROLE SELECTION */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginBottom: '1.25rem' }}>
           {[
             { key: 'client', label: 'Client', icon: <IconUser />, desc: 'Seek support' },
@@ -265,7 +262,6 @@ const Signup = ({ onLogin }) => {
         {error && <div style={{ padding: '0.75rem', background: '#FEE2E2', color: '#991B1B', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.85rem' }}>{error}</div>}
 
         <form onSubmit={handleSubmit}>
-          {/* NAME */}
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.35rem', fontWeight: '600', fontSize: '0.85rem', color: '#374151' }}>
               <IconUser />
@@ -298,7 +294,6 @@ const Signup = ({ onLogin }) => {
             )}
           </div>
 
-          {/* UNIVERSITY SEARCH (Student only) */}
           {userRole === 'student' && (
             <div style={{ marginBottom: '1rem', position: 'relative' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.35rem', fontWeight: '600', fontSize: '0.85rem', color: '#374151' }}>
@@ -361,7 +356,6 @@ const Signup = ({ onLogin }) => {
             </div>
           )}
 
-          {/* EMAIL */}
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.35rem', fontWeight: '600', fontSize: '0.85rem', color: '#374151' }}>
               <IconMail /> Email
@@ -380,7 +374,6 @@ const Signup = ({ onLogin }) => {
             />
           </div>
 
-          {/* PASSWORD */}
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.35rem', fontWeight: '600', fontSize: '0.85rem', color: '#374151' }}>
               <IconLock /> Password
@@ -388,7 +381,6 @@ const Signup = ({ onLogin }) => {
             <input type="password" name="password" value={formData.password} onChange={handleChange} placeholder="At least 6 characters" required style={{ width: '100%', padding: '0.7rem', border: '1px solid #D1D5DB', borderRadius: '10px', fontSize: '0.95rem', boxSizing: 'border-box' }} />
           </div>
 
-          {/* CONFIRM PASSWORD */}
           <div style={{ marginBottom: '1.25rem' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.35rem', fontWeight: '600', fontSize: '0.85rem', color: '#374151' }}>
               <IconLock /> Confirm Password
@@ -396,7 +388,6 @@ const Signup = ({ onLogin }) => {
             <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} placeholder="Repeat password" required style={{ width: '100%', padding: '0.7rem', border: '1px solid #D1D5DB', borderRadius: '10px', fontSize: '0.95rem', boxSizing: 'border-box' }} />
           </div>
 
-          {/* SUBMIT */}
           <button type="submit" disabled={loading} style={{ width: '100%', padding: '0.85rem', background: loading ? '#9CA3AF' : '#2E7D32', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '0.95rem' }}>
             {loading ? 'Creating Account...' : userRole === 'student' ? 'Sign Up as Student' : userRole === 'therapist' ? 'Sign Up as Therapist' : 'Create Account'}
           </button>

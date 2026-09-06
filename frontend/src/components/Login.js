@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { stripEmoji } from '../utils/sanitizeText';
+import { API_URL } from '../config'; // <-- Centralized URL import
 
 const Login = ({ onLogin }) => {
   const [email, setEmail] = useState('');
@@ -16,8 +17,8 @@ const Login = ({ onLogin }) => {
     setError('');
 
     try {
-      // FIXED: Changed to relative URL to use the React proxy and avoid CORS errors
-      const response = await fetch('https://mecac-backend.onrender.com/auth/login', {
+      // FIXED: Cleanly using API_URL from config.js
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

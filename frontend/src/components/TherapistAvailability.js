@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_URL } from '../config'; // <-- Added centralized config import
 
 const DAYS = [
   { id: 0, name: 'Monday' },
@@ -31,7 +32,8 @@ const TherapistAvailability = () => {
   const fetchAvailability = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('https://mecac-backend.onrender.com/mport.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || '') + '/therapist/availability', {
+      // FIXED: Using API_URL cleanly
+      const res = await fetch(`${API_URL}/therapist/availability`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -111,7 +113,8 @@ const TherapistAvailability = () => {
 
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('https://mecac-backend.onrender.com/mport.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || '') + '/therapist/availability', {
+      // FIXED: Using API_URL cleanly
+      const res = await fetch(`${API_URL}/therapist/availability`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

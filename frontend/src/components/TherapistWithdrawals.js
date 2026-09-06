@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
+import { API_URL } from '../config';
 
 const TherapistWithdrawals = ({ logout }) => {
   const navigate = useNavigate();
@@ -18,7 +19,7 @@ const TherapistWithdrawals = ({ logout }) => {
   const fetchEarnings = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('https://mecac-backend.onrender.com/mport.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || '') + '/therapist/earnings', {
+      const res = await fetch(`${API_URL}/therapist/earnings`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {

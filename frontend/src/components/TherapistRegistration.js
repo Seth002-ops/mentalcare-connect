@@ -40,8 +40,8 @@ const TherapistRegistration = () => {
     formDataUpload.append('file', file);
 
     try {
-      const res = await fetch('https://mecac-backend.onrender.com/mport.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || '') + '/mport.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || '') + '/mport.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || '') + '/mport.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || '') + '/mport.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || '') + '/mport.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || '') + '/mport.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || '') + '/therapist/upload-license', {
-        method: 'POST',
+      const res = await fetch(`${API_URL}/your-endpoint-here`, {
+         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formDataUpload,
       });
@@ -79,7 +79,7 @@ const TherapistRegistration = () => {
     const token = localStorage.getItem('token');
 
     try {
-      const res = await fetch('https://mecac-backend.onrender.com/mport.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || '') + '/mport.meta.env.VITE_API_URL || process.env.REACT_APP_API_URL || '') + '/therapist/profile', {
+      const res = await fetch(`${API_URL}/your-endpoint-here`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
