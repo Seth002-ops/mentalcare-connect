@@ -607,7 +607,23 @@ const AdminDashboard = ({ logout }) => {
             )}
           </div>
         )}
-
+<Link to="/admin/rage-rooms" style={{
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.75rem',
+  padding: '1rem',
+  background: '#F9FAFB',
+  border: '1px solid #E5E7EB',
+  borderRadius: '12px',
+  textDecoration: 'none',
+  color: '#111827'
+}}>
+  <span style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#E8F5E9', color: '#2E7D32', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>R</span>
+  <div>
+    <div style={{ fontWeight: '700', fontSize: '0.95rem' }}>Rage Rooms</div>
+    <div style={{ fontSize: '0.82rem', color: '#6B7280' }}>Register spaces with photos & locations</div>
+  </div>
+</Link>
         {/* Pending Therapists Tab */}
         {activeTab === 'pending' && (
           <div style={styles.section}>

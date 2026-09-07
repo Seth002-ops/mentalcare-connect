@@ -184,6 +184,8 @@ class RageRoom(Base):
     is_active = Column(Boolean, default=True)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    image_url = Column(Text, nullable=True) 
+     # Stores the uploaded photo as a data URL
 
 
 class RageRoomPackage(Base):

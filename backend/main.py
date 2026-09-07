@@ -1,8 +1,8 @@
-
 import asyncio
 import os
 import smtplib
 import secrets
+import base64
 from typing import List, Optional, Dict
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, Request, File, UploadFile
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, Request, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import JSONResponse
@@ -55,7 +55,7 @@ from crud import (
 )
 from auth import create_access_token, get_current_user
 from config import settings
-from sqlalchemy import func
+from sqlalchemy import func, inspect, text
 
 # Initialize Groq AI client
 client = AsyncOpenAI(
@@ -67,6 +67,21 @@ Base.metadata.create_all(bind=engine)
 
 # Initialize FastAPI app
 app = FastAPI(title=settings.PROJECT_NAME)
+
+
+# ==========================================
+# AUTO-MIGRATE: Add image_url column to rage_rooms if missing
+# ==========================================
+@app.on_event("startup")
+def ensure_schema():
+    insp = inspect(engine)
+    if "rage_rooms" in insp.get_table_names():
+        cols = [c["name"] for c in insp.get_columns("rage_rooms")]
+        if "image_url" not in cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE rage_rooms ADD COLUMN image_url TEXT"))
+            print("Added image_url column to rage_rooms")
+
 
 # Rate limiter setup
 limiter = Limiter(key_func=get_remote_address)
@@ -85,7 +100,6 @@ ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "https://mecac-backend.onrender.com",
-    # If you buy a custom domain later (like mecac.com), add it here!
 ]
 
 app.add_middleware(
@@ -94,7 +108,6 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    # This regex allows ANY project deployed on Vercel (including preview deployments)
     allow_origin_regex=r"https://.*\.vercel\.app",
 )
 
@@ -103,27 +116,16 @@ app.add_middleware(
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
 
-    # Prevent browsers from MIME-sniffing
     response.headers["X-Content-Type-Options"] = "nosniff"
-
-    # Prevent your API from being embedded in iframes (Clickjacking protection)
     response.headers["X-Frame-Options"] = "DENY"
-
-    # Controls referrer information
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-
-    # Basic browser XSS filter for older browsers
     response.headers["X-XSS-Protection"] = "1; mode=block"
-
-    # Content Security Policy for API responses
     response.headers["Content-Security-Policy"] = "frame-ancestors 'none';"
-
-    # HSTS (Forces HTTPS in production, safe to ignore on local HTTP)
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
     return response
 
-PUBLIC_PATHS = {"/", "/auth/register", "/auth/login", "/auth/student-signup", "/auth/verify-email", "/api/health", "/universities"}
+PUBLIC_PATHS = {"/", "/auth/register", "/auth/login", "/auth/student-signup", "/auth/verify-email", "/api/health", "/universities", "/rage-rooms"}
 
 
 # Crisis detection
@@ -959,6 +961,118 @@ def admin_withdraw_earnings(
         "message": f"Withdrawal request of KSh {amount} submitted successfully",
         "withdrawal_id": withdrawal.id
     }
+
+
+# ============ RAGE ROOM ROUTES ============
+
+class PackageIn(BaseModel):
+    name: str
+    description: str = ""
+    duration_minutes: int = 30
+    price: float = 0
+    tier: str = "standard"
+
+
+@app.get("/rage-rooms")
+def list_rage_rooms(db=Depends(get_db)):
+    """Public endpoint: list active rage rooms with their packages."""
+    rooms = db.query(RageRoom).filter(RageRoom.is_active == True).all()
+    result = []
+    for r in rooms:
+        packages = db.query(RageRoomPackage).filter(RageRoomPackage.rage_room_id == r.id).all()
+        result.append({
+            "id": r.id,
+            "name": r.name,
+            "location": r.location,
+            "description": r.description,
+            "capacity": r.capacity,
+            "price_per_hour": r.price_per_hour,
+            "available_days": r.available_days,
+            "available_hours": r.available_hours,
+            "image_url": getattr(r, "image_url", None),
+            "packages": [
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "description": p.description,
+                    "duration_minutes": p.duration_minutes,
+                    "price": p.price,
+                    "tier": getattr(p, "tier", None),
+                }
+                for p in packages
+            ],
+        })
+    return result
+
+
+@app.post("/rage-rooms")
+async def create_rage_room(
+    name: str = Form(...),
+    location: str = Form(...),
+    description: str = Form(""),
+    capacity: int = Form(4),
+    price_per_hour: float = Form(0),
+    available_days: str = Form("Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday"),
+    available_hours: str = Form("9:00 AM - 9:00 PM"),
+    image: UploadFile = File(None),
+    db=Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Admin-only: register a new rage room with photo and location."""
+    if current_user.user_type != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    image_data_url = None
+    if image and image.filename:
+        contents = await image.read()
+        if len(contents) > 2 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="Image too large. Maximum size is 2MB.")
+        b64 = base64.b64encode(contents).decode("utf-8")
+        image_data_url = f"data:{image.content_type};base64,{b64}"
+
+    room = RageRoom(
+        name=name,
+        location=location,
+        description=description,
+        capacity=capacity,
+        price_per_hour=price_per_hour,
+        available_days=available_days,
+        available_hours=available_hours,
+        is_active=True,
+        owner_id=current_user.id,
+    )
+    if hasattr(room, "image_url"):
+        room.image_url = image_data_url
+    db.add(room)
+    db.commit()
+    db.refresh(room)
+    return {"id": room.id, "message": "Rage room registered"}
+
+
+@app.post("/rage-rooms/{room_id}/packages")
+def add_package(
+    room_id: int,
+    pkg: PackageIn,
+    db=Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Admin-only: add a package to a rage room."""
+    if current_user.user_type != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    room = db.query(RageRoom).filter(RageRoom.id == room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Rage room not found")
+    package = RageRoomPackage(
+        rage_room_id=room_id,
+        name=pkg.name,
+        description=pkg.description,
+        duration_minutes=pkg.duration_minutes,
+        price=pkg.price,
+        tier=pkg.tier,
+    )
+    db.add(package)
+    db.commit()
+    return {"message": "Package added"}
 
 
 # ============ AI ROUTES ============

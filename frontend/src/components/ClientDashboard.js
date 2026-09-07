@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { API_URL } from '../config';
 import NotificationBell from './NotificationBell';
 import SessionReminder from './SessionReminder';
 import ReviewModal from './ReviewModal';
@@ -165,15 +166,15 @@ const ClientDashboard = ({ logout }) => {
   const fetchUserData = async () => {
     const token = localStorage.getItem('token');
     try {
-      const userRes = await fetch('https://mecac-backend.onrender.com/users/me', { headers: { Authorization: `Bearer ${token}` } });
+      const userRes = await fetch(`${API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } });
       if (userRes.ok) {
         const userData = await userRes.json();
         setUserName(userData.name || userData.email?.split('@')[0] || 'Friend');
         setUserEmail(userData.email || '');
       }
-      const bookingsRes = await fetch('https://mecac-backend.onrender.com/bookings/me', { headers: { Authorization: `Bearer ${token}` } });
+      const bookingsRes = await fetch(`${API_URL}/bookings/me`, { headers: { Authorization: `Bearer ${token}` } });
       if (bookingsRes.ok) setBookings(await bookingsRes.json());
-      const moodsRes = await fetch('https://mecac-backend.onrender.com/mood/entries', { headers: { Authorization: `Bearer ${token}` } });
+      const moodsRes = await fetch(`${API_URL}/mood/entries`, { headers: { Authorization: `Bearer ${token}` } });
       if (moodsRes.ok) setMoodEntries(await moodsRes.json());
     } catch (err) {
       console.error('Failed to fetch dashboard data', err);
@@ -191,7 +192,7 @@ const ClientDashboard = ({ logout }) => {
     if (!selectedMood) return;
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('https://mecac-backend.onrender.com/mood/log', {
+      const res = await fetch(`${API_URL}/mood/log`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ mood_score: selectedMood.value, note: moodNote || null }),
@@ -651,7 +652,7 @@ const ClientDashboard = ({ logout }) => {
         .cd-card { background: white; border-radius: 16px; padding: 1.5rem; border: 1px solid #E5E7EB; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         .cd-card-title { margin: 0 0 1.1rem 0; font-size: 1.08rem; font-weight: 700; color: #111827; }
         .cd-mood-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); gap: 0.5rem; }
-        .cd-mood-btn { display: flex; flexDirection: column; align-items: center; gap: 0.3rem; padding: 0.6rem 0.25rem; border-radius: 12px; border: 2px solid #F3F4F6; cursor: pointer; transition: all 0.15s ease; }
+        .cd-mood-btn { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; padding: 0.6rem 0.25rem; border-radius: 12px; border: 2px solid #F3F4F6; cursor: pointer; transition: all 0.15s ease; }
         .cd-drawer { position: absolute; top: 0; left: 0; bottom: 0; width: 300px; max-width: 85vw; background: white; box-shadow: 4px 0 20px rgba(0,0,0,0.15); overflow-y: auto; }
         .cd-drawer-item { display: flex; align-items: center; gap: 0.85rem; padding: 0.75rem; border-radius: 12px; text-decoration: none; margin-bottom: 0.25rem; }
         .cd-drawer-item:hover { background: #F3F4F6; }

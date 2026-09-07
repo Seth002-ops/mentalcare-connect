@@ -30,6 +30,7 @@ import TherapistAvailability from './components/TherapistAvailability';
 import VideoCall from './components/VideoCall';
 import AdminAnalyticsPage from './components/AdminAnalyticsPage';
 import AICompanionWidget from './components/AICompanionWidget';
+import AdminRageRooms from './components/AdminRageRooms';
 import './App.css';
 
 const App = () => {
@@ -170,6 +171,7 @@ const App = () => {
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/services" element={<Services />} />
+          <Route path="/admin/rage-rooms" element={<AdminRageRooms />} />
           <Route path="/therapist/session-notes" element={user && userType === 'therapist' ? <TherapistSessionNotes /> : <Navigate to="/login" />} />
           <Route path="/therapist/session-notes/:bookingId" element={user && userType === 'therapist' ? <TherapistSessionNotes /> : <Navigate to="/login" />} />
 
