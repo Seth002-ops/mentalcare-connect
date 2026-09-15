@@ -7,9 +7,11 @@ from typing import List, Optional, Dict
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from collections import defaultdict
+from time import time
 from pydantic import BaseModel
 from openai import AsyncOpenAI
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, PlainTextResponse
 from sanitize import sanitize_text
 from dotenv import load_dotenv
 
@@ -88,6 +90,38 @@ limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+
+# ==========================================
+# SECURITY: Login lockout mechanism
+# ==========================================
+login_attempts = defaultdict(list)
+MAX_ATTEMPTS = 5
+LOCKOUT_DURATION = 300  # 5 minutes in seconds
+
+
+def check_login_lockout(ip: str) -> bool:
+    """Returns True if IP is currently locked out."""
+    now = time()
+    # Remove old attempts (older than lockout duration)
+    login_attempts[ip] = [
+        (ts, attempts) for ts, attempts in login_attempts[ip]
+        if now - ts < LOCKOUT_DURATION
+    ]
+    # Count recent failed attempts
+    total_attempts = sum(attempts for ts, attempts in login_attempts[ip])
+    return total_attempts >= MAX_ATTEMPTS
+
+
+def record_failed_attempt(ip: str):
+    """Record a failed login attempt."""
+    login_attempts[ip].append((time(), 1))
+
+
+def clear_attempts(ip: str):
+    """Clear failed attempts on successful login."""
+    login_attempts[ip] = []
+
+
 # Ensure the uploads directory exists for static files
 os.makedirs("uploads", exist_ok=True)
 os.makedirs("uploads/licenses", exist_ok=True)
@@ -137,10 +171,10 @@ CRISIS_KEYWORDS = [
 
 KENYA_CRISIS_RESOURCES = """I'm really concerned about what you're sharing, and I want you to know you're not alone. Please reach out for immediate help:
 
-🇰🇪 Kenya Crisis Lines:
-• Befrienders Kenya: 0722 178 177
-• Kenya Red Cross: 1199
-• National Emergency: 999 / 112
+Kenya Crisis Lines:
+- Befrienders Kenya: 0722 178 177
+- Kenya Red Cross: 1199
+- National Emergency: 999 / 112
 
 You deserve support right now. Please call one of these numbers, or reach out to someone you trust. Your life matters."""
 
@@ -168,6 +202,7 @@ async def enforce_authentication(request: Request, call_next):
 
     is_public = (
         path in PUBLIC_PATHS
+        or path.startswith("/.well-known")
         or path.startswith("/static")
         or path.startswith("/uploads")
         or path.startswith("/favicon.ico")
@@ -233,11 +268,10 @@ def register(request: Request, user: UserCreate, db=Depends(get_db)):
     
     # SECURITY: Force user_type to "client" - ignore any client-provided value
     user_data = user.dict()
-    user_data["user_type"] = "client"  # Always create clients through public registration
+    user_data["user_type"] = "client"
     
     created_user = create_user(db, user_data)
 
-    # FIX: Therapists must wait for admin approval
     if created_user.user_type == "therapist":
         created_user.verification_status = "pending"
         db.commit()
@@ -252,13 +286,27 @@ def register(request: Request, user: UserCreate, db=Depends(get_db)):
 @app.post("/auth/login", response_model=Token)
 @limiter.limit("5/minute")
 def login(request: Request, user_login: UserLogin, db=Depends(get_db)):
+    # SECURITY: Check lockout before authentication
+    client_ip = get_remote_address(request)
+    if check_login_lockout(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many failed attempts. Please try again in 5 minutes."
+        )
+
     user = authenticate_user(db, user_login.email, user_login.password)
     if not user:
+        # SECURITY: Record failed attempt
+        record_failed_attempt(client_ip)
         raise HTTPException(
             status_code=401,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # SECURITY: Clear attempts on successful login
+    clear_attempts(client_ip)
+
     access_token = create_access_token(data={"user_id": user.id, "user_type": user.user_type})
     return {"access_token": access_token, "token_type": "bearer", "user_type": user.user_type}
 
@@ -307,7 +355,6 @@ async def upload_license(
     if file.content_type not in allowed_types:
         raise HTTPException(status_code=400, detail="Only PDF, JPG, and PNG files are allowed")
 
-    # SECURITY: Validate file extension
     if not file.filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
     
@@ -350,7 +397,6 @@ async def upload_profile_photo(
     if file.content_type not in allowed_types:
         raise HTTPException(status_code=400, detail="Only JPG, PNG, and WEBP images are allowed")
 
-    # SECURITY: Validate file extension
     if not file.filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
     
@@ -359,15 +405,12 @@ async def upload_profile_photo(
     if file_extension not in allowed_extensions:
         raise HTTPException(status_code=400, detail=f"File extension .{file_extension} not allowed")
 
-    # Limit file size to 5MB
     contents = await file.read()
     if len(contents) > 5 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File too large. Maximum size is 5MB.")
 
-    # Create safe filename
     safe_filename = f"profile_{current_user.id}_{int(datetime.now().timestamp())}.{file_extension}"
     
-    # Save file
     upload_dir = "uploads/profiles"
     os.makedirs(upload_dir, exist_ok=True)
     file_path = os.path.join(upload_dir, safe_filename)
@@ -375,7 +418,6 @@ async def upload_profile_photo(
     with open(file_path, "wb") as f:
         f.write(contents)
 
-    # Delete old photo if exists (save disk space)
     if current_user.profile_photo_url:
         old_path = current_user.profile_photo_url.lstrip("/")
         if os.path.exists(old_path):
@@ -384,7 +426,6 @@ async def upload_profile_photo(
             except:
                 pass
 
-    # Update user record with URL path (frontend uses /uploads/...)
     photo_url = f"/uploads/profiles/{safe_filename}"
     current_user.profile_photo_url = photo_url
     db.commit()
@@ -430,7 +471,6 @@ def create_chat_message(message: MessageCreate, db=Depends(get_db), current_user
     if message.sender_type != current_user.user_type:
         raise HTTPException(status_code=400, detail="sender_type must match authenticated user")
     
-    # SECURITY: Sanitize message content
     message.content = sanitize_text(message.content)
     
     db_message = create_message(db, message.dict())
@@ -446,9 +486,8 @@ def create_chat_message(message: MessageCreate, db=Depends(get_db), current_user
 
 @app.get("/messages/{room_id}", response_model=List[MessageResponse])
 def read_messages(room_id: int, skip: int = 0, limit: int = 100, db=Depends(get_db), current_user=Depends(get_current_user)):
-    # SECURITY: Bound pagination parameters
-    limit = min(max(limit, 1), 100)  # Between 1 and 100
-    skip = max(skip, 0)  # No negative skip
+    limit = min(max(limit, 1), 100)
+    skip = max(skip, 0)
     
     booking = get_booking_by_id(db, room_id)
     if not booking or current_user.id not in {booking.client_id, booking.therapist_id}:
@@ -552,7 +591,6 @@ def get_video_room(booking_id: int, db=Depends(get_db), current_user=Depends(get
     if not booking or current_user.id not in {booking.client_id, booking.therapist_id}:
         raise HTTPException(status_code=404, detail="Booking not found")
 
-    # Generate a private room ID if one doesn't exist yet
     if not booking.video_room_id:
         booking.video_room_id = f"mecac-session-{secrets.token_urlsafe(8)}"
         db.commit()
@@ -789,7 +827,6 @@ def get_admin_analytics(
 
     start_date = datetime.utcnow() - timedelta(days=days)
     
-    # Daily revenue from completed bookings
     revenue_query = db.query(
         func.date(SessionBooking.scheduled_time).label('date'),
         func.sum(SessionBooking.amount).label('revenue'),
@@ -801,7 +838,6 @@ def get_admin_analytics(
     
     revenue_dict = {str(row.date): {'revenue': float(row.revenue or 0), 'bookings': int(row.bookings)} for row in revenue_query}
     
-    # Daily new users
     users_query = db.query(
         func.date(User.created_at).label('date'),
         func.count(User.id).label('count')
@@ -811,7 +847,6 @@ def get_admin_analytics(
     
     users_dict = {str(row.date): int(row.count) for row in users_query}
     
-    # Daily rage room bookings
     rage_query = db.query(
         func.date(RageRoomBooking.scheduled_time).label('date'),
         func.count(RageRoomBooking.id).label('count'),
@@ -823,7 +858,6 @@ def get_admin_analytics(
     
     rage_dict = {str(row.date): {'count': int(row.count), 'revenue': float(row.revenue or 0)} for row in rage_query}
     
-    # Build the timeline
     timeline = []
     for i in range(days):
         date = (datetime.utcnow() - timedelta(days=days - 1 - i)).date()
@@ -1110,11 +1144,11 @@ Your Core Rules:
 3. If someone expresses thoughts of self-harm, immediately provide crisis resources (Befrienders Kenya: 0722 178 177).
 4. Remind users that you are an AI support tool, not a replacement for their therapist.
 
-Formatting & Style Rules (CRITICAL):
+Formatting and Style Rules (CRITICAL):
 - Keep responses SHORT and concise (max 3-4 short sentences or a brief list).
-- Use **bold text** to emphasize key actions, important words, or steps.
+- Use bold text to emphasize key actions, important words, or steps.
 - Use bullet points (-) for lists instead of numbered lists when possible.
-- Always use **Kenyan English** spelling and cultural references.
+- Always use Kenyan English spelling and cultural references.
 - Be warm, empathetic, and conversational. Never robotic or clinical.
 - End with a gentle question or encouragement to keep the conversation going."""
 
@@ -1142,33 +1176,28 @@ async def generate_ai_response(messages: List[Dict]):
 async def ai_chat(request: Request, chat_request: AIChatRequest, db=Depends(get_db), current_user=Depends(get_current_user)):
     user_message = chat_request.messages[-1].content if chat_request.messages else ""
     
-    # Check for crisis keywords
     if detect_crisis(user_message):
         return {
             "response": KENYA_CRISIS_RESOURCES,
             "crisis_detected": True
         }
 
-    # Get recent conversation history
     history = get_ai_chat_history(db, current_user.id, limit=10)
     history_messages = [
         {"role": msg.role, "content": msg.content}
         for msg in reversed(history[:-1])
     ]
 
-    # Build messages for Groq
     messages = [
         {"role": "system", "content": MECAC_SYSTEM_PROMPT},
         *history_messages,
         {"role": "user", "content": user_message}
     ]
 
-    # Stream the response
     full_response = ""
     async for chunk in generate_ai_response(messages):
         full_response += chunk
 
-    # Save to database
     save_ai_message(db, current_user.id, "user", user_message)
     save_ai_message(db, current_user.id, "assistant", full_response)
 
@@ -1202,7 +1231,6 @@ def create_or_update_session_note(
     if current_user.user_type != "therapist":
         raise HTTPException(status_code=403, detail="Only therapists can write clinical notes")
 
-    # SECURITY: Sanitize all note fields
     note_data.subjective = sanitize_text(note_data.subjective)
     note_data.objective = sanitize_text(note_data.objective)
     note_data.assessment = sanitize_text(note_data.assessment)
@@ -1214,18 +1242,15 @@ def create_or_update_session_note(
     if not booking or booking.therapist_id != current_user.id:
         raise HTTPException(status_code=403, detail="Unauthorized to write notes for this booking")
 
-    # Check if note already exists
     existing_note = db.query(SessionNote).filter(SessionNote.booking_id == booking_id).first()
     
     if existing_note:
-        # Update existing note
         for field, value in note_data.dict(exclude_unset=True).items():
             setattr(existing_note, field, value)
         db.commit()
         db.refresh(existing_note)
         return existing_note
     else:
-        # Create new note
         new_note = SessionNote(
             booking_id=booking_id,
             therapist_id=current_user.id,
@@ -1253,11 +1278,10 @@ def get_session_note(booking_id: int, db=Depends(get_db), current_user=Depends(g
     return note
 
 
-# ============ STUDENT SIGNUP & VERIFICATION ============
+# ============ STUDENT SIGNUP AND VERIFICATION ============
 
 @app.post("/auth/student-signup", response_model=Token)
 def student_signup(student: StudentSignupRequest, db=Depends(get_db)):
-    # Check if email domain matches a university
     email_domain = student.email.split("@")[-1].lower()
     university = db.query(University).filter(
         University.email_domain == email_domain,
@@ -1270,15 +1294,13 @@ def student_signup(student: StudentSignupRequest, db=Depends(get_db)):
             detail="Your university is not registered or not active. Please use your personal email to sign up."
         )
 
-    # Check if email already exists
     existing_user = get_user_by_email(db, student.email)
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    # Create user with university association
     new_user = User(
         email=student.email,
-        hashed_password=student.password,  # Should be hashed in production
+        hashed_password=student.password,
         name=student.name,
         user_type="client",
         university_id=university.id,
@@ -1289,7 +1311,6 @@ def student_signup(student: StudentSignupRequest, db=Depends(get_db)):
     db.commit()
     db.refresh(new_user)
 
-    # Generate verification token
     token = secrets.token_urlsafe(32)
     verification_token = EmailVerificationToken(
         user_id=new_user.id,
@@ -1299,7 +1320,6 @@ def student_signup(student: StudentSignupRequest, db=Depends(get_db)):
     db.add(verification_token)
     db.commit()
 
-    # Send verification email
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
     verify_link = f"{frontend_url}/verify-email?token={token}"
 
@@ -1417,7 +1437,7 @@ def admin_toggle_university(uni_id: int, db=Depends(get_db), admin=Depends(requi
     }
 
 
-# ============ ADMIN BOOKING MANAGEMENT & REFUNDS ============
+# ============ ADMIN BOOKING MANAGEMENT AND REFUNDS ============
 
 @app.get("/admin/bookings")
 def get_all_bookings(db=Depends(get_db), current_user=Depends(get_current_user)):
@@ -1455,6 +1475,20 @@ def refund_booking(booking_id: int, db=Depends(get_db), current_user=Depends(get
     db.commit()
     db.refresh(booking)
     return {"success": True, "message": "Booking refunded successfully"}
+
+
+# ============ SECURITY DISCLOSURE ============
+
+@app.get("/.well-known/security.txt")
+def security_txt():
+    """Public endpoint for security vulnerability disclosure (RFC 9116)."""
+    content = """Contact: mailto:admin@mecac.co.ke
+Expires: 2026-12-31T23:59:59.000Z
+Preferred-Languages: en, sw
+Canonical: https://mecac-backend.onrender.com/.well-known/security.txt
+Policy: We take security seriously. Please report vulnerabilities responsibly.
+"""
+    return PlainTextResponse(content=content, media_type="text/plain")
 
 
 if __name__ == "__main__":
