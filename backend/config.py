@@ -29,4 +29,17 @@ class Settings:
 
     PROJECT_NAME = "Afya Care Connect API"
 
+    # ==========================================
+    # FEATURE FLAGS - Control features without deleting code
+    # Flip any flag to True/False to enable/disable a feature
+    # ==========================================
+    FEATURE_FLAGS = {
+        "payments_enabled": False,       # Flip to True when investors say go
+        "ai_mood_insights": True,        # AI weekly mood analysis for clients
+        "smart_booking": True,           # One-click therapist booking
+        "sponsored_sessions": True,      # Platform-funded free sessions
+        "rage_rooms_enabled": True,      # Rage room feature
+        "university_tier": True,         # University student features
+    }
+
 settings = Settings()

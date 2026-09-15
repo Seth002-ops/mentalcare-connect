@@ -43,7 +43,7 @@ from schemas import (
     UniversityCreate, UniversityResponse, StudentSignupRequest,
     SessionNoteCreate, SessionNoteResponse
 )
-from models import User, Message, SessionBooking, Review, PlatformWithdrawal, RageRoom, RageRoomPackage, RageRoomBooking, University, EmailVerificationToken, TherapistAvailability, SessionNote, AiChatMessage
+from models import User, Message, SessionBooking, Review, PlatformWithdrawal, RageRoom, RageRoomPackage, RageRoomBooking, University, EmailVerificationToken, TherapistAvailability, SessionNote, AiChatMessage, MoodEntry
 from crud import (
     get_user_by_email, get_user_by_id, authenticate_user, create_user,
     create_message, get_messages_by_room, create_booking, simulate_payment,
@@ -58,6 +58,9 @@ from crud import (
 )
 from auth import create_access_token, get_current_user
 from config import settings
+
+def is_feature_enabled(feature_name: str) -> bool:
+    return settings.FEATURE_FLAGS.get(feature_name, False)
 from sqlalchemy import func, inspect, text
 
 # Initialize Groq AI client
@@ -636,6 +639,11 @@ PLATFORM_COMMISSION_RATE = 0.15
 
 @app.post("/payments/simulate", response_model=PaymentResponse)
 def process_payment(payment: PaymentRequest, db=Depends(get_db), current_user=Depends(get_current_user)):
+    if not is_feature_enabled("payments_enabled"):
+        raise HTTPException(
+            status_code=503,
+            detail="Payments are temporarily unavailable. Sessions are currently free and sponsored."
+        )
     booking = get_booking_by_id(db, payment.booking_id)
     if not booking or booking.client_id != current_user.id:
         raise HTTPException(status_code=403, detail="Unauthorized booking payment")
@@ -1218,6 +1226,269 @@ def clear_chat_history(db=Depends(get_db), current_user=Depends(get_current_user
         db.delete(msg)
     db.commit()
     return {"message": "Chat history cleared"}
+
+
+# ============ AI CLIENT INSIGHTS ROUTES ============
+
+@app.get("/ai/client/insights")
+async def get_client_mood_insights(db=Depends(get_db), current_user=Depends(get_current_user)):
+    """AI analyzes the client's weekly mood and generates a summary with recommendations."""
+    if current_user.user_type != "client":
+        raise HTTPException(status_code=403, detail="Only clients can access mood insights")
+
+    if not is_feature_enabled("ai_mood_insights"):
+        raise HTTPException(status_code=503, detail="AI mood insights are currently unavailable")
+
+    from datetime import date as date_module
+    week_ago = date_module.today() - timedelta(days=7)
+
+    moods = db.query(MoodEntry).filter(
+        MoodEntry.user_id == current_user.id,
+        MoodEntry.entry_date >= week_ago
+    ).order_by(MoodEntry.entry_date.asc()).all()
+
+    if not moods:
+        return {
+            "has_data": False,
+            "summary": "You haven't logged any moods this week yet. Start tracking to get personalized insights!",
+            "should_talk_to_therapist": False,
+            "reason": "",
+            "suggestion": "",
+            "mood_data": []
+        }
+
+    mood_list = [
+        {"date": m.entry_date.strftime("%A"), "score": m.mood_score, "note": m.note or ""}
+        for m in moods
+    ]
+
+    prompt = f"""
+    You are a compassionate mental health AI assistant for Afya Care Connect in Kenya.
+    Analyze this client's mood data for the past week and provide:
+    1. A brief, warm summary of their emotional week (2-3 sentences)
+    2. Whether they should consider talking to a therapist (true or false)
+    3. A brief reason why
+    4. One gentle, actionable suggestion
+
+    Mood Data:
+    {mood_list}
+
+    Respond ONLY in this exact JSON format:
+    {{
+      "summary": "Your warm summary here",
+      "should_talk_to_therapist": true,
+      "reason": "Brief reason why",
+      "suggestion": "One gentle actionable tip"
+    }}
+    Do not include markdown formatting. Just raw JSON.
+    """
+
+    try:
+        import json as json_module
+        response = await client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.4,
+            max_tokens=300,
+            response_format={"type": "json_object"}
+        )
+
+        raw_text = response.choices[0].message.content
+        insight = json_module.loads(raw_text)
+
+        return {
+            "has_data": True,
+            "summary": insight.get("summary", ""),
+            "should_talk_to_therapist": insight.get("should_talk_to_therapist", False),
+            "reason": insight.get("reason", ""),
+            "suggestion": insight.get("suggestion", ""),
+            "mood_data": mood_list
+        }
+
+    except Exception as e:
+        print(f"AI Mood Insights Error: {e}")
+        raise HTTPException(status_code=500, detail="AI service temporarily unavailable")
+
+
+@app.get("/ai/client/recommend-therapist")
+def recommend_therapist(db=Depends(get_db), current_user=Depends(get_current_user)):
+    """Smart therapist matching based on availability, rating, and specialty."""
+    if current_user.user_type != "client":
+        raise HTTPException(status_code=403, detail="Only clients can get therapist recommendations")
+
+    if not is_feature_enabled("smart_booking"):
+        raise HTTPException(status_code=503, detail="Smart booking is currently unavailable")
+
+    # Find approved therapists
+    therapists = db.query(User).filter(
+        User.user_type == "therapist",
+        User.verification_status == "approved",
+        User.is_active == True
+    ).limit(10).all()
+
+    if not therapists:
+        return {"therapist": None, "message": "No therapists are currently available. Please check back soon."}
+
+    # For students, try to match with university-affiliated therapists first
+    best_match = None
+    if current_user.is_verified_student and current_user.university_id:
+        uni_therapist = db.query(User).filter(
+            User.user_type == "therapist",
+            User.verification_status == "approved",
+            User.is_active == True,
+            User.university_id == current_user.university_id
+        ).first()
+        if uni_therapist:
+            best_match = uni_therapist
+
+    # If no university match, pick the first available therapist
+    if not best_match:
+        best_match = therapists[0]
+
+    return {
+        "therapist": {
+            "id": best_match.id,
+            "name": best_match.name,
+            "profile_photo_url": best_match.profile_photo_url,
+            "specialty": getattr(best_match, 'specialty', 'General Counselling'),
+            "rating": getattr(best_match, 'rating', 4.5),
+        },
+        "message": f"Based on your needs, I recommend {best_match.name}. They specialize in supporting clients with stress and emotional wellbeing."
+    }
+
+
+# ============ ONE-CLICK SPONSORED BOOKING ============
+
+@app.post("/bookings/one-click")
+def one_click_booking(
+    therapist_id: int,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """One-click booking with no payment required (sponsored session)."""
+    if current_user.user_type != "client":
+        raise HTTPException(status_code=403, detail="Only clients can book sessions")
+
+    if not is_feature_enabled("sponsored_sessions"):
+        raise HTTPException(status_code=503, detail="Sponsored sessions are currently unavailable")
+
+    therapist = get_user_by_id(db, therapist_id)
+    if not therapist or therapist.user_type != "therapist":
+        raise HTTPException(status_code=404, detail="Therapist not found")
+    if therapist.verification_status != "approved":
+        raise HTTPException(status_code=400, detail="This therapist is not yet approved")
+
+    # Create a sponsored booking (no payment required)
+    scheduled_time = datetime.utcnow() + timedelta(days=1)
+
+    booking_data = {
+        "client_id": current_user.id,
+        "therapist_id": therapist_id,
+        "scheduled_time": scheduled_time,
+        "amount": 0,
+        "payment_status": "sponsored",
+        "status": "confirmed",
+        "platform_fee": 0,
+        "therapist_earning": 0,
+    }
+
+    db_booking = create_booking(db, booking_data)
+
+    # Notify the therapist
+    client_name = current_user.name or "A client"
+    create_notification(
+        db,
+        user_id=therapist_id,
+        message=f"New sponsored booking from {client_name}. Session is free for the client (platform-funded).",
+        type="booking"
+    )
+
+    # Notify the client
+    create_notification(
+        db,
+        user_id=current_user.id,
+        message=f"Your session with {therapist.name} is confirmed for tomorrow. No payment required!",
+        type="booking"
+    )
+
+    return {
+        "booking_id": db_booking.id,
+        "status": "confirmed",
+        "message": f"Session booked with {therapist.name}! No payment required.",
+        "scheduled_time": scheduled_time.isoformat()
+    }
+
+
+# ============ AI THERAPIST SOAP NOTES ============
+
+class SOAPRequest(BaseModel):
+    booking_id: int
+    rough_notes: str = ""
+
+
+@app.post("/ai/therapist/soap")
+async def generate_soap_note(
+    req: SOAPRequest,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """AI Agent: Drafts a SOAP note based on chat history and rough notes."""
+    if current_user.user_type != "therapist":
+        raise HTTPException(status_code=403, detail="Only therapists can use the AI agent")
+
+    booking = get_booking_by_id(db, req.booking_id)
+    if not booking or booking.therapist_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Unauthorized booking")
+
+    # Fetch the chat transcript for this session
+    messages = get_messages_by_room(db, req.booking_id, skip=0, limit=100)
+    chat_transcript = "\n".join([f"{m.sender_type}: {m.content}" for m in messages])
+    
+    if not chat_transcript and not req.rough_notes:
+        raise HTTPException(status_code=400, detail="No chat history or rough notes to analyze.")
+
+    prompt = f"""
+    You are an expert clinical AI assistant drafting a SOAP note for a licensed therapist in Kenya.
+    Based on the chat transcript and the therapist's rough notes, draft a professional SOAP note.
+    Use objective, clinical language. Do not provide a definitive medical diagnosis if uncertain.
+
+    Therapist's rough notes: {req.rough_notes or "None provided"}
+    
+    Chat Transcript:
+    {chat_transcript}
+
+    Output ONLY valid JSON with these exact keys:
+    {{
+      "subjective": "What the client reported, felt, or expressed.",
+      "objective": "Observable facts, therapist's observations, and chat context.",
+      "assessment": "Clinical impression, progress evaluation, or formulation.",
+      "plan": "Next steps, homework, coping strategies, or follow-up plan."
+    }}
+    Do not include markdown formatting. Just raw JSON.
+    """
+
+    try:
+        import json as json_module
+        response = await client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=800,
+            response_format={"type": "json_object"}
+        )
+
+        raw_text = response.choices[0].message.content
+        soap_data = json_module.loads(raw_text)
+        
+        for key in ["subjective", "objective", "assessment", "plan"]:
+            if key not in soap_data:
+                soap_data[key] = ""
+                
+        return soap_data
+
+    except Exception as e:
+        print(f"AI SOAP Generation Error: {e}")
+        raise HTTPException(status_code=500, detail="AI service temporarily unavailable. Please try again.")
 
 
 # ============ SESSION NOTES ROUTES ============
