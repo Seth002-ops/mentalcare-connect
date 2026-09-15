@@ -458,6 +458,10 @@ def read_messages(room_id: int, skip: int = 0, limit: int = 100, db=Depends(get_
 
 # ============ BOOKINGS ROUTES ============
 
+# SECURITY: Default session fee used when a therapist has no custom rate set
+DEFAULT_SESSION_FEE = 1500  # KSh
+
+
 @app.post("/bookings")
 def create_session_booking(booking: BookingCreate, db=Depends(get_db), current_user=Depends(get_current_user)):
     if current_user.user_type != "client":
@@ -471,6 +475,8 @@ def create_session_booking(booking: BookingCreate, db=Depends(get_db), current_u
     booking_data = booking.dict()
     booking_data["client_id"] = current_user.id
     booking_data["payment_status"] = "pending"
+    # SECURITY: price is set by the server, never by the client
+    booking_data["amount"] = getattr(therapist, "session_rate", None) or DEFAULT_SESSION_FEE
     db_booking = create_booking(db, booking_data)
 
     client_name = current_user.name or "A client"
@@ -559,6 +565,9 @@ def get_video_room(booking_id: int, db=Depends(get_db), current_user=Depends(get
 
 @app.get("/users", response_model=List[UserResponse])
 def list_users(user_type: Optional[str] = None, db=Depends(get_db), current_user=Depends(get_current_user)):
+    # SECURITY: non-admins may only browse approved therapists
+    if current_user.user_type != "admin" and user_type != "therapist":
+        raise HTTPException(status_code=403, detail="Only admins may list users")
     query = db.query(User)
     if user_type:
         query = query.filter(User.user_type == user_type)
@@ -572,6 +581,12 @@ def read_user(user_id: int, db=Depends(get_db), current_user=Depends(get_current
     user = get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    # SECURITY: self, admin, or public approved-therapist profile only
+    is_self = current_user.id == user_id
+    is_admin = current_user.user_type == "admin"
+    is_public_therapist = user.user_type == "therapist" and user.verification_status == "approved"
+    if not (is_self or is_admin or is_public_therapist):
+        raise HTTPException(status_code=403, detail="Not allowed to view this profile")
     return user
 
 
@@ -586,13 +601,14 @@ def process_payment(payment: PaymentRequest, db=Depends(get_db), current_user=De
     if not booking or booking.client_id != current_user.id:
         raise HTTPException(status_code=403, detail="Unauthorized booking payment")
 
-    result = simulate_payment(payment.phone, payment.amount)
+    # SECURITY: always charge the server-stored amount, never the client-supplied amount
+    amount = booking.amount
+    result = simulate_payment(payment.phone, amount)
     if result["success"]:
         booking.payment_status = "completed"
 
-        total_amount = payment.amount
-        platform_fee = int(total_amount * PLATFORM_COMMISSION_RATE)
-        therapist_earning = total_amount - platform_fee
+        platform_fee = int(amount * PLATFORM_COMMISSION_RATE)
+        therapist_earning = amount - platform_fee
 
         booking.platform_fee = platform_fee
         booking.therapist_earning = therapist_earning
@@ -604,7 +620,7 @@ def process_payment(payment: PaymentRequest, db=Depends(get_db), current_user=De
         create_notification(
             db,
             user_id=current_user.id,
-            message=f"Payment of KSh {payment.amount} confirmed. Your session is booked!",
+            message=f"Payment of KSh {amount} confirmed. Your session is booked!",
             type="payment"
         )
 
