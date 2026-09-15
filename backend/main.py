@@ -3,6 +3,7 @@ import os
 import smtplib
 import secrets
 import base64
+import logging
 from typing import List, Optional, Dict
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
@@ -286,8 +287,10 @@ def register(request: Request, user: UserCreate, db=Depends(get_db)):
 @app.post("/auth/login", response_model=Token)
 @limiter.limit("5/minute")
 def login(request: Request, user_login: UserLogin, db=Depends(get_db)):
-    # SECURITY: Check lockout before authentication
+    # SECURITY: Get client IP for lockout tracking
     client_ip = get_remote_address(request)
+    
+    # SECURITY: Check lockout before authentication
     if check_login_lockout(client_ip):
         raise HTTPException(
             status_code=429,
@@ -309,8 +312,6 @@ def login(request: Request, user_login: UserLogin, db=Depends(get_db)):
 
     access_token = create_access_token(data={"user_id": user.id, "user_type": user.user_type})
     return {"access_token": access_token, "token_type": "bearer", "user_type": user.user_type}
-
-
 @app.get("/users/me", response_model=UserResponse)
 def get_current_user_profile(db=Depends(get_db), current_user=Depends(get_current_user)):
     return current_user
