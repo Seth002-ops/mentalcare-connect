@@ -154,10 +154,12 @@ class PaymentResponse(BaseModel):
 # ============ MOOD SCHEMAS ============
 
 class MoodEntryCreate(BaseModel):
-    mood: str
-    notes: Optional[str] = None
-    intensity: Optional[int] = None
+    mood_score: str
+    note: Optional[str] = ""
+    entry_date: Optional[str] = None
 
+    class Config:
+        from_attributes = True
 
 class MoodEntryResponse(BaseModel):
     id: int

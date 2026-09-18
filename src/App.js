@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from './components/LandingPage';
 import ClientDashboard from './components/ClientDashboard';
@@ -18,6 +18,18 @@ import TermsAcceptance from './components/TermsAcceptance';
 import TherapistRegistration from './components/TherapistRegistration';
 import LeaveReview from './components/LeaveReview';
 import './App.css';
+
+  useEffect(() => {
+    // Keep Render backend awake (ping every 5 minutes)
+    const keepAlive = setInterval(() => {
+      fetch('https://mecac-backend.onrender.com/api/health')
+        .catch(err => console.log('Keep-alive ping failed', err));
+    }, 300000); // 5 minutes
+
+    // Clean up when component unmounts
+    return () => clearInterval(keepAlive);
+  }, []);
+
 
 const App = () => {
   const [user, setUser] = useState(null);

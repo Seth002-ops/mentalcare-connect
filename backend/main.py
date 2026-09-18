@@ -121,6 +121,7 @@ ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "https://mecac-backend.onrender.com",
     "https://mentalcare-connect-zdfn.vercel.app",
+    "https://mentalcare-connect.vercel.app",
 ]
 
 app.add_middleware(
@@ -1064,7 +1065,7 @@ Formatting and Style Rules (CRITICAL):
 async def generate_ai_response(messages: List[Dict]):
     try:
         stream = await client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model="llama-3.3-70b-versatile",
             messages=messages,
             max_tokens=400,
             temperature=0.7,
@@ -1177,7 +1178,7 @@ async def get_client_mood_insights(db=Depends(get_db), current_user=Depends(get_
     try:
         import json as json_module
         response = await client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.4,
             max_tokens=300,
