@@ -107,13 +107,20 @@ def simulate_payment(phone: str, amount: int) -> dict:
 
 
 # ============ WAVE 2: MOOD TRACKER CRUD ============
-def get_recent_moods(db: Session, client_id: int):
+def get_recent_moods(db: Session, client_id: int, limit: int = 30):
+    """Get recent mood entries for a client, ordered by most recent first."""
     return db.query(MoodEntry).filter(MoodEntry.client_id == client_id)\
-             .order_by(MoodEntry.entry_date.desc()).limit(7).all()
+             .order_by(MoodEntry.entry_date.desc()).limit(limit).all()
 
 
-def log_mood_entry(db: Session, client_id: int, mood: dict):
-    db_mood = MoodEntry(client_id=client_id, **mood)
+def log_mood_entry(db: Session, user_id: int, mood_data: dict):
+    from datetime import date
+    db_mood = MoodEntry(
+        client_id=user_id, 
+        mood_score=mood_data.get("mood_score"),
+        note=mood_data.get("note"),
+        entry_date=date.today()
+    )
     db.add(db_mood)
     db.commit()
     db.refresh(db_mood)
