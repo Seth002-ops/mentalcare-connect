@@ -120,6 +120,7 @@ ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "https://mecac-backend.onrender.com",
+    "https://mentalcare-connect-zdfn.vercel.app",
 ]
 
 app.add_middleware(
@@ -234,7 +235,6 @@ manager = ConnectionManager()
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "message": "Backend is connected"}
-
 @app.post("/auth/register", response_model=Token)
 @limiter.limit("3/minute")
 def register(request: Request, user: UserCreate, db=Depends(get_db)):
@@ -243,20 +243,25 @@ def register(request: Request, user: UserCreate, db=Depends(get_db)):
         raise HTTPException(status_code=400, detail="Email already registered")
     
     user_data = user.dict()
-    user_data["user_type"] = "client"
     
-    created_user = create_user(db, user_data)
+    # SECURITY: Prevent anyone from registering as 'admin' via the public form
+    if user_data.get("user_type") == "admin":
+        user_data["user_type"] = "client"
+        
+    # SECURITY: Only allow 'client' or 'therapist' through public registration
+    if user_data.get("user_type") not in ["client", "therapist"]:
+        user_data["user_type"] = "client"
+        
+    # If registering as a therapist, force them to 'incomplete' status until they upload their license
+    if user_data.get("user_type") == "therapist":
+        user_data["verification_status"] = "incomplete"
 
-    if created_user.user_type == "therapist":
-        created_user.verification_status = "pending"
-        db.commit()
-        db.refresh(created_user)
+    created_user = create_user(db, user_data)
 
     access_token = create_access_token(
         data={"user_id": created_user.id, "user_type": created_user.user_type}
     )
     return {"access_token": access_token, "token_type": "bearer", "user_type": created_user.user_type}
-
 @app.post("/auth/login", response_model=Token)
 @limiter.limit("5/minute")
 def login(request: Request, user_login: UserLogin, db=Depends(get_db)):
