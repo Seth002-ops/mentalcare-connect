@@ -4,6 +4,7 @@ import { API_URL } from '../config';
 import NotificationBell from './NotificationBell';
 import SessionReminder from './SessionReminder';
 import ReviewModal from './ReviewModal';
+import AIMoodInsights from './AIMoodInsights';
 
 // ============ PROFESSIONAL LINE ICONS ============
 const IconMenu = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>;
@@ -26,6 +27,7 @@ const IconSettings = () => <svg width="20" height="20" viewBox="0 0 24 24" fill=
 const IconChevronDown = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>;
 const IconZap = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>;
 const IconBot = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path></svg>;
+const IconCheck = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>;
 
 // ============ PROFESSIONAL MOOD FACE ICONS ============
 const MoodFace = ({ type, color }) => {
@@ -131,6 +133,8 @@ const ClientDashboard = ({ logout }) => {
   const [moodNote, setMoodNote] = useState('');
   const [showMoodNote, setShowMoodNote] = useState(false);
   const [moodSubmitted, setMoodSubmitted] = useState(false);
+  const [moodSaving, setMoodSaving] = useState(false);
+  const [moodError, setMoodError] = useState('');
   const [loading, setLoading] = useState(true);
   const [dailyTip, setDailyTip] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -138,6 +142,7 @@ const ClientDashboard = ({ logout }) => {
   const [avatar, setAvatar] = useState(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewingBooking, setReviewingBooking] = useState(null);
+  const [bookingSuccess, setBookingSuccess] = useState('');
 
   useEffect(() => {
     fetchUserData();
@@ -186,24 +191,49 @@ const ClientDashboard = ({ logout }) => {
   const handleMoodSelect = (mood) => {
     setSelectedMood(mood);
     setShowMoodNote(true);
+    setMoodError('');
   };
 
-  const handleMoodSubmit = async () => {
-    if (!selectedMood) return;
+    const handleMoodSubmit = async () => {
+    if (!selectedMood) {
+      setMoodError('Please select a mood first');
+      return;
+    }
+    setMoodSaving(true);
+    setMoodError('');
     const token = localStorage.getItem('token');
     try {
       const res = await fetch(`${API_URL}/mood/log`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ mood_score: selectedMood.value, note: moodNote || null }),
+        // FIX 1: Send empty string "" instead of null to prevent the 422 error
+        body: JSON.stringify({ mood_score: selectedMood.value, note: moodNote || "" }),
       });
+      
+      const data = await res.json();
+      
       if (res.ok) {
         setMoodSubmitted(true);
+        setMoodError('');
         fetchUserData();
+      } else {
+        // FIX 2: Safely extract the error string from FastAPI's array format
+        const errorMsg = Array.isArray(data.detail) 
+          ? data.detail.map(e => e.msg).join(', ') 
+          : (data.detail || 'Failed to save mood. Please try again.');
+        setMoodError(errorMsg);
       }
     } catch (err) {
       console.error('Failed to log mood', err);
+      setMoodError('Network error. Please check your connection and try again.');
+    } finally {
+      setMoodSaving(false);
     }
+  };
+  const handleBookingSuccess = (data) => {
+    setBookingSuccess(data.message || 'Session booked successfully!');
+    fetchUserData();
+    setTimeout(() => setBookingSuccess(''), 8000);
   };
 
   const getGreeting = () => {
@@ -439,6 +469,31 @@ const ClientDashboard = ({ logout }) => {
 
       <SessionReminder />
 
+      {/* ===== BOOKING SUCCESS TOAST ===== */}
+      {bookingSuccess && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: '#059669',
+          color: 'white',
+          padding: '1rem 1.5rem',
+          borderRadius: '12px',
+          boxShadow: '0 4px 20px rgba(5, 150, 105, 0.3)',
+          zIndex: 2000,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          fontWeight: '600',
+          fontSize: '0.95rem',
+          maxWidth: '90vw',
+        }}>
+          <IconCheck />
+          {bookingSuccess}
+        </div>
+      )}
+
       {/* ===== MAIN CONTENT ===== */}
       <main className="cd-main">
 
@@ -452,6 +507,12 @@ const ClientDashboard = ({ logout }) => {
           </div>
           <div style={{ color: '#E8F5E9' }}><IconSunrise /></div>
         </div>
+
+        {/* ===== AI MOOD INSIGHTS - NEW SECTION ===== */}
+        <AIMoodInsights
+          userToken={localStorage.getItem('token')}
+          onBookSession={handleBookingSuccess}
+        />
 
         <div className="cd-stepper">
           {[
@@ -505,8 +566,29 @@ const ClientDashboard = ({ logout }) => {
                         rows={2}
                         style={{ width: '100%', padding: '0.75rem', border: '1px solid #E5E7EB', borderRadius: '10px', fontSize: '0.9rem', resize: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: '0.75rem' }}
                       />
-                      <button onClick={handleMoodSubmit} style={{ width: '100%', padding: '0.85rem', background: '#2E7D32', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}>
-                        Save My Mood
+                      
+                      {moodError && (
+                        <div style={{ padding: '0.6rem 0.85rem', background: '#FEE2E2', color: '#991B1B', borderRadius: '8px', fontSize: '0.85rem', marginBottom: '0.75rem', fontWeight: '500' }}>
+                          {moodError}
+                        </div>
+                      )}
+                      
+                      <button 
+                        onClick={handleMoodSubmit} 
+                        disabled={moodSaving}
+                        style={{ 
+                          width: '100%', 
+                          padding: '0.85rem', 
+                          background: moodSaving ? '#9CA3AF' : '#2E7D32', 
+                          color: 'white', 
+                          border: 'none', 
+                          borderRadius: '10px', 
+                          fontWeight: '700', 
+                          cursor: moodSaving ? 'not-allowed' : 'pointer',
+                          fontSize: '0.95rem',
+                        }}
+                      >
+                        {moodSaving ? 'Saving...' : 'Save My Mood'}
                       </button>
                     </div>
                   )}

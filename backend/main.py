@@ -5,7 +5,7 @@ import secrets
 import base64
 import logging
 from typing import List, Optional, Dict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date as date_module
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from collections import defaultdict
@@ -31,7 +31,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from database import engine, get_db, Base, SessionLocal
-from models import User, Message, SessionBooking, Review, PlatformWithdrawal, RageRoom, RageRoomPackage, RageRoomBooking, University, EmailVerificationToken, TherapistAvailability, SessionNote
+from models import User, Message, SessionBooking, Review, PlatformWithdrawal, RageRoom, RageRoomPackage, RageRoomBooking, University, EmailVerificationToken, TherapistAvailability, SessionNote, AiChatMessage, MoodEntry
 from schemas import (
     UserCreate, UserLogin, Token, UserResponse, MessageCreate,
     MessageResponse, BookingCreate, PaymentRequest, PaymentResponse,
@@ -43,7 +43,6 @@ from schemas import (
     UniversityCreate, UniversityResponse, StudentSignupRequest,
     SessionNoteCreate, SessionNoteResponse
 )
-from models import User, Message, SessionBooking, Review, PlatformWithdrawal, RageRoom, RageRoomPackage, RageRoomBooking, University, EmailVerificationToken, TherapistAvailability, SessionNote, AiChatMessage, MoodEntry
 from crud import (
     get_user_by_email, get_user_by_id, authenticate_user, create_user,
     create_message, get_messages_by_room, create_booking, simulate_payment,
@@ -58,10 +57,10 @@ from crud import (
 )
 from auth import create_access_token, get_current_user
 from config import settings
+from sqlalchemy import func, inspect, text
 
 def is_feature_enabled(feature_name: str) -> bool:
     return settings.FEATURE_FLAGS.get(feature_name, False)
-from sqlalchemy import func, inspect, text
 
 # Initialize Groq AI client
 client = AsyncOpenAI(
@@ -74,10 +73,6 @@ Base.metadata.create_all(bind=engine)
 # Initialize FastAPI app
 app = FastAPI(title=settings.PROJECT_NAME)
 
-
-# ==========================================
-# AUTO-MIGRATE: Add image_url column to rage_rooms if missing
-# ==========================================
 @app.on_event("startup")
 def ensure_schema():
     insp = inspect(engine)
@@ -88,52 +83,39 @@ def ensure_schema():
                 conn.execute(text("ALTER TABLE rage_rooms ADD COLUMN image_url TEXT"))
             print("Added image_url column to rage_rooms")
 
-
 # Rate limiter setup
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-
-# ==========================================
 # SECURITY: Login lockout mechanism
-# ==========================================
 login_attempts = defaultdict(list)
 MAX_ATTEMPTS = 5
-LOCKOUT_DURATION = 300  # 5 minutes in seconds
-
+LOCKOUT_DURATION = 300
 
 def check_login_lockout(ip: str) -> bool:
-    """Returns True if IP is currently locked out."""
     now = time()
-    # Remove old attempts (older than lockout duration)
     login_attempts[ip] = [
         (ts, attempts) for ts, attempts in login_attempts[ip]
         if now - ts < LOCKOUT_DURATION
     ]
-    # Count recent failed attempts
     total_attempts = sum(attempts for ts, attempts in login_attempts[ip])
     return total_attempts >= MAX_ATTEMPTS
 
-
 def record_failed_attempt(ip: str):
-    """Record a failed login attempt."""
     login_attempts[ip].append((time(), 1))
 
-
 def clear_attempts(ip: str):
-    """Clear failed attempts on successful login."""
     login_attempts[ip] = []
 
-
-# Ensure the uploads directory exists for static files
+# Ensure uploads directory exists
 os.makedirs("uploads", exist_ok=True)
 os.makedirs("uploads/licenses", exist_ok=True)
 os.makedirs("uploads/profiles", exist_ok=True)
 
-# Mount static files for uploads
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
+# CORS Configuration
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
@@ -149,22 +131,19 @@ app.add_middleware(
     allow_origin_regex=r"https://.*\.vercel\.app",
 )
 
-# --- SECURITY HEADERS MIDDLEWARE ---
+# Security headers middleware
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
-
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Content-Security-Policy"] = "frame-ancestors 'none';"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-
     return response
 
 PUBLIC_PATHS = {"/", "/auth/register", "/auth/login", "/auth/student-signup", "/auth/verify-email", "/api/health", "/universities", "/rage-rooms"}
-
 
 # Crisis detection
 CRISIS_KEYWORDS = [
@@ -182,18 +161,15 @@ Kenya Crisis Lines:
 
 You deserve support right now. Please call one of these numbers, or reach out to someone you trust. Your life matters."""
 
-
 def detect_crisis(message: str) -> bool:
     message_lower = message.lower()
     return any(keyword in message_lower for keyword in CRISIS_KEYWORDS)
-
 
 def apply_security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response
-
 
 @app.middleware("http")
 async def enforce_authentication(request: Request, call_next):
@@ -227,7 +203,6 @@ async def enforce_authentication(request: Request, call_next):
     response = await call_next(request)
     return apply_security_headers(response)
 
-
 class ConnectionManager:
     def __init__(self):
         self.active_connections: Dict[int, List[WebSocket]] = {}
@@ -252,16 +227,13 @@ class ConnectionManager:
                 except Exception:
                     pass
 
-
 manager = ConnectionManager()
-
 
 # ================= ROUTES =================
 
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "message": "Backend is connected"}
-
 
 @app.post("/auth/register", response_model=Token)
 @limiter.limit("3/minute")
@@ -270,7 +242,6 @@ def register(request: Request, user: UserCreate, db=Depends(get_db)):
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    # SECURITY: Force user_type to "client" - ignore any client-provided value
     user_data = user.dict()
     user_data["user_type"] = "client"
     
@@ -286,14 +257,11 @@ def register(request: Request, user: UserCreate, db=Depends(get_db)):
     )
     return {"access_token": access_token, "token_type": "bearer", "user_type": created_user.user_type}
 
-
 @app.post("/auth/login", response_model=Token)
 @limiter.limit("5/minute")
 def login(request: Request, user_login: UserLogin, db=Depends(get_db)):
-    # SECURITY: Get client IP for lockout tracking
     client_ip = get_remote_address(request)
     
-    # SECURITY: Check lockout before authentication
     if check_login_lockout(client_ip):
         raise HTTPException(
             status_code=429,
@@ -302,7 +270,6 @@ def login(request: Request, user_login: UserLogin, db=Depends(get_db)):
 
     user = authenticate_user(db, user_login.email, user_login.password)
     if not user:
-        # SECURITY: Record failed attempt
         record_failed_attempt(client_ip)
         raise HTTPException(
             status_code=401,
@@ -310,15 +277,14 @@ def login(request: Request, user_login: UserLogin, db=Depends(get_db)):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # SECURITY: Clear attempts on successful login
     clear_attempts(client_ip)
 
     access_token = create_access_token(data={"user_id": user.id, "user_type": user.user_type})
     return {"access_token": access_token, "token_type": "bearer", "user_type": user.user_type}
+
 @app.get("/users/me", response_model=UserResponse)
 def get_current_user_profile(db=Depends(get_db), current_user=Depends(get_current_user)):
     return current_user
-
 
 @app.get("/users/me/student-status")
 def get_student_status(db=Depends(get_db), current_user=Depends(get_current_user)):
@@ -326,7 +292,6 @@ def get_student_status(db=Depends(get_db), current_user=Depends(get_current_user
         "is_verified_student": bool(current_user.is_verified_student),
         "university_id": current_user.university_id,
     }
-
 
 @app.post("/terms/accept")
 def accept_terms(db=Depends(get_db), current_user=Depends(get_current_user)):
@@ -340,11 +305,9 @@ def accept_terms(db=Depends(get_db), current_user=Depends(get_current_user)):
         "terms_accepted_at": current_user.terms_accepted_at
     }
 
-
-# ============ THERAPIST REGISTRATION ROUTES ============
+# Therapist Registration Routes
 UPLOAD_DIR = "uploads/licenses"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-
 
 @app.post("/therapist/upload-license")
 async def upload_license(
@@ -386,7 +349,6 @@ async def upload_license(
         "file_path": file_path,
         "verification_status": current_user.verification_status
     }
-
 
 @app.post("/therapist/profile-photo")
 async def upload_profile_photo(
@@ -440,7 +402,6 @@ async def upload_profile_photo(
         "photo_url": photo_url,
     }
 
-
 @app.put("/therapist/profile")
 def update_therapist_profile(
     profile: TherapistProfileUpdate,
@@ -457,16 +418,13 @@ def update_therapist_profile(
     db.refresh(current_user)
     return current_user
 
-
 @app.get("/therapist/status", response_model=TherapistVerificationResponse)
 def get_therapist_status(db=Depends(get_db), current_user=Depends(get_current_user)):
     if current_user.user_type != "therapist":
         raise HTTPException(status_code=403, detail="Only therapists can view this")
     return current_user
 
-
-# ============ MESSAGES ROUTES ============
-
+# Messages Routes
 @app.post("/messages", response_model=MessageResponse)
 def create_chat_message(message: MessageCreate, db=Depends(get_db), current_user=Depends(get_current_user)):
     booking = get_booking_by_id(db, message.room_id)
@@ -487,7 +445,6 @@ def create_chat_message(message: MessageCreate, db=Depends(get_db), current_user
         "encrypted": True,
     }
 
-
 @app.get("/messages/{room_id}", response_model=List[MessageResponse])
 def read_messages(room_id: int, skip: int = 0, limit: int = 100, db=Depends(get_db), current_user=Depends(get_current_user)):
     limit = min(max(limit, 1), 100)
@@ -498,12 +455,8 @@ def read_messages(room_id: int, skip: int = 0, limit: int = 100, db=Depends(get_
         raise HTTPException(status_code=403, detail="Unauthorized to access this room")
     return get_messages_by_room(db, room_id, skip=skip, limit=limit)
 
-
-# ============ BOOKINGS ROUTES ============
-
-# SECURITY: Default session fee used when a therapist has no custom rate set
-DEFAULT_SESSION_FEE = 1500  # KSh
-
+# Bookings Routes
+DEFAULT_SESSION_FEE = 1500
 
 @app.post("/bookings")
 def create_session_booking(booking: BookingCreate, db=Depends(get_db), current_user=Depends(get_current_user)):
@@ -518,7 +471,6 @@ def create_session_booking(booking: BookingCreate, db=Depends(get_db), current_u
     booking_data = booking.dict()
     booking_data["client_id"] = current_user.id
     booking_data["payment_status"] = "pending"
-    # SECURITY: price is set by the server, never by the client
     booking_data["amount"] = getattr(therapist, "session_rate", None) or DEFAULT_SESSION_FEE
     db_booking = create_booking(db, booking_data)
 
@@ -531,7 +483,6 @@ def create_session_booking(booking: BookingCreate, db=Depends(get_db), current_u
     )
 
     return {"booking_id": db_booking.id, "status": "confirmed"}
-
 
 @app.get("/bookings/me")
 def get_my_bookings(db=Depends(get_db), current_user=Depends(get_current_user)):
@@ -561,7 +512,6 @@ def get_my_bookings(db=Depends(get_db), current_user=Depends(get_current_user)):
         for b in bookings
     ]
 
-
 @app.get("/bookings/{booking_id}")
 def read_booking(booking_id: int, db=Depends(get_db), current_user=Depends(get_current_user)):
     booking = get_booking_by_id(db, booking_id)
@@ -586,9 +536,6 @@ def read_booking(booking_id: int, db=Depends(get_db), current_user=Depends(get_c
         "therapist_name": get_user_name(booking.therapist_id),
     }
 
-
-# ============ TELEHEALTH VIDEO CALL ROUTES ============
-
 @app.get("/bookings/{booking_id}/video-room")
 def get_video_room(booking_id: int, db=Depends(get_db), current_user=Depends(get_current_user)):
     booking = get_booking_by_id(db, booking_id)
@@ -602,12 +549,9 @@ def get_video_room(booking_id: int, db=Depends(get_db), current_user=Depends(get
 
     return {"room_id": booking.video_room_id, "booking_id": booking.id}
 
-
-# ============ USERS ROUTES ============
-
+# Users Routes
 @app.get("/users", response_model=List[UserResponse])
 def list_users(user_type: Optional[str] = None, db=Depends(get_db), current_user=Depends(get_current_user)):
-    # SECURITY: non-admins may only browse approved therapists
     if current_user.user_type != "admin" and user_type != "therapist":
         raise HTTPException(status_code=403, detail="Only admins may list users")
     query = db.query(User)
@@ -617,13 +561,11 @@ def list_users(user_type: Optional[str] = None, db=Depends(get_db), current_user
         query = query.filter(User.verification_status == "approved")
     return query.all()
 
-
 @app.get("/users/{user_id}", response_model=UserResponse)
 def read_user(user_id: int, db=Depends(get_db), current_user=Depends(get_current_user)):
     user = get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    # SECURITY: self, admin, or public approved-therapist profile only
     is_self = current_user.id == user_id
     is_admin = current_user.user_type == "admin"
     is_public_therapist = user.user_type == "therapist" and user.verification_status == "approved"
@@ -631,11 +573,8 @@ def read_user(user_id: int, db=Depends(get_db), current_user=Depends(get_current
         raise HTTPException(status_code=403, detail="Not allowed to view this profile")
     return user
 
-
-# ============ PAYMENTS ROUTES ============
-
+# Payments Routes
 PLATFORM_COMMISSION_RATE = 0.15
-
 
 @app.post("/payments/simulate", response_model=PaymentResponse)
 def process_payment(payment: PaymentRequest, db=Depends(get_db), current_user=Depends(get_current_user)):
@@ -648,7 +587,6 @@ def process_payment(payment: PaymentRequest, db=Depends(get_db), current_user=De
     if not booking or booking.client_id != current_user.id:
         raise HTTPException(status_code=403, detail="Unauthorized booking payment")
 
-    # SECURITY: always charge the server-stored amount, never the client-supplied amount
     amount = booking.amount
     result = simulate_payment(payment.phone, amount)
     if result["success"]:
@@ -680,15 +618,12 @@ def process_payment(payment: PaymentRequest, db=Depends(get_db), current_user=De
 
     return PaymentResponse(**result)
 
-
-# ============ MOOD ROUTES ============
-
+# Mood Routes
 @app.get("/mood/entries", response_model=List[MoodEntryResponse])
 def get_my_moods(db=Depends(get_db), current_user=Depends(get_current_user)):
     if current_user.user_type != "client":
         raise HTTPException(status_code=403, detail="Only clients can track moods")
     return get_recent_moods(db, current_user.id)
-
 
 @app.post("/mood/log", response_model=MoodEntryResponse)
 def log_mood(mood: MoodEntryCreate, db=Depends(get_db), current_user=Depends(get_current_user)):
@@ -696,9 +631,7 @@ def log_mood(mood: MoodEntryCreate, db=Depends(get_db), current_user=Depends(get
         raise HTTPException(status_code=403, detail="Only clients can track moods")
     return log_mood_entry(db, current_user.id, mood.dict())
 
-
-# ============ WEBSOCKET ROUTES ============
-
+# WebSocket Routes
 @app.websocket("/ws/{room_id}")
 async def websocket_endpoint(websocket: WebSocket, room_id: int):
     auth_header = websocket.headers.get("authorization")
@@ -738,14 +671,11 @@ async def websocket_endpoint(websocket: WebSocket, room_id: int):
     except WebSocketDisconnect:
         manager.disconnect(websocket, room_id)
 
-
 @app.get("/")
 def read_root():
     return {"message": "Mecac API", "status": "healthy"}
 
-
-# ============ REVIEWS ROUTES ============
-
+# Reviews Routes
 @app.post("/reviews", response_model=ReviewResponse)
 def submit_review(review: ReviewCreate, db=Depends(get_db), current_user=Depends(get_current_user)):
     if current_user.user_type != "client":
@@ -768,11 +698,9 @@ def submit_review(review: ReviewCreate, db=Depends(get_db), current_user=Depends
     review_data["client_id"] = current_user.id
     return create_review(db, review_data)
 
-
 @app.get("/reviews/therapist/{therapist_id}", response_model=List[ReviewResponse])
 def get_therapist_reviews(therapist_id: int, db=Depends(get_db)):
     return get_reviews_for_therapist(db, therapist_id)
-
 
 @app.get("/reviews/me", response_model=List[ReviewResponse])
 def get_my_reviews(db=Depends(get_db), current_user=Depends(get_current_user)):
@@ -780,19 +708,15 @@ def get_my_reviews(db=Depends(get_db), current_user=Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Only clients have reviews")
     return db.query(Review).filter(Review.client_id == current_user.id).order_by(Review.created_at.desc()).all()
 
-
-# ============ NOTIFICATIONS ROUTES ============
-
+# Notifications Routes
 @app.get("/notifications/me", response_model=List[NotificationResponse])
 def get_my_notifications(db=Depends(get_db), current_user=Depends(get_current_user)):
     return get_user_notifications(db, current_user.id)
-
 
 @app.get("/notifications/unread-count")
 def get_my_unread_count(db=Depends(get_db), current_user=Depends(get_current_user)):
     count = get_unread_count(db, current_user.id)
     return {"count": count}
-
 
 @app.put("/notifications/{notification_id}/read")
 def read_notification(notification_id: int, db=Depends(get_db), current_user=Depends(get_current_user)):
@@ -803,27 +727,20 @@ def read_notification(notification_id: int, db=Depends(get_db), current_user=Dep
         raise HTTPException(status_code=403, detail="Unauthorized")
     return {"message": "Marked as read"}
 
-
 @app.put("/notifications/read-all")
 def read_all_notifications(db=Depends(get_db), current_user=Depends(get_current_user)):
     mark_all_notifications_read(db, current_user.id)
     return {"message": "All notifications marked as read"}
 
-
-# ============ ADMIN ROUTES ============
-
+# Admin Routes
 def require_admin(current_user=Depends(get_current_user)):
     if current_user.user_type != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
 
-
 @app.get("/admin/stats", response_model=AdminStatsResponse)
 def admin_get_stats(db=Depends(get_db), admin=Depends(require_admin)):
     return get_admin_stats(db)
-
-
-# ============ ADMIN ANALYTICS TIME-SERIES ============
 
 @app.get("/admin/analytics/timeseries")
 def get_admin_analytics(
@@ -885,7 +802,6 @@ def get_admin_analytics(
     
     return timeline
 
-
 @app.get("/admin/users", response_model=List[AdminUserResponse])
 def admin_list_users(
     user_type: Optional[str] = None,
@@ -895,14 +811,12 @@ def admin_list_users(
 ):
     return get_all_users(db, user_type=user_type, search=search)
 
-
 @app.get("/admin/users/{user_id}", response_model=AdminUserResponse)
 def admin_get_user(user_id: int, db=Depends(get_db), admin=Depends(require_admin)):
     user = get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
-
 
 @app.put("/admin/users/{user_id}/toggle-active")
 def admin_toggle_user(user_id: int, db=Depends(get_db), admin=Depends(require_admin)):
@@ -914,7 +828,6 @@ def admin_toggle_user(user_id: int, db=Depends(get_db), admin=Depends(require_ad
         "user_id": user.id,
         "is_active": user.is_active
     }
-
 
 @app.get("/admin/export/users")
 def admin_export_users(db=Depends(get_db), admin=Depends(require_admin)):
@@ -946,7 +859,6 @@ def admin_export_users(db=Depends(get_db), admin=Depends(require_admin)):
         headers={"Content-Disposition": "attachment; filename=users_export.csv"}
     )
 
-
 @app.put("/admin/therapists/{user_id}/approve")
 def admin_approve_therapist(user_id: int, db=Depends(get_db), admin=Depends(require_admin)):
     user = get_user_by_id(db, user_id)
@@ -964,7 +876,6 @@ def admin_approve_therapist(user_id: int, db=Depends(get_db), admin=Depends(requ
     )
 
     return {"message": "Therapist approved", "user_id": user.id}
-
 
 @app.put("/admin/therapists/{user_id}/reject")
 def admin_reject_therapist(user_id: int, db=Depends(get_db), admin=Depends(require_admin)):
@@ -984,16 +895,12 @@ def admin_reject_therapist(user_id: int, db=Depends(get_db), admin=Depends(requi
 
     return {"message": "Therapist rejected", "user_id": user.id}
 
-
 @app.get("/admin/therapists/pending", response_model=List[TherapistVerificationResponse])
 def admin_get_pending_therapists(db=Depends(get_db), admin=Depends(require_admin)):
     return db.query(User).filter(
         User.user_type == "therapist",
         User.verification_status == "pending"
     ).order_by(User.created_at.desc()).all()
-
-
-# ============ ADMIN PLATFORM WITHDRAWALS ============
 
 @app.post("/admin/withdraw-platform-earnings")
 def admin_withdraw_earnings(
@@ -1021,9 +928,7 @@ def admin_withdraw_earnings(
         "withdrawal_id": withdrawal.id
     }
 
-
-# ============ RAGE ROOM ROUTES ============
-
+# Rage Room Routes
 class PackageIn(BaseModel):
     name: str
     description: str = ""
@@ -1031,10 +936,8 @@ class PackageIn(BaseModel):
     price: float = 0
     tier: str = "standard"
 
-
 @app.get("/rage-rooms")
 def list_rage_rooms(db=Depends(get_db)):
-    """Public endpoint: list active rage rooms with their packages."""
     rooms = db.query(RageRoom).filter(RageRoom.is_active == True).all()
     result = []
     for r in rooms:
@@ -1063,7 +966,6 @@ def list_rage_rooms(db=Depends(get_db)):
         })
     return result
 
-
 @app.post("/rage-rooms")
 async def create_rage_room(
     name: str = Form(...),
@@ -1077,7 +979,6 @@ async def create_rage_room(
     db=Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Admin-only: register a new rage room with photo and location."""
     if current_user.user_type != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
 
@@ -1107,7 +1008,6 @@ async def create_rage_room(
     db.refresh(room)
     return {"id": room.id, "message": "Rage room registered"}
 
-
 @app.post("/rage-rooms/{room_id}/packages")
 def add_package(
     room_id: int,
@@ -1115,7 +1015,6 @@ def add_package(
     db=Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Admin-only: add a package to a rage room."""
     if current_user.user_type != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     room = db.query(RageRoom).filter(RageRoom.id == room_id).first()
@@ -1133,17 +1032,13 @@ def add_package(
     db.commit()
     return {"message": "Package added"}
 
-
-# ============ AI ROUTES ============
-
+# AI Routes
 class AIMessage(BaseModel):
     role: str
     content: str
 
-
 class AIChatRequest(BaseModel):
     messages: List[AIMessage]
-
 
 MECAC_SYSTEM_PROMPT = """You are a compassionate AI mental health support companion for Afya Care Connect, a professional mental health platform. 
 
@@ -1161,9 +1056,7 @@ Formatting and Style Rules (CRITICAL):
 - Be warm, empathetic, and conversational. Never robotic or clinical.
 - End with a gentle question or encouragement to keep the conversation going."""
 
-
 async def generate_ai_response(messages: List[Dict]):
-    """Stream AI response from Groq API."""
     try:
         stream = await client.chat.completions.create(
             model="llama-3.1-8b-instant",
@@ -1179,7 +1072,6 @@ async def generate_ai_response(messages: List[Dict]):
     except Exception as e:
         yield f"Error: {str(e)}"
 
-
 @app.post("/ai/chat")
 @limiter.limit("10/minute")
 async def ai_chat(request: Request, chat_request: AIChatRequest, db=Depends(get_db), current_user=Depends(get_current_user)):
@@ -1188,7 +1080,7 @@ async def ai_chat(request: Request, chat_request: AIChatRequest, db=Depends(get_
     if detect_crisis(user_message):
         return {
             "response": KENYA_CRISIS_RESOURCES,
-            "crisis_detected": True
+            "crisis_detection": True
         }
 
     history = get_ai_chat_history(db, current_user.id, limit=10)
@@ -1210,14 +1102,12 @@ async def ai_chat(request: Request, chat_request: AIChatRequest, db=Depends(get_
     save_ai_message(db, current_user.id, "user", user_message)
     save_ai_message(db, current_user.id, "assistant", full_response)
 
-    return {"response": full_response, "crisis_detected": False}
-
+    return {"response": full_response, "crisis_detection": False}
 
 @app.get("/ai/history", response_model=List[AiChatHistoryResponse])
 def get_chat_history(db=Depends(get_db), current_user=Depends(get_current_user)):
     history = get_ai_chat_history(db, current_user.id, limit=20)
     return list(reversed(history))
-
 
 @app.delete("/ai/history")
 def clear_chat_history(db=Depends(get_db), current_user=Depends(get_current_user)):
@@ -1227,19 +1117,15 @@ def clear_chat_history(db=Depends(get_db), current_user=Depends(get_current_user
     db.commit()
     return {"message": "Chat history cleared"}
 
-
-# ============ AI CLIENT INSIGHTS ROUTES ============
-
+# AI Client Insights Routes
 @app.get("/ai/client/insights")
 async def get_client_mood_insights(db=Depends(get_db), current_user=Depends(get_current_user)):
-    """AI analyzes the client's weekly mood and generates a summary with recommendations."""
     if current_user.user_type != "client":
         raise HTTPException(status_code=403, detail="Only clients can access mood insights")
 
     if not is_feature_enabled("ai_mood_insights"):
         raise HTTPException(status_code=503, detail="AI mood insights are currently unavailable")
 
-    from datetime import date as date_module
     week_ago = date_module.today() - timedelta(days=7)
 
     moods = db.query(MoodEntry).filter(
@@ -1309,17 +1195,14 @@ async def get_client_mood_insights(db=Depends(get_db), current_user=Depends(get_
         print(f"AI Mood Insights Error: {e}")
         raise HTTPException(status_code=500, detail="AI service temporarily unavailable")
 
-
 @app.get("/ai/client/recommend-therapist")
 def recommend_therapist(db=Depends(get_db), current_user=Depends(get_current_user)):
-    """Smart therapist matching based on availability, rating, and specialty."""
     if current_user.user_type != "client":
         raise HTTPException(status_code=403, detail="Only clients can get therapist recommendations")
 
     if not is_feature_enabled("smart_booking"):
         raise HTTPException(status_code=503, detail="Smart booking is currently unavailable")
 
-    # Find approved therapists
     therapists = db.query(User).filter(
         User.user_type == "therapist",
         User.verification_status == "approved",
@@ -1329,7 +1212,6 @@ def recommend_therapist(db=Depends(get_db), current_user=Depends(get_current_use
     if not therapists:
         return {"therapist": None, "message": "No therapists are currently available. Please check back soon."}
 
-    # For students, try to match with university-affiliated therapists first
     best_match = None
     if current_user.is_verified_student and current_user.university_id:
         uni_therapist = db.query(User).filter(
@@ -1341,7 +1223,6 @@ def recommend_therapist(db=Depends(get_db), current_user=Depends(get_current_use
         if uni_therapist:
             best_match = uni_therapist
 
-    # If no university match, pick the first available therapist
     if not best_match:
         best_match = therapists[0]
 
@@ -1356,16 +1237,12 @@ def recommend_therapist(db=Depends(get_db), current_user=Depends(get_current_use
         "message": f"Based on your needs, I recommend {best_match.name}. They specialize in supporting clients with stress and emotional wellbeing."
     }
 
-
-# ============ ONE-CLICK SPONSORED BOOKING ============
-
 @app.post("/bookings/one-click")
 def one_click_booking(
     therapist_id: int,
     db=Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """One-click booking with no payment required (sponsored session)."""
     if current_user.user_type != "client":
         raise HTTPException(status_code=403, detail="Only clients can book sessions")
 
@@ -1378,7 +1255,6 @@ def one_click_booking(
     if therapist.verification_status != "approved":
         raise HTTPException(status_code=400, detail="This therapist is not yet approved")
 
-    # Create a sponsored booking (no payment required)
     scheduled_time = datetime.utcnow() + timedelta(days=1)
 
     booking_data = {
@@ -1394,7 +1270,6 @@ def one_click_booking(
 
     db_booking = create_booking(db, booking_data)
 
-    # Notify the therapist
     client_name = current_user.name or "A client"
     create_notification(
         db,
@@ -1403,7 +1278,6 @@ def one_click_booking(
         type="booking"
     )
 
-    # Notify the client
     create_notification(
         db,
         user_id=current_user.id,
@@ -1418,81 +1292,7 @@ def one_click_booking(
         "scheduled_time": scheduled_time.isoformat()
     }
 
-
-# ============ AI THERAPIST SOAP NOTES ============
-
-class SOAPRequest(BaseModel):
-    booking_id: int
-    rough_notes: str = ""
-
-
-@app.post("/ai/therapist/soap")
-async def generate_soap_note(
-    req: SOAPRequest,
-    db=Depends(get_db),
-    current_user=Depends(get_current_user)
-):
-    """AI Agent: Drafts a SOAP note based on chat history and rough notes."""
-    if current_user.user_type != "therapist":
-        raise HTTPException(status_code=403, detail="Only therapists can use the AI agent")
-
-    booking = get_booking_by_id(db, req.booking_id)
-    if not booking or booking.therapist_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Unauthorized booking")
-
-    # Fetch the chat transcript for this session
-    messages = get_messages_by_room(db, req.booking_id, skip=0, limit=100)
-    chat_transcript = "\n".join([f"{m.sender_type}: {m.content}" for m in messages])
-    
-    if not chat_transcript and not req.rough_notes:
-        raise HTTPException(status_code=400, detail="No chat history or rough notes to analyze.")
-
-    prompt = f"""
-    You are an expert clinical AI assistant drafting a SOAP note for a licensed therapist in Kenya.
-    Based on the chat transcript and the therapist's rough notes, draft a professional SOAP note.
-    Use objective, clinical language. Do not provide a definitive medical diagnosis if uncertain.
-
-    Therapist's rough notes: {req.rough_notes or "None provided"}
-    
-    Chat Transcript:
-    {chat_transcript}
-
-    Output ONLY valid JSON with these exact keys:
-    {{
-      "subjective": "What the client reported, felt, or expressed.",
-      "objective": "Observable facts, therapist's observations, and chat context.",
-      "assessment": "Clinical impression, progress evaluation, or formulation.",
-      "plan": "Next steps, homework, coping strategies, or follow-up plan."
-    }}
-    Do not include markdown formatting. Just raw JSON.
-    """
-
-    try:
-        import json as json_module
-        response = await client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            max_tokens=800,
-            response_format={"type": "json_object"}
-        )
-
-        raw_text = response.choices[0].message.content
-        soap_data = json_module.loads(raw_text)
-        
-        for key in ["subjective", "objective", "assessment", "plan"]:
-            if key not in soap_data:
-                soap_data[key] = ""
-                
-        return soap_data
-
-    except Exception as e:
-        print(f"AI SOAP Generation Error: {e}")
-        raise HTTPException(status_code=500, detail="AI service temporarily unavailable. Please try again.")
-
-
-# ============ SESSION NOTES ROUTES ============
-
+# Session Notes Routes
 @app.post("/bookings/{booking_id}/notes", response_model=SessionNoteResponse)
 def create_or_update_session_note(
     booking_id: int,
@@ -1533,7 +1333,6 @@ def create_or_update_session_note(
         db.refresh(new_note)
         return new_note
 
-
 @app.get("/bookings/{booking_id}/notes", response_model=SessionNoteResponse)
 def get_session_note(booking_id: int, db=Depends(get_db), current_user=Depends(get_current_user)):
     if current_user.user_type != "therapist":
@@ -1549,9 +1348,7 @@ def get_session_note(booking_id: int, db=Depends(get_db), current_user=Depends(g
     
     return note
 
-
-# ============ STUDENT SIGNUP AND VERIFICATION ============
-
+# Student Signup and Verification
 @app.post("/auth/student-signup", response_model=Token)
 def student_signup(student: StudentSignupRequest, db=Depends(get_db)):
     email_domain = student.email.split("@")[-1].lower()
@@ -1640,7 +1437,6 @@ def student_signup(student: StudentSignupRequest, db=Depends(get_db)):
         "user_type": new_user.user_type
     }
 
-
 @app.get("/auth/verify-email")
 def verify_email(token: str, db=Depends(get_db)):
     verification = db.query(EmailVerificationToken).filter(
@@ -1659,9 +1455,7 @@ def verify_email(token: str, db=Depends(get_db)):
 
     return {"success": True, "message": "Email verified! You now have access to student pricing."}
 
-
-# ============ ADMIN UNIVERSITY MANAGEMENT ============
-
+# Admin University Management
 @app.get("/admin/universities/list")
 def admin_list_universities(db=Depends(get_db), admin=Depends(require_admin)):
     universities = db.query(University).all()
@@ -1679,7 +1473,6 @@ def admin_list_universities(db=Depends(get_db), admin=Depends(require_admin)):
         })
     return result
 
-
 @app.post("/admin/universities", response_model=UniversityResponse)
 def admin_create_university(
     university: UniversityCreate,
@@ -1691,7 +1484,6 @@ def admin_create_university(
     db.commit()
     db.refresh(new_uni)
     return new_uni
-
 
 @app.put("/admin/universities/{uni_id}/toggle-active")
 def admin_toggle_university(uni_id: int, db=Depends(get_db), admin=Depends(require_admin)):
@@ -1708,9 +1500,7 @@ def admin_toggle_university(uni_id: int, db=Depends(get_db), admin=Depends(requi
         "is_active": uni.is_active
     }
 
-
-# ============ ADMIN BOOKING MANAGEMENT AND REFUNDS ============
-
+# Admin Booking Management and Refunds
 @app.get("/admin/bookings")
 def get_all_bookings(db=Depends(get_db), current_user=Depends(get_current_user)):
     if current_user.user_type != "admin":
@@ -1732,7 +1522,6 @@ def get_all_bookings(db=Depends(get_db), current_user=Depends(get_current_user))
         })
     return result
 
-
 @app.put("/admin/bookings/{booking_id}/refund")
 def refund_booking(booking_id: int, db=Depends(get_db), current_user=Depends(get_current_user)):
     if current_user.user_type != "admin":
@@ -1748,12 +1537,9 @@ def refund_booking(booking_id: int, db=Depends(get_db), current_user=Depends(get
     db.refresh(booking)
     return {"success": True, "message": "Booking refunded successfully"}
 
-
-# ============ SECURITY DISCLOSURE ============
-
+# Security Disclosure
 @app.get("/.well-known/security.txt")
 def security_txt():
-    """Public endpoint for security vulnerability disclosure (RFC 9116)."""
     content = """Contact: mailto:admin@mecac.co.ke
 Expires: 2026-12-31T23:59:59.000Z
 Preferred-Languages: en, sw
@@ -1761,7 +1547,6 @@ Canonical: https://mecac-backend.onrender.com/.well-known/security.txt
 Policy: We take security seriously. Please report vulnerabilities responsibly.
 """
     return PlainTextResponse(content=content, media_type="text/plain")
-
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
