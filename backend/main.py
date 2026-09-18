@@ -1065,7 +1065,7 @@ Formatting and Style Rules (CRITICAL):
 async def generate_ai_response(messages: List[Dict]):
     try:
         stream = await client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-20b",
             messages=messages,
             max_tokens=400,
             temperature=0.7,
@@ -1178,7 +1178,7 @@ async def get_client_mood_insights(db=Depends(get_db), current_user=Depends(get_
     try:
         import json as json_module
         response = await client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-20b",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.4,
             max_tokens=300,
