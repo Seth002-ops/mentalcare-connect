@@ -5,7 +5,7 @@ import secrets
 import base64
 import logging
 from typing import List, Optional, Dict
-from datetime import datetime, timedelta, date as date_module
+from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from collections import defaultdict
@@ -635,7 +635,11 @@ def get_my_moods(db=Depends(get_db), current_user=Depends(get_current_user)):
 def log_mood(mood: MoodEntryCreate, db=Depends(get_db), current_user=Depends(get_current_user)):
     if current_user.user_type != "client":
         raise HTTPException(status_code=403, detail="Only clients can track moods")
-    return log_mood_entry(db, current_user.id, mood.dict())
+    
+    new_entry = log_mood_entry(db, current_user.id, mood.dict())
+
+    return new_entry
+
 
 # WebSocket Routes
 @app.websocket("/ws/{room_id}")
@@ -1132,10 +1136,10 @@ async def get_client_mood_insights(db=Depends(get_db), current_user=Depends(get_
     if not is_feature_enabled("ai_mood_insights"):
         raise HTTPException(status_code=503, detail="AI mood insights are currently unavailable")
 
-    week_ago = date_module.today() - timedelta(days=7)
+    week_ago = datetime.utcnow() - timedelta(days=7)
 
     moods = db.query(MoodEntry).filter(
-        MoodEntry.user_id == current_user.id,
+        MoodEntry.client_id == current_user.id,
         MoodEntry.entry_date >= week_ago
     ).order_by(MoodEntry.entry_date.asc()).all()
 
