@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';  // ✅ ADDED useState
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from './components/LandingPage';
 import ClientDashboard from './components/ClientDashboard';
@@ -17,19 +17,8 @@ import Services from './components/Services';
 import TermsAcceptance from './components/TermsAcceptance';
 import TherapistRegistration from './components/TherapistRegistration';
 import LeaveReview from './components/LeaveReview';
+import { API_URL } from './config';
 import './App.css';
-
-  useEffect(() => {
-    // Keep Render backend awake (ping every 5 minutes)
-    const keepAlive = setInterval(() => {
-      fetch('https://mecac-backend.onrender.com/api/health')
-        .catch(err => console.log('Keep-alive ping failed', err));
-    }, 300000); // 5 minutes
-
-    // Clean up when component unmounts
-    return () => clearInterval(keepAlive);
-  }, []);
-
 
 const App = () => {
   const [user, setUser] = useState(null);
@@ -37,6 +26,18 @@ const App = () => {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [profileComplete, setProfileComplete] = useState(true);
   const [loadingUser, setLoadingUser] = useState(true);
+
+  // ✅ MOVED INSIDE the App component
+  useEffect(() => {
+    // Keep Render backend awake (ping every 5 minutes)
+    const keepAlive = setInterval(() => {
+      fetch(`${API_URL}/api/health`)
+        .catch(err => console.log('Keep-alive ping failed', err));
+    }, 300000); // 5 minutes
+
+    // Clean up when component unmounts
+    return () => clearInterval(keepAlive);
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -48,7 +49,7 @@ const App = () => {
       setUserType(storedType);
 
       // Check if user has accepted terms
-      fetch('https://mecac-backend.onrender.com/users/me', {
+      fetch(`${API_URL}/users/me`, {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((res) => (res.ok ? res.json() : null))
@@ -57,7 +58,7 @@ const App = () => {
             setTermsAccepted(data.terms_accepted || false);
             
             // Check if therapist profile is complete
-            if (storedType === 'therapist' && !data.specializations) {
+            if (storedType === 'therapist' && data.verification_status === 'incomplete') {
               setProfileComplete(false);
             }
           }
