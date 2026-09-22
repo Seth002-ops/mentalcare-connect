@@ -163,15 +163,15 @@ class MoodEntryCreate(BaseModel):
 
 class MoodEntryResponse(BaseModel):
     id: int
-    mood: str
-    notes: Optional[str] = None
-    intensity: Optional[int] = None
-    created_at: Optional[datetime] = None
+    client_id: int
+    mood_score: str
+    note: Optional[str] = None
+    entry_date: Optional[datetime] = None
 
     class Config:
         from_attributes = True
-
-
+class MoodLogResponse(BaseModel):
+    mood: MoodEntryResponse
 # ============ REVIEW SCHEMAS ============
 
 class ReviewCreate(BaseModel):
