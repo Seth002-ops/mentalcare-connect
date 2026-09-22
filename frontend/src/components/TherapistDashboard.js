@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { API_URL } from '../config';
 import NotificationBell from './NotificationBell';
 import SessionReminder from './SessionReminder';
 import TherapistStats from './TherapistStats';
@@ -14,6 +15,9 @@ const IconMessage = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="
 const IconBook = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>;
 const IconChevronRight = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>;
 const IconDollarSign = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>;
+const IconSparkle = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.9 5.7L19.6 10l-5.7 1.9L12 17.6l-1.9-5.7L4.4 10l5.7-1.9z"></path><line x1="19" y1="3" x2="19" y2="7"></line><line x1="17" y1="5" x2="21" y2="5"></line><line x1="5" y1="17" x2="5" y2="21"></line><line x1="3" y1="19" x2="7" y2="19"></line></svg>;
+const IconGift = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path></svg>;
+const IconCopy = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>;
 
 const TherapistDashboard = ({ logout }) => {
   const [appointments, setAppointments] = useState([]);
@@ -27,6 +31,14 @@ const TherapistDashboard = ({ logout }) => {
   const [withdrawLoading, setWithdrawLoading] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
 
+  // ============ AI SOAP NOTE STATE ============
+  const [soapSelectedBooking, setSoapSelectedBooking] = useState('');
+  const [soapRoughNotes, setSoapRoughNotes] = useState('');
+  const [soapGenerating, setSoapGenerating] = useState(false);
+  const [soapResult, setSoapResult] = useState(null);
+  const [soapError, setSoapError] = useState('');
+  const [soapCopied, setSoapCopied] = useState(false);
+
   useEffect(() => {
     fetchAppointments();
     fetchTherapistName();
@@ -36,7 +48,7 @@ const TherapistDashboard = ({ logout }) => {
   const fetchAppointments = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('https://mecac-backend.onrender.com/bookings/me', {
+      const res = await fetch(`${API_URL}/bookings/me`, {
         headers: { Authorization: `Bearer ${token}` } 
       });
       if (res.ok) {
@@ -56,10 +68,7 @@ const TherapistDashboard = ({ logout }) => {
     const token = localStorage.getItem('token');
     if (token) {
       try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        const userId = payload.user_id;
-        
-        const res = await fetch(`/users/${userId}`, {
+        const res = await fetch(`${API_URL}/users/me`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res.ok) {
@@ -77,7 +86,7 @@ const TherapistDashboard = ({ logout }) => {
     const token = localStorage.getItem('token');
     if (!token) return;
     try {
-      const res = await fetch('https://mecac-backend.onrender.com/therapist/earnings', {
+      const res = await fetch(`${API_URL}/therapist/earnings`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -107,7 +116,7 @@ const TherapistDashboard = ({ logout }) => {
     const token = localStorage.getItem('token');
     try {
       const res = await fetch(
-        `/therapist/withdraw?amount=${withdrawAmount}&mpesa_phone=${withdrawPhone}`,
+        `${API_URL}/therapist/withdraw?amount=${withdrawAmount}&mpesa_phone=${withdrawPhone}`,
         {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
@@ -130,6 +139,59 @@ const TherapistDashboard = ({ logout }) => {
     }
   };
 
+  // ============ AI SOAP NOTE GENERATOR ============
+  const handleGenerateSOAP = async () => {
+    if (!soapSelectedBooking) {
+      setSoapError('Please select a session first.');
+      return;
+    }
+
+    setSoapGenerating(true);
+    setSoapError('');
+    setSoapResult(null);
+    setSoapCopied(false);
+
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_URL}/ai/therapist/soap`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          booking_id: Number(soapSelectedBooking),
+          rough_notes: soapRoughNotes || '',
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setSoapResult(data);
+      } else {
+        const errorMsg = Array.isArray(data.detail)
+          ? data.detail.map(e => e.msg).join(', ')
+          : (data.detail || 'Failed to generate SOAP note.');
+        setSoapError(errorMsg);
+      }
+    } catch (err) {
+      setSoapError('Network error. Please try again.');
+    } finally {
+      setSoapGenerating(false);
+    }
+  };
+
+  const handleCopySOAP = () => {
+    if (!soapResult) return;
+    const text = `SOAP NOTE\n\nS: ${soapResult.subjective}\n\nO: ${soapResult.objective}\n\nA: ${soapResult.assessment}\n\nP: ${soapResult.plan}`;
+    navigator.clipboard.writeText(text).then(() => {
+      setSoapCopied(true);
+      setTimeout(() => setSoapCopied(false), 2000);
+    });
+  };
+
+  // ============ COMPUTED VALUES ============
   const completedCount = appointments.filter(a => a.status === 'completed').length;
   const pendingCount = appointments.filter(a => a.status === 'pending' || a.status === 'confirmed').length;
   
@@ -140,6 +202,12 @@ const TherapistDashboard = ({ logout }) => {
     .filter(a => (a.status === 'confirmed' || a.status === 'pending') && new Date(a.scheduled_time) > new Date())
     .sort((a, b) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime())
     .slice(0, 5);
+
+  // Sessions eligible for SOAP notes (completed or confirmed sessions)
+  const soapEligibleSessions = appointments
+    .filter(a => a.status === 'completed' || a.status === 'confirmed')
+    .sort((a, b) => new Date(b.scheduled_time).getTime() - new Date(a.scheduled_time).getTime())
+    .slice(0, 10);
 
   const clientProgressData = uniqueClientIds.map((clientId) => {
     const clientAppts = appointments.filter(a => a.client_id === clientId);
@@ -155,6 +223,44 @@ const TherapistDashboard = ({ logout }) => {
       nextMilestone: milestones[Math.min(completed, milestones.length - 1)]
     };
   });
+
+  // ============ PAYMENT BADGE HELPER ============
+  const PaymentBadge = ({ paymentStatus, amount }) => {
+    if (paymentStatus === 'sponsored') {
+      return (
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: '4px',
+          padding: '2px 8px', borderRadius: '999px', fontSize: '0.68rem', fontWeight: '700',
+          background: '#DBEAFE', color: '#1E40AF', border: '1px solid #93C5FD'
+        }}>
+          <IconGift /> Sponsored
+        </span>
+      );
+    }
+    if (paymentStatus === 'completed') {
+      return (
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: '4px',
+          padding: '2px 8px', borderRadius: '999px', fontSize: '0.68rem', fontWeight: '700',
+          background: '#D1FAE5', color: '#065F46', border: '1px solid #6EE7B7'
+        }}>
+          Paid • KSh {(amount || 0).toLocaleString()}
+        </span>
+      );
+    }
+    if (paymentStatus === 'pending') {
+      return (
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: '4px',
+          padding: '2px 8px', borderRadius: '999px', fontSize: '0.68rem', fontWeight: '700',
+          background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A'
+        }}>
+          Awaiting Payment
+        </span>
+      );
+    }
+    return null;
+  };
 
   const styles = {
     container: { minHeight: '100vh', backgroundColor: '#F9FAFB', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' },
@@ -180,7 +286,7 @@ const TherapistDashboard = ({ logout }) => {
     cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' },
     cardTitle: { fontSize: '1.1rem', fontWeight: '600', color: '#111827' },
     viewAllLink: { display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: '#2E7D32', textDecoration: 'none', fontWeight: '500' },
-    sessionItem: { padding: '1rem', background: '#F9FAFB', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '0.75rem' },
+    sessionItem: { padding: '1rem', background: '#F9FAFB', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '0.75rem', flexWrap: 'wrap' },
     sessionIconBox: { width: '40px', height: '40px', borderRadius: '10px', background: '#E8F5E9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#2E7D32' },
     sessionClient: { fontWeight: '600', fontSize: '0.9rem', color: '#111827' },
     sessionTime: { fontSize: '0.8rem', color: '#6B7280' },
@@ -198,7 +304,7 @@ const TherapistDashboard = ({ logout }) => {
     <div style={styles.container}>
       <header style={styles.header}>
         <nav style={styles.nav}>
-          <h1 style={styles.navTitle}>Mecac Therapist Portal</h1>
+          <h1 style={styles.navTitle}>Afya Care Therapist Portal</h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <NotificationBell />
             <button onClick={logout} style={styles.logoutBtn}>Logout</button>
@@ -232,6 +338,147 @@ const TherapistDashboard = ({ logout }) => {
 
         {/* THERAPIST PERFORMANCE METRICS */}
         <TherapistStats />
+
+        {/* ============ AI SOAP NOTE GENERATOR ============ */}
+        <div style={{ ...styles.card, border: '2px solid #7C3AED', background: 'linear-gradient(135deg, #F5F3FF 0%, #FFFFFF 100%)' }}>
+          <div style={styles.cardHeader}>
+            <h3 style={{ ...styles.cardTitle, color: '#4C1D95', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ color: '#7C3AED' }}><IconSparkle /></span> AI Clinical Assistant
+            </h3>
+            <span style={{ fontSize: '0.75rem', color: '#7C3AED', background: '#EDE9FE', padding: '4px 12px', borderRadius: '999px', fontWeight: '600' }}>
+              Powered by AI
+            </span>
+          </div>
+
+          <p style={{ fontSize: '0.88rem', color: '#6B7280', margin: '0 0 1.25rem 0', lineHeight: 1.5 }}>
+            Select a session below and let AI draft a professional SOAP note from the chat transcript. 
+            Add your rough observations to make it even more accurate.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+            {/* Session Selector */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>
+                Select Session
+              </label>
+              <select
+                value={soapSelectedBooking}
+                onChange={(e) => { setSoapSelectedBooking(e.target.value); setSoapError(''); setSoapResult(null); }}
+                style={{
+                  width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1px solid #D1D5DB',
+                  fontSize: '0.88rem', background: 'white', color: '#111827', cursor: 'pointer',
+                  appearance: 'auto',
+                }}
+              >
+                <option value="">-- Choose a session --</option>
+                {soapEligibleSessions.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.client_name || 'Client'} — {new Date(s.scheduled_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ({s.status})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Rough Notes Input */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>
+                Your Rough Notes (Optional)
+              </label>
+              <input
+                type="text"
+                value={soapRoughNotes}
+                onChange={(e) => setSoapRoughNotes(e.target.value)}
+                placeholder="e.g., Client seemed anxious about exams..."
+                style={{
+                  width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1px solid #D1D5DB',
+                  fontSize: '0.88rem', boxSizing: 'border-box',
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Generate Button */}
+          <button
+            onClick={handleGenerateSOAP}
+            disabled={soapGenerating || !soapSelectedBooking}
+            style={{
+              width: '100%', padding: '0.85rem', borderRadius: '12px', border: 'none',
+              background: soapGenerating || !soapSelectedBooking ? '#9CA3AF' : 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)',
+              color: 'white', fontWeight: '700', fontSize: '0.95rem', cursor: soapGenerating || !soapSelectedBooking ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              boxShadow: soapGenerating || !soapSelectedBooking ? 'none' : '0 4px 12px rgba(124, 58, 237, 0.3)',
+            }}
+          >
+            {soapGenerating ? (
+              <>
+                <span style={{ width: '18px', height: '18px', border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid white', borderRadius: '50%', display: 'inline-block', animation: 'spin 1s linear infinite' }} />
+                Drafting SOAP Note...
+              </>
+            ) : (
+              <>
+                <IconSparkle /> Generate SOAP Note
+              </>
+            )}
+          </button>
+
+          {/* Error Message */}
+          {soapError && (
+            <div style={{ marginTop: '0.75rem', padding: '0.75rem 1rem', background: '#FEE2E2', borderRadius: '10px', color: '#991B1B', fontSize: '0.85rem', fontWeight: '500' }}>
+              {soapError}
+            </div>
+          )}
+
+          {/* SOAP Note Result */}
+          {soapResult && (
+            <div style={{ marginTop: '1.25rem', background: 'white', borderRadius: '14px', border: '1px solid #E5E7EB', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.85rem 1.25rem', background: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
+                <span style={{ fontWeight: '700', fontSize: '0.9rem', color: '#111827' }}>Generated SOAP Note</span>
+                <button
+                  onClick={handleCopySOAP}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '4px', padding: '0.4rem 0.85rem',
+                    background: soapCopied ? '#D1FAE5' : '#F3F4F6', color: soapCopied ? '#065F46' : '#374151',
+                    border: '1px solid #E5E7EB', borderRadius: '8px', fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer',
+                  }}
+                >
+                  <IconCopy /> {soapCopied ? 'Copied!' : 'Copy Note'}
+                </button>
+              </div>
+
+              <div style={{ padding: '1.25rem' }}>
+                {[
+                  { letter: 'S', label: 'Subjective', value: soapResult.subjective, color: '#2563EB', bg: '#EFF6FF' },
+                  { letter: 'O', label: 'Objective', value: soapResult.objective, color: '#059669', bg: '#ECFDF5' },
+                  { letter: 'A', label: 'Assessment', value: soapResult.assessment, color: '#D97706', bg: '#FFFBEB' },
+                  { letter: 'P', label: 'Plan', value: soapResult.plan, color: '#7C3AED', bg: '#F5F3FF' },
+                ].map(section => (
+                  <div key={section.letter} style={{ marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.4rem' }}>
+                      <span style={{
+                        width: '28px', height: '28px', borderRadius: '8px', background: section.bg,
+                        color: section.color, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontWeight: '800', fontSize: '0.85rem', border: `1px solid ${section.color}22`,
+                      }}>
+                        {section.letter}
+                      </span>
+                      <span style={{ fontWeight: '700', fontSize: '0.85rem', color: section.color }}>{section.label}</span>
+                    </div>
+                    <p style={{ margin: 0, padding: '0.75rem 1rem', background: '#F9FAFB', borderRadius: '8px', fontSize: '0.88rem', color: '#374151', lineHeight: 1.6, border: '1px solid #F3F4F6' }}>
+                      {section.value || 'No data available.'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
 
         {/* EARNINGS SECTION */}
         {earnings && (
@@ -320,14 +567,18 @@ const TherapistDashboard = ({ logout }) => {
               upcoming.map((s) => (
                 <div key={s.id} style={styles.sessionItem}>
                   <div style={styles.sessionIconBox}><IconVideo /></div>
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: '140px' }}>
                     <div style={styles.sessionClient}>{s.client_name || 'Client'}</div>
                     <div style={styles.sessionTime}>
                       {new Date(s.scheduled_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at{' '}
                       {new Date(s.scheduled_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                     </div>
+                    {/* PAYMENT TYPE BADGE */}
+                    <div style={{ marginTop: '4px' }}>
+                      <PaymentBadge paymentStatus={s.payment_status} amount={s.amount} />
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                     <button
                       onClick={() => navigate(`/session/video/${s.id}`)}
                       style={{ padding: '0.45rem 0.9rem', background: '#2E7D32', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px' }}

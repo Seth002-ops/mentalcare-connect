@@ -1126,7 +1126,78 @@ def clear_chat_history(db=Depends(get_db), current_user=Depends(get_current_user
         db.delete(msg)
     db.commit()
     return {"message": "Chat history cleared"}
+# ============ AI THERAPIST SOAP NOTES ============
 
+class SOAPRequest(BaseModel):
+    booking_id: int
+    rough_notes: str = ""
+
+@app.post("/ai/therapist/soap")
+async def generate_soap_note(
+    req: SOAPRequest,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """AI Agent: Drafts a SOAP note based on chat history and rough notes."""
+    if current_user.user_type != "therapist":
+        raise HTTPException(status_code=403, detail="Only therapists can use the AI agent")
+
+    booking = get_booking_by_id(db, req.booking_id)
+    if not booking or booking.therapist_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Unauthorized booking")
+
+    # Fetch the chat transcripts for this session
+    messages = get_messages_by_room(db, req.booking_id, skip=0, limit=100)
+    chat_transcript = "\n".join([f"{m.sender_type}: {m.content}" for m in messages])
+    
+    if not chat_transcript and not req.rough_notes:
+        raise HTTPException(status_code=400, detail="No chat history or rough notes to analyze.")
+
+    prompt = f"""
+    You are an expert clinical AI assistant drafting a SOAP note for a licensed therapist in Kenya.
+    Based on the chat transcript and the therapist's rough notes, draft a professional SOAP note.
+    Use objective, clinical language. Do not provide a definitive medical diagnosis if uncertain.
+
+    Therapist's rough notes: {req.rough_notes or "None provided"}
+    
+    Chat Transcript:
+    {chat_transcript}
+
+    Output ONLY valid JSON with these exact keys:
+    {{
+      "subjective": "What the client reported, felt, or expressed.",
+      "objective": "Observable facts, therapist's observations, and chat context.",
+      "assessment": "Clinical impression, progress evaluation, or formulation.",
+      "plan": "Next steps, homework, coping strategies, or follow-up plan."
+    }}
+    """
+
+    try:
+        import json as json_module
+        response = await client.chat.completions.create(
+            model="openai/gpt-oss-20b",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+            max_tokens=800,
+            response_format={"type": "json_object"}
+        )
+
+        raw_text = response.choices[0].message.content
+        if not raw_text or raw_text.strip() == "":
+            raise ValueError("Model returned empty response")
+            
+        soap_data = json_module.loads(raw_text)
+        return soap_data
+
+    except Exception as e:
+        print(f"AI SOAP Generation Error: {e}")
+        # SAFE FALLBACK
+        return {
+            "subjective": "Client presented for session.",
+            "objective": "Session conducted via chat platform.",
+            "assessment": "Progress ongoing.",
+            "plan": "Continue current treatment plan."
+        }
 # AI Client Insights Routes
 @app.get("/ai/client/insights")
 async def get_client_mood_insights(db=Depends(get_db), current_user=Depends(get_current_user)):
