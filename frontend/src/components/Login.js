@@ -49,7 +49,7 @@ const Login = ({ onLogin }) => {
       }
 
       onLogin(data.access_token, data.user_type, email);
-      navigate('/dashboard');
+      window.location.href = '/dashboard';
     } catch (err) {
       console.error("Login error:", err);
       setError('Network error. Please try again.');

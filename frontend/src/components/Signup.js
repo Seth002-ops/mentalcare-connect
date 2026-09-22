@@ -183,8 +183,8 @@ const Signup = ({ onLogin }) => {
           setVerifySent(true);
         } else {
           onLogin(data.access_token, data.user_type, formData.email);
-          navigate(userRole === 'therapist' ? '/therapist-register' : '/dashboard');
-        }
+          // Force a full page reload to sync React state with localStorage before routing
+          window.location.href = userRole === 'therapist' ? '/therapist-register' : '/dashboard';        }
       } else {
         if (Array.isArray(data.detail)) {
           const errorMsgs = data.detail.map(e => e.msg).join(', ');
