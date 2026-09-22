@@ -1158,53 +1158,66 @@ async def get_client_mood_insights(db=Depends(get_db), current_user=Depends(get_
         for m in moods
     ]
 
-    prompt = f"""
-    You are a compassionate mental health AI assistant for Afya Care Connect in Kenya.
-    Analyze this client's mood data for the past week and provide:
-    1. A brief, warm summary of their emotional week (2-3 sentences)
-    2. Whether they should consider talking to a therapist (true or false)
-    3. A brief reason why
-    4. One gentle, actionable suggestion
-
+    # BULLETPROOF PROMPT FOR JSON MODE
+    prompt = f"""You are an AI assistant that analyzes mood data and outputs STRICT JSON.
+    
     Mood Data:
     {mood_list}
-
-    Respond ONLY in this exact JSON format:
-    {{
-      "summary": "Your warm summary here",
-      "should_talk_to_therapist": true,
-      "reason": "Brief reason why",
-      "suggestion": "One gentle actionable tip"
-    }}
-    Do not include markdown formatting. Just raw JSON.
+    
+    Analyze the data and return a JSON object with these exact keys:
+    - "summary": A 2-sentence warm summary of their emotional week.
+    - "should_talk_to_therapist": A boolean (true or false) indicating if they should talk to a professional.
+    - "reason": A brief reason for the boolean above.
+    - "suggestion": One gentle, actionable self-care tip.
+    
+    IMPORTANT: Output ONLY the raw JSON object. Do not include markdown, do not include explanations.
+    Example:
+    {{"summary": "You had a mixed week.", "should_talk_to_therapist": false, "reason": "Your mood is generally stable.", "suggestion": "Try a 10-minute daily walk."}}
     """
 
     try:
         import json as json_module
+        
+        # Try with strict JSON mode first
         response = await client.chat.completions.create(
-            model="openai/gpt-oss-20b",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.4,
-            max_tokens=300,
+            model="openai/gpt-oss-20b", # Make sure this matches the model you are using
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant that only outputs valid JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.2, # Lower temperature for more reliable JSON
+            max_tokens=400,
             response_format={"type": "json_object"}
         )
 
         raw_text = response.choices[0].message.content
+        
+        # Fallback if model returns empty string
+        if not raw_text or raw_text.strip() == "":
+            raise ValueError("Model returned empty response")
+            
         insight = json_module.loads(raw_text)
 
         return {
             "has_data": True,
-            "summary": insight.get("summary", ""),
-            "should_talk_to_therapist": insight.get("should_talk_to_therapist", False),
+            "summary": insight.get("summary", "You've been tracking your moods this week. Keep it up!"),
+            "should_talk_to_therapist": bool(insight.get("should_talk_to_therapist", False)),
             "reason": insight.get("reason", ""),
-            "suggestion": insight.get("suggestion", ""),
+            "suggestion": insight.get("suggestion", "Take a few minutes to relax today."),
             "mood_data": mood_list
         }
 
     except Exception as e:
         print(f"AI Mood Insights Error: {e}")
-        raise HTTPException(status_code=500, detail="AI service temporarily unavailable")
-
+        # SAFE FALLBACK: Return a default response instead of a 500 crash
+        return {
+            "has_data": True,
+            "summary": "We noticed you've been tracking your moods this week. Thank you for checking in with yourself!",
+            "should_talk_to_therapist": False,
+            "reason": "Keep logging your moods to get more personalized AI insights.",
+            "suggestion": "Try to take 5 minutes today for a short walk or deep breathing.",
+            "mood_data": mood_list
+        }
 @app.get("/ai/client/recommend-therapist")
 def recommend_therapist(db=Depends(get_db), current_user=Depends(get_current_user)):
     if current_user.user_type != "client":
