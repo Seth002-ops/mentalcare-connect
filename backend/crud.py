@@ -114,18 +114,24 @@ def get_recent_moods(db: Session, client_id: int, limit: int = 30):
 
 
 def log_mood_entry(db: Session, user_id: int, mood_data: dict):
-    from datetime import date
+    # Extract data safely
+    mood_score = mood_data.get("mood_score")
+    note = mood_data.get("note")
+    
+    # Convert empty strings to None to prevent database constraint errors
+    if note == "":
+        note = None
+        
     db_mood = MoodEntry(
         client_id=user_id, 
-        mood_score=mood_data.get("mood_score"),
-        note=mood_data.get("note"),
-        entry_date=date.today()
+        mood_score=mood_score,
+        note=note
+        # REMOVED entry_date - the database handles this automatically now
     )
     db.add(db_mood)
     db.commit()
     db.refresh(db_mood)
     return db_mood
-
 
 # ============ REVIEWS CRUD ============
 def create_review(db: Session, review: dict):
