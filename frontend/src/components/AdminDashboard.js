@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
 import AdminBookings from './AdminBookings';
 import { API_URL } from '../config';
+import { useToast } from './ToastContext';
 
 // ============ PROFESSIONAL ICONS ============
 const IconGradCap = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5"></path></svg>;
@@ -19,6 +20,7 @@ const IconCreditCard = () => <svg width="16" height="16" viewBox="0 0 24 24" fil
 
 const AdminDashboard = ({ logout }) => {
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [pendingTherapists, setPendingTherapists] = useState([]);
@@ -83,16 +85,18 @@ const AdminDashboard = ({ logout }) => {
   const handleToggleActive = async (userId) => {
     const token = localStorage.getItem('token');
     try {
-        const res = await fetch(`${API_URL}/admin/users/${userId}/toggle-active`, {  // ✅ FIXED
+        const res = await fetch(`${API_URL}/admin/users/${userId}/toggle-active`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
+        addToast('User status updated successfully', 'success');
         fetchUsers();
         fetchStats();
       }
     } catch (err) {
       console.error('Failed to toggle user', err);
+      addToast('Failed to update user status', 'error');
     }
   };
 
@@ -104,13 +108,16 @@ const AdminDashboard = ({ logout }) => {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        alert('Therapist approved successfully!');
+        addToast('Therapist approved successfully!', 'success');
         fetchPendingTherapists();
         fetchUsers();
         fetchStats();
+      } else {
+        addToast('Failed to approve therapist', 'error');
       }
     } catch (err) {
       console.error('Failed to approve therapist', err);
+      addToast('Network error while approving therapist', 'error');
     }
   };
 
@@ -124,13 +131,16 @@ const AdminDashboard = ({ logout }) => {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        alert('Therapist rejected.');
+        addToast('Therapist application rejected', 'info');
         fetchPendingTherapists();
         fetchUsers();
         fetchStats();
+      } else {
+        addToast('Failed to reject therapist', 'error');
       }
     } catch (err) {
       console.error('Failed to reject therapist', err);
+      addToast('Network error while rejecting therapist', 'error');
     }
   };
 
@@ -148,16 +158,20 @@ const AdminDashboard = ({ logout }) => {
         a.download = 'users_export.csv';
         a.click();
         window.URL.revokeObjectURL(url);
+        addToast('CSV export downloaded successfully', 'success');
+      } else {
+        addToast('Failed to export CSV', 'error');
       }
     } catch (err) {
       console.error('Failed to export CSV', err);
+      addToast('Network error while exporting', 'error');
     }
   };
 
   const handlePlatformWithdrawal = async () => {
     const platformRevenue = stats?.total_platform_revenue || 0;
     if (platformRevenue <= 0) {
-      alert('No platform earnings available for withdrawal.');
+      addToast('No platform earnings available for withdrawal', 'error');
       return;
     }
 
@@ -166,39 +180,39 @@ const AdminDashboard = ({ logout }) => {
     );
     
     if (!amount || isNaN(amount) || parseInt(amount) <= 0) {
-      alert('Please enter a valid amount.');
+      addToast('Please enter a valid amount', 'error');
       return;
     }
 
     if (parseInt(amount) > platformRevenue) {
-      alert('Amount exceeds available balance.');
+      addToast('Amount exceeds available balance', 'error');
       return;
     }
 
     const bankDetails = prompt('Enter company bank account details:');
     if (!bankDetails) {
-      alert('Bank details are required.');
+      addToast('Bank details are required', 'error');
       return;
     }
 
     const token = localStorage.getItem('token');
     try {
         const res = await fetch(
-        `${API_URL}/admin/withdraw-platform-earnings?amount=${parseInt(amount)}&destination=bank&account_details=${encodeURIComponent(bankDetails)}`,  // ✅ FIXED
+        `${API_URL}/admin/withdraw-platform-earnings?amount=${parseInt(amount)}&destination=bank&account_details=${encodeURIComponent(bankDetails)}`,
         {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
         }
       );
       if (res.ok) {
-        alert(`Withdrawal request of KSh ${parseInt(amount).toLocaleString()} submitted successfully!`);
+        addToast(`Withdrawal request of KSh ${parseInt(amount).toLocaleString()} submitted successfully!`, 'success');
         fetchStats();
       } else {
-        alert('Failed to submit withdrawal request.');
+        addToast('Failed to submit withdrawal request', 'error');
       }
     } catch (err) {
       console.error('Failed to submit withdrawal', err);
-      alert('Failed to submit withdrawal request.');
+      addToast('Network error while submitting withdrawal', 'error');
     }
   };
 
