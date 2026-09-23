@@ -183,8 +183,9 @@ const Signup = ({ onLogin }) => {
           setVerifySent(true);
         } else {
           onLogin(data.access_token, data.user_type, formData.email);
-          // Force a full page reload to sync React state with localStorage before routing
-          window.location.href = userRole === 'therapist' ? '/therapist-register' : '/dashboard';        }
+          // Always go to /dashboard first so App.js can enforce Terms -> Profile -> Dashboard flow
+          window.location.href = '/dashboard';
+        }
       } else {
         if (Array.isArray(data.detail)) {
           const errorMsgs = data.detail.map(e => e.msg).join(', ');
