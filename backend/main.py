@@ -253,7 +253,7 @@ def register(request: Request, user: UserCreate, db=Depends(get_db)):
     if user_data.get("user_type") not in ["client", "therapist"]:
         user_data["user_type"] = "client"
         
-    # If registering as a therapist, force them to 'incomplete' status until they upload their license
+    # If registering as a therapist, force them to 'incomplete' status
     if user_data.get("user_type") == "therapist":
         user_data["verification_status"] = "incomplete"
 
