@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
 import AdminBookings from './AdminBookings';
+import { API_URL } from '../config';
 
 // ============ PROFESSIONAL ICONS ============
 const IconGradCap = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5"></path></svg>;
@@ -39,7 +40,7 @@ const AdminDashboard = ({ logout }) => {
   const fetchStats = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('https://mecac-backend.onrender.com/admin/stats', {
+      const res = await fetch(`${API_URL}/admin/stats`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) setStats(await res.json());
@@ -52,7 +53,7 @@ const AdminDashboard = ({ logout }) => {
     const token = localStorage.getItem('token');
     setLoading(true);
     try {
-      let url = '/admin/users?';
+      let url = `${API_URL}/admin/users?`; 
       if (searchQuery) url += `search=${encodeURIComponent(searchQuery)}&`;
       if (filterType) url += `user_type=${filterType}`;
       
@@ -70,7 +71,7 @@ const AdminDashboard = ({ logout }) => {
   const fetchPendingTherapists = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('https://mecac-backend.onrender.com/admin/therapists/pending', {
+      const res = await fetch(`${API_URL}/admin/therapists/pending`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) setPendingTherapists(await res.json());
@@ -82,7 +83,7 @@ const AdminDashboard = ({ logout }) => {
   const handleToggleActive = async (userId) => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`/admin/users/${userId}/toggle-active`, {
+        const res = await fetch(`${API_URL}/admin/users/${userId}/toggle-active`, {  // ✅ FIXED
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -98,7 +99,7 @@ const AdminDashboard = ({ logout }) => {
   const handleApproveTherapist = async (userId) => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`/admin/therapists/${userId}/approve`, {
+      const res = await fetch(`${API_URL}/admin/therapists/${userId}/approve`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -118,7 +119,7 @@ const AdminDashboard = ({ logout }) => {
     if (!confirm('Are you sure you want to reject this therapist?')) return;
     
     try {
-      const res = await fetch(`/admin/therapists/${userId}/reject`, {
+        const res = await fetch(`${API_URL}/admin/therapists/${userId}/reject`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -136,7 +137,7 @@ const AdminDashboard = ({ logout }) => {
   const handleExportCSV = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('https://mecac-backend.onrender.com/admin/export/users', {
+      const res = await fetch(`${API_URL}/admin/export/users`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -182,8 +183,8 @@ const AdminDashboard = ({ logout }) => {
 
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch(
-        `/admin/withdraw-platform-earnings?amount=${parseInt(amount)}&destination=bank&account_details=${encodeURIComponent(bankDetails)}`,
+        const res = await fetch(
+        `${API_URL}/admin/withdraw-platform-earnings?amount=${parseInt(amount)}&destination=bank&account_details=${encodeURIComponent(bankDetails)}`,  // ✅ FIXED
         {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
