@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../config'; 
+import { useToast } from './ToastContext';
 
-const TherapistRegistration = ({ onComplete }) => { //  ADDED onComplete prop
+const TherapistRegistration = ({ onComplete }) => {
   const navigate = useNavigate();
+  const { addToast } = useToast();
+  
   const [formData, setFormData] = useState({
     specializations: '',
     bio: '',
@@ -41,11 +44,10 @@ const TherapistRegistration = ({ onComplete }) => { //  ADDED onComplete prop
     formDataUpload.append('file', file);
 
     try {
-      //  FIXED URL: Points to the actual backend endpoint
       const res = await fetch(`${API_URL}/therapist/upload-license`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
-        body: formDataUpload, // FormData handles Content-Type automatically
+        body: formDataUpload,
       });
       
       if (res.ok) {
@@ -84,7 +86,6 @@ const TherapistRegistration = ({ onComplete }) => { //  ADDED onComplete prop
     const token = localStorage.getItem('token');
 
     try {
-      //  FIXED URL: Points to the actual profile update endpoint
       const res = await fetch(`${API_URL}/therapist/profile`, {
         method: 'PUT',
         headers: {
@@ -99,9 +100,9 @@ const TherapistRegistration = ({ onComplete }) => { //  ADDED onComplete prop
       });
 
       if (res.ok) {
-        alert('Your profile has been submitted for review! You will be notified once approved.');
-        if (onComplete) onComplete(); // Triggers App.js to update state
-        window.location.href = '/dashboard'; // Force reload to update dashboard view
+        addToast('Your profile has been submitted for review! You will be notified once approved.', 'success');
+        if (onComplete) onComplete();
+        window.location.href = '/dashboard';
       } else {
         const data = await res.json();
         setError(data.detail || 'Submission failed');

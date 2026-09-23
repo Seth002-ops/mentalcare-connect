@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useToast } from './ToastContext';
 
 const BrowseTherapists = () => {
+  const { addToast } = useToast();
   const [therapists, setTherapists] = useState([]);
   const [filteredTherapists, setFilteredTherapists] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -19,9 +21,12 @@ const BrowseTherapists = () => {
           const data = await response.json();
           setTherapists(data);
           setFilteredTherapists(data);
+        } else {
+          addToast('Failed to load therapists. Please try again.', 'error');
         }
       } catch (error) {
         console.error('Error fetching therapists:', error);
+        addToast('Network error. Could not load therapists.', 'error');
       } finally {
         setLoading(false);
       }

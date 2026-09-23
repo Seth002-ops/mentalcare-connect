@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { API_URL } from '../config'; // <-- Centralized URL import
+import { API_URL } from '../config';
+import { useToast } from './ToastContext';
 
 // ============ PROFESSIONAL ICONS ============
 const IconUser = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>;
@@ -69,6 +70,7 @@ const KENYAN_UNIVERSITIES = [
 
 const Signup = ({ onLogin }) => {
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [userRole, setUserRole] = useState('client');
   const [universities, setUniversities] = useState([]);
   const [uniSearch, setUniSearch] = useState('');
@@ -86,7 +88,6 @@ const Signup = ({ onLogin }) => {
 
   useEffect(() => {
     if (userRole === 'student') {
-      // FIXED: Cleanly using API_URL from config.js
       fetch(`${API_URL}/universities`)
         .then(res => res.ok ? res.json() : [])
         .then(data => setUniversities(data))
@@ -154,7 +155,7 @@ const Signup = ({ onLogin }) => {
 
       if (userRole === 'student') {
         const activeUni = universities.find(u => u.email_domain.toLowerCase() === selectedUni.domain.toLowerCase());
-        endpoint = `${API_URL}/auth/student-signup`; // FIXED: Using API_URL
+        endpoint = `${API_URL}/auth/student-signup`;
         body = {
           email: formData.email,
           password: formData.password,
@@ -162,7 +163,7 @@ const Signup = ({ onLogin }) => {
           university_id: activeUni.id,
         };
       } else {
-        endpoint = `${API_URL}/auth/register`; // FIXED: Using API_URL
+        endpoint = `${API_URL}/auth/register`;
         body = {
           email: formData.email,
           password: formData.password,
@@ -181,9 +182,9 @@ const Signup = ({ onLogin }) => {
       if (res.ok) {
         if (userRole === 'student') {
           setVerifySent(true);
+          addToast('Verification email sent! Check your inbox.', 'success');
         } else {
           onLogin(data.access_token, data.user_type, formData.email);
-          // Always go to /dashboard first so App.js can enforce Terms -> Profile -> Dashboard flow
           window.location.href = '/dashboard';
         }
       } else {

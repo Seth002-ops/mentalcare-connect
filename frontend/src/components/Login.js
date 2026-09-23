@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { stripEmoji } from '../utils/sanitizeText';
 import { API_URL } from '../config';
+import { useToast } from './ToastContext';
 
 const Login = ({ onLogin }) => {
+  const { addToast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { stripEmoji } from '../utils/sanitizeText';
+import { useToast } from './ToastContext';
 
 // Professional SVG Icons
 const IconMobile = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>;
@@ -9,6 +10,7 @@ const IconLock = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="non
 const IconAlert = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>;
 
 const Payment = () => {
+  const { addToast } = useToast();
   const [formData, setFormData] = useState({
     amount: 0,
     phone: '',
@@ -33,7 +35,7 @@ const Payment = () => {
     if (!bookingId) {
       setStatus('failed');
       setLoading(false);
-      alert('Booking reference is missing. Please return to the booking page.');
+      addToast('Booking reference is missing. Please return to the booking page.', 'error');
       return;
     }
 
@@ -41,7 +43,7 @@ const Payment = () => {
     if (!token) {
       setStatus('failed');
       setLoading(false);
-      alert('Please log in before submitting payment.');
+      addToast('Please log in before submitting payment.', 'error');
       return;
     }
 
@@ -52,7 +54,6 @@ const Payment = () => {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        // FIX: Force bookingId and amount to be Numbers so FastAPI accepts them
         body: JSON.stringify({
           booking_id: Number(bookingId),
           phone: cleanPhone,
@@ -65,21 +66,21 @@ const Payment = () => {
       // If backend returns 200 OK and success is true
       if (response.ok && data.success) {
         setStatus('success');
+        addToast('Payment successful! Session booked.', 'success');
         setTimeout(() => {
-          alert('Payment successful! Session booked.');
           navigate('/dashboard');
         }, 1500);
       } else {
-        // Log the exact error from the backend to the browser console
         console.error("Backend Payment Rejection:", data);
         setStatus('failed');
         setLoading(false);
+        addToast(data.message || 'Payment failed. Please try again.', 'error');
       }
     } catch (error) {
       console.error("Network/Catch Error:", error);
       setStatus('failed');
       setLoading(false);
-      alert('Payment error: ' + error.message);
+      addToast('Payment error: ' + error.message, 'error');
     }
   };
 
@@ -233,7 +234,6 @@ const Payment = () => {
   useEffect(() => {
     const state = location.state || {};
     if (state.amount) {
-      // FIX: Ensure amount is a number when loaded from state
       setFormData((prev) => ({ ...prev, amount: Number(state.amount) }));
     }
     if (state.therapist_name) {

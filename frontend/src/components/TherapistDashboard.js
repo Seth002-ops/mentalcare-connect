@@ -4,6 +4,7 @@ import { API_URL } from '../config';
 import NotificationBell from './NotificationBell';
 import SessionReminder from './SessionReminder';
 import TherapistStats from './TherapistStats';
+import { useToast } from './ToastContext';
 
 // ============ PROFESSIONAL SVG ICONS ============
 const IconCalendar = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>;
@@ -20,6 +21,7 @@ const IconGift = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="non
 const IconCopy = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>;
 
 const TherapistDashboard = ({ logout }) => {
+  const { addToast } = useToast();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [therapistName, setTherapistName] = useState('Therapist');
@@ -100,15 +102,15 @@ const TherapistDashboard = ({ logout }) => {
 
   const handleWithdraw = async () => {
     if (!withdrawAmount || !withdrawPhone) {
-      alert('Please enter amount and M-Pesa number.');
+      addToast('Please enter amount and M-Pesa number.', 'error');
       return;
     }
     if (isNaN(withdrawAmount) || Number(withdrawAmount) < 500) {
-        alert('Minimum withdrawal is KSh 500.');
+        addToast('Minimum withdrawal is KSh 500.', 'error');
         return;
     }
     if (earnings && Number(withdrawAmount) > earnings.balance) {
-        alert('Amount exceeds available balance.');
+        addToast('Amount exceeds available balance.', 'error');
         return;
     }
 
@@ -124,16 +126,16 @@ const TherapistDashboard = ({ logout }) => {
       );
       const data = await res.json();
       if (res.ok) {
-        alert(data.message);
+        addToast(data.message, 'success');
         setShowWithdrawModal(false);
         setWithdrawAmount('');
         setWithdrawPhone('');
         fetchEarnings();
       } else {
-        alert(data.detail || 'Withdrawal failed');
+        addToast(data.detail || 'Withdrawal failed', 'error');
       }
     } catch (err) {
-      alert('Failed to submit withdrawal request.');
+      addToast('Failed to submit withdrawal request.', 'error');
     } finally {
       setWithdrawLoading(false);
     }
@@ -187,6 +189,7 @@ const TherapistDashboard = ({ logout }) => {
     const text = `SOAP NOTE\n\nS: ${soapResult.subjective}\n\nO: ${soapResult.objective}\n\nA: ${soapResult.assessment}\n\nP: ${soapResult.plan}`;
     navigator.clipboard.writeText(text).then(() => {
       setSoapCopied(true);
+      addToast('SOAP note copied to clipboard!', 'success');
       setTimeout(() => setSoapCopied(false), 2000);
     });
   };

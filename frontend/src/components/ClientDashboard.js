@@ -5,6 +5,7 @@ import NotificationBell from './NotificationBell';
 import SessionReminder from './SessionReminder';
 import ReviewModal from './ReviewModal';
 import AIMoodInsights from './AIMoodInsights';
+import { useToast } from './ToastContext';
 
 // ============ PROFESSIONAL LINE ICONS ============
 const IconMenu = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>;
@@ -124,6 +125,7 @@ const WELLNESS_TIPS = [
 
 const ClientDashboard = ({ logout }) => {
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const fileInputRef = useRef(null);
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -142,7 +144,6 @@ const ClientDashboard = ({ logout }) => {
   const [avatar, setAvatar] = useState(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewingBooking, setReviewingBooking] = useState(null);
-  const [bookingSuccess, setBookingSuccess] = useState('');
 
   useEffect(() => {
     fetchUserData();
@@ -194,7 +195,7 @@ const ClientDashboard = ({ logout }) => {
     setMoodError('');
   };
 
-    const handleMoodSubmit = async () => {
+  const handleMoodSubmit = async () => {
     if (!selectedMood) {
       setMoodError('Please select a mood first');
       return;
@@ -206,7 +207,6 @@ const ClientDashboard = ({ logout }) => {
       const res = await fetch(`${API_URL}/mood/log`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        // FIX 1: Send empty string "" instead of null to prevent the 422 error
         body: JSON.stringify({ mood_score: selectedMood.value, note: moodNote || "" }),
       });
       
@@ -215,9 +215,9 @@ const ClientDashboard = ({ logout }) => {
       if (res.ok) {
         setMoodSubmitted(true);
         setMoodError('');
+        addToast('Mood logged successfully!', 'success');
         fetchUserData();
       } else {
-        // FIX 2: Safely extract the error string from FastAPI's array format
         const errorMsg = Array.isArray(data.detail) 
           ? data.detail.map(e => e.msg).join(', ') 
           : (data.detail || 'Failed to save mood. Please try again.');
@@ -230,10 +230,10 @@ const ClientDashboard = ({ logout }) => {
       setMoodSaving(false);
     }
   };
+  
   const handleBookingSuccess = (data) => {
-    setBookingSuccess(data.message || 'Session booked successfully!');
+    addToast(data.message || 'Session booked successfully!', 'success');
     fetchUserData();
-    setTimeout(() => setBookingSuccess(''), 8000);
   };
 
   const getGreeting = () => {
@@ -271,7 +271,6 @@ const ClientDashboard = ({ logout }) => {
     return days;
   };
 
-  // ===== Avatar Display =====
   const AvatarDisplay = ({ size = 38 }) => {
     if (avatar?.type === 'upload') {
       return <img src={avatar.value} alt="avatar" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', display: 'block', border: '2px solid #2E7D32' }} />;
@@ -302,7 +301,6 @@ const ClientDashboard = ({ logout }) => {
   const weekData = getWeekData();
   const alreadyLogged = hasLoggedMoodToday();
 
-  // ===== Week Chart (flat SVG area chart) =====
   const chartW = 340, chartH = 130, pad = 14;
   const pts = weekData.map((d, i) => {
     const x = pad + i * ((chartW - 2 * pad) / 6);
@@ -312,7 +310,7 @@ const ClientDashboard = ({ logout }) => {
   const linePoints = pts.map(p => `${p[0]},${p[1]}`).join(' ');
   const areaPoints = `${pad},${chartH - pad} ${linePoints} ${chartW - pad},${chartH - pad}`;
 
-    const quickActions = [
+  const quickActions = [
     { to: '/ai-companion', icon: <IconBot />, title: 'AI Companion', desc: 'Your 24/7 support partner' },
     { to: '/rage-rooms', icon: <IconZap />, title: 'Rage Room', desc: 'Smash your stress away' },
     { to: '/therapists', icon: <IconUsers />, title: 'Find Therapist', desc: 'Browse professionals' },
@@ -468,31 +466,6 @@ const ClientDashboard = ({ logout }) => {
       )}
 
       <SessionReminder />
-
-      {/* ===== BOOKING SUCCESS TOAST ===== */}
-      {bookingSuccess && (
-        <div style={{
-          position: 'fixed',
-          top: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: '#059669',
-          color: 'white',
-          padding: '1rem 1.5rem',
-          borderRadius: '12px',
-          boxShadow: '0 4px 20px rgba(5, 150, 105, 0.3)',
-          zIndex: 2000,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          fontWeight: '600',
-          fontSize: '0.95rem',
-          maxWidth: '90vw',
-        }}>
-          <IconCheck />
-          {bookingSuccess}
-        </div>
-      )}
 
       {/* ===== MAIN CONTENT ===== */}
       <main className="cd-main">

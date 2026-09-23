@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom'; // ✅ ADDED useNavigate
 import { stripEmoji } from '../utils/sanitizeText';
+import { useToast } from './ToastContext'; // ✅ ADDED useToast
 
 // ============ PROFESSIONAL SVG ICONS ============
 const IconVideo = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>;
@@ -13,6 +14,8 @@ const IconLock = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="non
 
 const Chat = ({ user, userType }) => {
   const { roomId } = useParams();
+  const navigate = useNavigate(); // ✅ ADDED navigate
+  const { addToast } = useToast(); // ✅ ADDED addToast
 
   // ============ HUMAN CHAT STATE ============
   const [messages, setMessages] = useState([]);
@@ -77,7 +80,7 @@ const Chat = ({ user, userType }) => {
       const token = localStorage.getItem('token');
       if (!token || !roomId) return;
       try {
-        const res = await fetch(`/messages/${roomId}`, { headers: { Authorization: `Bearer ${token}` } });
+        const res = await fetch(`https://mecac-backend.onrender.com/messages/${roomId}`, { headers: { Authorization: `Bearer ${token}` } });
         if (res.ok) {
           const data = await res.json();
           const mapped = data.map(m => ({
@@ -104,7 +107,7 @@ const Chat = ({ user, userType }) => {
       if (!token || !roomId) return;
 
       try {
-        const response = await fetch(`/bookings/${roomId}`, {
+        const response = await fetch(`https://mecac-backend.onrender.com/bookings/${roomId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (response.ok) {
@@ -123,7 +126,12 @@ const Chat = ({ user, userType }) => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token || !roomId) return;
-    const ws = new WebSocket(`ws://localhost:8000/ws/${roomId}?token=${token}`);
+    // Note: WebSocket URLs need to be adjusted for production (wss:// instead of ws://)
+    const wsUrl = window.location.protocol === 'https:' 
+      ? `wss://mecac-backend.onrender.com/ws/${roomId}?token=${token}`
+      : `ws://localhost:8000/ws/${roomId}?token=${token}`;
+      
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onmessage = (event) => {
@@ -220,7 +228,7 @@ const Chat = ({ user, userType }) => {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' });
     } catch (err) {
-      alert('Permission denied. Please allow microphone/camera access for calls.');
+      addToast('Permission denied. Please allow microphone/camera access for calls.', 'error'); // ✅ CONVERTED
       return;
     }
     localStreamRef.current = stream;
@@ -238,7 +246,7 @@ const Chat = ({ user, userType }) => {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: callType === 'video' });
     } catch (err) {
-      alert('Permission denied. Please allow microphone/camera access.');
+      addToast('Permission denied. Please allow microphone/camera access.', 'error'); // ✅ CONVERTED
       return;
     }
     localStreamRef.current = stream;
@@ -282,6 +290,7 @@ const Chat = ({ user, userType }) => {
       });
     } catch (err) {
       console.error("Failed to send message", err);
+      addToast('Failed to send message. Please try again.', 'error');
     }
   };
 
@@ -293,6 +302,7 @@ const Chat = ({ user, userType }) => {
     const token = localStorage.getItem('token');
     if (!token) {
       console.error("No authentication token found. Please log in again.");
+      addToast('Please log in again to use the AI assistant.', 'error');
       return;
     }
 
@@ -320,6 +330,7 @@ const Chat = ({ user, userType }) => {
       setAiMessages(prev => [...prev, { role: 'assistant', content: aiMessage }]);
     } catch (error) {
       console.error('AI Fetch Error:', error);
+      addToast('AI assistant is currently unavailable. Please try again later.', 'error');
       setAiMessages(prev => [...prev, { 
         role: 'assistant', 
         content: "I'm here to support you. Please try again." 
@@ -414,7 +425,6 @@ const Chat = ({ user, userType }) => {
     callBtn: { padding: '0.75rem 1.25rem', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '500', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'white', color: '#374151' },
     sendBtn: { backgroundColor: '#2E7D32', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: 'auto' },
     
-    // 📱 MOBILE FIX: AI Panel fits perfectly inside mobile screens
     aiPanel: { 
       position: 'fixed', 
       bottom: '20px', 

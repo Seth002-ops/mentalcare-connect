@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useToast } from './ToastContext';
 
 // Convert "09:00" (24h from backend) to "9:00 AM" for display
 const format12Hour = (time24) => {
@@ -10,6 +11,7 @@ const format12Hour = (time24) => {
 };
 
 const Booking = () => {
+  const { addToast } = useToast();
   const [selectedTherapist, setSelectedTherapist] = useState(null);
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
@@ -151,14 +153,14 @@ const Booking = () => {
 
   const handleBook = async () => {
     if (!selectedTherapist || !selectedDate || !selectedTime) {
-      alert('Please select a therapist, date, and time.');
+      addToast('Please select a therapist, date, and time.', 'error');
       return;
     }
 
     const token = localStorage.getItem('token');
 
     if (!token) {
-      alert('Please log in before booking.');
+      addToast('Please log in before booking.', 'error');
       return;
     }
 
@@ -218,6 +220,8 @@ const Booking = () => {
         throw new Error('Booking was created but no booking ID was returned.');
       }
 
+      addToast('Booking confirmed! Proceeding to payment...', 'success');
+
       navigate('/payment', {
         state: {
           bookingId,
@@ -226,7 +230,7 @@ const Booking = () => {
         },
       });
     } catch (error) {
-      alert('Booking failed: ' + error.message);
+      addToast('Booking failed: ' + error.message, 'error');
     }
   };
 
