@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_URL } from '../config'; 
 
-const TherapistRegistration = () => {
+const TherapistRegistration = ({ onComplete }) => { //  ADDED onComplete prop
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     specializations: '',
@@ -40,20 +41,24 @@ const TherapistRegistration = () => {
     formDataUpload.append('file', file);
 
     try {
-      const res = await fetch(`${API_URL}/your-endpoint-here`, {
-         method: 'POST',
+      //  FIXED URL: Points to the actual backend endpoint
+      const res = await fetch(`${API_URL}/therapist/upload-license`, {
+        method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
-        body: formDataUpload,
+        body: formDataUpload, // FormData handles Content-Type automatically
       });
+      
       if (res.ok) {
         setUploadStatus('✓ License uploaded successfully');
+        setError('');
       } else {
         const data = await res.json();
         setError(data.detail || 'Upload failed');
         setUploadStatus('');
       }
     } catch (err) {
-      setError('Upload failed. Please try again.');
+      console.error("File upload error:", err);
+      setError('Network error during file upload. Please try again.');
       setUploadStatus('');
     }
   };
@@ -62,8 +67,8 @@ const TherapistRegistration = () => {
     e.preventDefault();
     setError('');
 
-    if (!licenseFile && !uploadStatus.includes('successfully')) {
-      setError('Please upload your license document.');
+    if (!uploadStatus.includes('successfully')) {
+      setError('Please upload your license document first.');
       return;
     }
     if (!formData.specializations) {
@@ -79,7 +84,8 @@ const TherapistRegistration = () => {
     const token = localStorage.getItem('token');
 
     try {
-      const res = await fetch(`${API_URL}/your-endpoint-here`, {
+      //  FIXED URL: Points to the actual profile update endpoint
+      const res = await fetch(`${API_URL}/therapist/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -94,13 +100,14 @@ const TherapistRegistration = () => {
 
       if (res.ok) {
         alert('Your profile has been submitted for review! You will be notified once approved.');
-        if (onComplete) onComplete(); // Call the callback if provided
-        navigate('/dashboard');
+        if (onComplete) onComplete(); // Triggers App.js to update state
+        window.location.href = '/dashboard'; // Force reload to update dashboard view
       } else {
         const data = await res.json();
         setError(data.detail || 'Submission failed');
       }
     } catch (err) {
+      console.error("Profile submit error:", err);
       setError('Network error. Please try again.');
     } finally {
       setLoading(false);
@@ -108,7 +115,7 @@ const TherapistRegistration = () => {
   };
 
   const styles = {
-    container: { minHeight: '100vh', backgroundColor: '#F9FAFB', paddingTop: '7rem', paddingBottom: '4rem', boxSizing: 'border-box' },
+    container: { minHeight: '100vh', backgroundColor: '#F9FAFB', paddingTop: '7rem', paddingBottom: '4rem', boxSizing:'border-box' },
     main: { maxWidth: '700px', margin: '0 auto', padding: '2rem 20px' },
     card: { background: 'white', borderRadius: '20px', padding: '3rem', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' },
     title: { fontSize: '1.8rem', fontWeight: '700', color: '#111827', marginBottom: '0.5rem' },
@@ -117,12 +124,12 @@ const TherapistRegistration = () => {
     label: { display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: '#374151', fontSize: '0.9rem' },
     input: { width: '100%', padding: '0.85rem 1rem', border: '1px solid #D1D5DB', borderRadius: '10px', fontSize: '1rem', boxSizing: 'border-box', fontFamily: 'inherit' },
     textarea: { width: '100%', padding: '0.85rem 1rem', border: '1px solid #D1D5DB', borderRadius: '10px', fontSize: '1rem', fontFamily: 'inherit', resize: 'vertical', minHeight: '100px', boxSizing: 'border-box' },
-    fileInput: { width: '100%', padding: '0.85rem', border: '2px dashed #D1D5DB', borderRadius: '10px', cursor: 'pointer', background: '#F9FAFB' },
+    fileInput: { width: '100%', padding: '0.85rem', border: '2px dashed #D1D5DB', borderRadius: '10px', cursor: 'pointer', background: '#F9FAFB', boxSizing: 'border-box' },
     row: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' },
     submitBtn: { width: '100%', padding: '1rem', background: '#2E7D32', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1.1rem', fontWeight: '600', cursor: 'pointer', marginTop: '1rem' },
-    error: { color: '#DC2626', fontSize: '0.9rem', marginTop: '0.5rem' },
-    success: { color: '#16A34A', fontSize: '0.9rem', marginTop: '0.5rem' },
-    notice: { background: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: '10px', padding: '1rem', marginBottom: '1.5rem', color: '#92400E', fontSize: '0.9rem' }
+    error: { color: '#DC2626', fontSize: '0.9rem', marginTop: '0.5rem', background: '#FEE2E2', padding: '0.5rem', borderRadius: '6px' },
+    success: { color: '#16A34A', fontSize: '0.9rem', marginTop: '0.5rem', fontWeight: '600' },
+    notice: { background: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: '10px', padding: '1rem', marginBottom:'1.5rem', color: '#92400E', fontSize: '0.9rem' }
   };
 
   return (
@@ -135,7 +142,7 @@ const TherapistRegistration = () => {
           </p>
 
           <div style={styles.notice}>
-            ⚠️ Your account will remain in <strong>Pending</strong> status until an admin reviews and approves your credentials.
+             Your account will remain in <strong>Pending</strong> status until an admin reviews and approves your credentials.
           </div>
 
           <form onSubmit={handleSubmit}>

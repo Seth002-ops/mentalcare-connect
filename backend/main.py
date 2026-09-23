@@ -1,5 +1,6 @@
 import asyncio
 import os
+import shutil
 import smtplib
 import secrets
 import base64
@@ -72,6 +73,8 @@ Base.metadata.create_all(bind=engine)
 
 # Initialize FastAPI app
 app = FastAPI(title=settings.PROJECT_NAME)
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @app.on_event("startup")
 def ensure_schema():
@@ -263,6 +266,7 @@ def register(request: Request, user: UserCreate, db=Depends(get_db)):
         data={"user_id": created_user.id, "user_type": created_user.user_type}
     )
     return {"access_token": access_token, "token_type": "bearer", "user_type": created_user.user_type}
+
 @app.post("/auth/login", response_model=Token)
 @limiter.limit("5/minute")
 def login(request: Request, user_login: UserLogin, db=Depends(get_db)):
