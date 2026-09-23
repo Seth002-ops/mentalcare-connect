@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
+import { useToast } from './ToastContext'; // ✅ ADDED
 
 const AdminRageRooms = () => {
+  const { addToast } = useToast(); // ✅ ADDED
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
   const [imagePreview, setImagePreview] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [form, setForm] = useState({
@@ -26,6 +27,7 @@ const AdminRageRooms = () => {
       if (res.ok) setRooms(await res.json());
     } catch (err) {
       console.error('Failed to load rage rooms', err);
+      addToast('Failed to load rage rooms.', 'error'); // ✅ ADDED
     } finally {
       setLoading(false);
     }
@@ -39,7 +41,7 @@ const AdminRageRooms = () => {
     const file = e.target.files[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
-      setMessage('Image too large. Maximum size is 2MB.');
+      addToast('Image too large. Maximum size is 2MB.', 'error'); // ✅ CONVERTED
       return;
     }
     setImageFile(file);
@@ -51,7 +53,6 @@ const AdminRageRooms = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    setMessage('');
     const token = localStorage.getItem('token');
     const data = new FormData();
     Object.entries(form).forEach(([k, v]) => data.append(k, v));
@@ -64,16 +65,16 @@ const AdminRageRooms = () => {
       });
       const result = await res.json();
       if (res.ok) {
-        setMessage('Rage room registered successfully.');
+        addToast('Rage room registered successfully.', 'success'); // ✅ CONVERTED
         setForm({ ...form, name: '', location: '', description: '' });
         setImageFile(null);
         setImagePreview(null);
         fetchRooms();
       } else {
-        setMessage(result.detail || 'Failed to register rage room.');
+        addToast(result.detail || 'Failed to register rage room.', 'error'); // ✅ CONVERTED
       }
     } catch (err) {
-      setMessage('Network error. Please try again.');
+      addToast('Network error. Please try again.', 'error'); // ✅ CONVERTED
     } finally {
       setSaving(false);
     }
@@ -81,7 +82,10 @@ const AdminRageRooms = () => {
 
   const handleAddPackage = async (e) => {
     e.preventDefault();
-    if (!pkgForm.room_id) { setMessage('Select a rage room first.'); return; }
+    if (!pkgForm.room_id) { 
+      addToast('Select a rage room first.', 'error'); // ✅ CONVERTED
+      return; 
+    }
     const token = localStorage.getItem('token');
     try {
       const res = await fetch(`${API_URL}/rage-rooms/${pkgForm.room_id}/packages`, {
@@ -96,15 +100,15 @@ const AdminRageRooms = () => {
         }),
       });
       if (res.ok) {
-        setMessage('Package added.');
+        addToast('Package added successfully.', 'success'); // ✅ CONVERTED
         setPkgForm({ ...pkgForm, name: '', description: '' });
         fetchRooms();
       } else {
         const result = await res.json();
-        setMessage(result.detail || 'Failed to add package.');
+        addToast(result.detail || 'Failed to add package.', 'error'); // ✅ CONVERTED
       }
     } catch (err) {
-      setMessage('Network error. Please try again.');
+      addToast('Network error. Please try again.', 'error'); // ✅ CONVERTED
     }
   };
 
@@ -116,12 +120,6 @@ const AdminRageRooms = () => {
       <div style={{ maxWidth: '900px', margin: '0 auto' }}>
         <h1 style={{ fontSize: '1.4rem', fontWeight: '800', color: '#111827', margin: '0 0 0.5rem' }}>Rage Room Management</h1>
         <p style={{ color: '#6B7280', fontSize: '0.9rem', margin: '0 0 1.5rem' }}>Register rage rooms with photos and locations, and manage their packages.</p>
-
-        {message && (
-          <div style={{ padding: '0.85rem 1rem', background: message.includes('success') || message.includes('added') ? '#E8F5E9' : '#FEE2E2', color: message.includes('success') || message.includes('added') ? '#1B5E20' : '#991B1B', borderRadius: '10px', marginBottom: '1.25rem', fontWeight: '600', fontSize: '0.9rem' }}>
-            {message}
-          </div>
-        )}
 
         {/* Registration form */}
         <div style={{ background: 'white', borderRadius: '16px', padding: '1.5rem', border: '1px solid #E5E7EB', marginBottom: '1.5rem' }}>

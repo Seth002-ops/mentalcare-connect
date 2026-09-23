@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
+import { API_URL } from '../config'; // ✅ ADDED
+import { useToast } from './ToastContext'; // ✅ ADDED
 
 const TherapistMessages = ({ logout }) => {
   const navigate = useNavigate();
+  const { addToast } = useToast(); // ✅ ADDED
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -14,7 +17,8 @@ const TherapistMessages = ({ logout }) => {
   const fetchConversations = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('https://mecac-backend.onrender.com/bookings/me', {
+      // ✅ FIXED: Using API_URL instead of hardcoded Render URL
+      const res = await fetch(`${API_URL}/bookings/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -45,9 +49,12 @@ const TherapistMessages = ({ logout }) => {
         });
 
         setConversations(sortedConversations);
+      } else {
+        addToast('Failed to load messages.', 'error'); // ✅ ADDED
       }
     } catch (err) {
       console.error('Failed to fetch conversations', err);
+      addToast('Network error. Could not load messages.', 'error'); // ✅ ADDED
     } finally {
       setLoading(false);
     }

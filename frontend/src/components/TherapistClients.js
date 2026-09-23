@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
 import { API_URL } from '../config';
+import { useToast } from './ToastContext'; // ✅ ADDED
 
 const TherapistClients = ({ logout }) => {
   const navigate = useNavigate();
+  const { addToast } = useToast(); // ✅ ADDED
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -44,9 +46,12 @@ const TherapistClients = ({ logout }) => {
         });
 
         setClients(Object.values(clientMap));
+      } else {
+        addToast('Failed to load clients.', 'error'); // ✅ ADDED
       }
     } catch (err) {
       console.error('Failed to fetch clients', err);
+      addToast('Network error. Could not load clients.', 'error'); // ✅ ADDED
     } finally {
       setLoading(false);
     }

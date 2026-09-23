@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
 import { API_URL } from '../config';
+import { useToast } from './ToastContext'; // ✅ ADDED
 
 const TherapistWithdrawals = ({ logout }) => {
   const navigate = useNavigate();
+  const { addToast } = useToast(); // ✅ ADDED
   const [earnings, setEarnings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -28,6 +30,7 @@ const TherapistWithdrawals = ({ logout }) => {
       }
     } catch (err) {
       console.error('Failed to fetch earnings', err);
+      addToast('Failed to load earnings. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -35,23 +38,24 @@ const TherapistWithdrawals = ({ logout }) => {
 
   const handleWithdraw = async () => {
     if (!withdrawAmount || !withdrawPhone) {
-      alert('Please enter amount and M-Pesa number.');
+      addToast('Please enter amount and M-Pesa number.', 'error'); // ✅ CONVERTED
       return;
     }
     if (isNaN(withdrawAmount) || Number(withdrawAmount) < 500) {
-      alert('Minimum withdrawal is KSh 500.');
+      addToast('Minimum withdrawal is KSh 500.', 'error'); // ✅ CONVERTED
       return;
     }
     if (earnings && Number(withdrawAmount) > earnings.balance) {
-      alert('Amount exceeds available balance.');
+      addToast('Amount exceeds available balance.', 'error'); // ✅ CONVERTED
       return;
     }
 
     setWithdrawLoading(true);
     const token = localStorage.getItem('token');
     try {
+      // ✅ FIXED: Use API_URL instead of relative path
       const res = await fetch(
-        `/therapist/withdraw?amount=${withdrawAmount}&mpesa_phone=${withdrawPhone}`,
+        `${API_URL}/therapist/withdraw?amount=${withdrawAmount}&mpesa_phone=${withdrawPhone}`,
         {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
@@ -59,16 +63,16 @@ const TherapistWithdrawals = ({ logout }) => {
       );
       const data = await res.json();
       if (res.ok) {
-        alert(data.message);
+        addToast(data.message, 'success'); // ✅ CONVERTED
         setShowWithdrawModal(false);
         setWithdrawAmount('');
         setWithdrawPhone('');
         fetchEarnings();
       } else {
-        alert(data.detail || 'Withdrawal failed');
+        addToast(data.detail || 'Withdrawal failed', 'error'); // ✅ CONVERTED
       }
     } catch (err) {
-      alert('Failed to submit withdrawal request.');
+      addToast('Failed to submit withdrawal request.', 'error'); // ✅ CONVERTED
     } finally {
       setWithdrawLoading(false);
     }

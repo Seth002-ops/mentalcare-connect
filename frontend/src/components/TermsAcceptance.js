@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { API_URL } from '../config'; // ✅ ADDED
+import { useToast } from './ToastContext'; // ✅ ADDED
 
 const TermsAcceptance = ({ onAccept }) => {
+  const navigate = useNavigate();
+  const { addToast } = useToast(); // ✅ ADDED
+  
   const [checked, setChecked] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const navigate = useNavigate();
 
   const handleAccept = async () => {
     if (!checked) {
@@ -18,12 +22,14 @@ const TermsAcceptance = ({ onAccept }) => {
     const token = localStorage.getItem('token');
 
     try {
-      const response = await fetch('https://mecac-backend.onrender.com/terms/accept', {
+      // ✅ FIXED: Using API_URL instead of hardcoded Render URL
+      const response = await fetch(`${API_URL}/terms/accept`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.ok) {
+        addToast('Terms accepted! Welcome to your dashboard.', 'success'); // ✅ ADDED
         if (onAccept) onAccept();
         navigate('/dashboard');
       } else {

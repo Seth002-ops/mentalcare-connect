@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { API_URL } from '../config'; // ✅ ADDED
+import { useToast } from './ToastContext'; // ✅ ADDED
 
 const TherapistSessionNotes = () => {
   const navigate = useNavigate();
+  const { addToast } = useToast(); // ✅ ADDED
   const { bookingId } = useParams();
 
   const [bookings, setBookings] = useState([]);
   const [selectedBookingId, setSelectedBookingId] = useState(bookingId || '');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
 
   const [form, setForm] = useState({
     subjective: '',
@@ -29,15 +31,18 @@ const TherapistSessionNotes = () => {
   const fetchBookings = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('https://mecac-backend.onrender.com/bookings/me', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_URL}/bookings/me`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) {
         const data = await res.json();
         // Sort descending so newest are at the top
         data.sort((a, b) => new Date(b.scheduled_time) - new Date(a.scheduled_time));
         setBookings(data);
+      } else {
+        addToast('Failed to load sessions.', 'error');
       }
     } catch (err) {
       console.error('Failed to fetch bookings', err);
+      addToast('Network error. Could not load sessions.', 'error');
     } finally {
       setLoading(false);
     }
@@ -46,7 +51,8 @@ const TherapistSessionNotes = () => {
   const fetchNote = async (id) => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`/therapist/session-notes/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      // ✅ FIXED: Added API_URL to relative path
+      const res = await fetch(`${API_URL}/therapist/session-notes/${id}`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) {
         const data = await res.json();
         setForm({
@@ -69,6 +75,7 @@ const TherapistSessionNotes = () => {
       }
     } catch (err) {
       console.error('Failed to load note', err);
+      addToast('Failed to load existing note.', 'error');
     }
   };
 
@@ -78,28 +85,30 @@ const TherapistSessionNotes = () => {
   };
 
   const handleSave = async () => {
-    if (!selectedBookingId) { alert('Please select a session first.'); return; }
+    if (!selectedBookingId) { 
+      addToast('Please select a session first.', 'error'); // ✅ CONVERTED
+      return; 
+    }
     setSaving(true);
-    setMessage('');
     const token = localStorage.getItem('token');
 
     try {
-      const res = await fetch(`/therapist/session-notes/${selectedBookingId}`, {
+      // ✅ FIXED: Added API_URL to relative path
+      const res = await fetch(`${API_URL}/therapist/session-notes/${selectedBookingId}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       });
       if (res.ok) {
-        setMessage('✅ Clinical notes saved successfully.');
+        addToast('Clinical notes saved successfully.', 'success'); // ✅ CONVERTED
       } else {
         const data = await res.json();
-        setMessage(`❌ ${data.detail || 'Failed to save notes.'}`);
+        addToast(data.detail || 'Failed to save notes.', 'error'); // ✅ CONVERTED
       }
     } catch (err) {
-      setMessage('❌ Failed to save notes.');
+      addToast('Failed to save notes.', 'error'); // ✅ CONVERTED
     } finally {
       setSaving(false);
-      setTimeout(() => setMessage(''), 3000);
     }
   };
 
@@ -130,11 +139,7 @@ const TherapistSessionNotes = () => {
       </header>
 
       <main style={styles.main}>
-        {message && (
-          <div style={{ padding: '0.85rem 1rem', borderRadius: '10px', marginBottom: '1rem', background: message.startsWith('✅') ? '#E8F5E9' : '#FEE2E2', color: message.startsWith('✅') ? '#1B5E20' : '#991B1B', fontWeight: '700' }}>
-            {message}
-          </div>
-        )}
+        {/* ✅ REMOVED: Inline message banner block */}
 
         <div style={styles.card}>
           <label style={styles.label}>Select Session</label>

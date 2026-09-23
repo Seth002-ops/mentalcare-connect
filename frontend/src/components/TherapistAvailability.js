@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { API_URL } from '../config'; // <-- Added centralized config import
+import { API_URL } from '../config';
+import { useToast } from './ToastContext'; // ✅ ADDED
 
 const DAYS = [
   { id: 0, name: 'Monday' },
@@ -20,10 +21,12 @@ for (let hour = 6; hour <= 22; hour++) {
 
 const TherapistAvailability = () => {
   const navigate = useNavigate();
+  const { addToast } = useToast(); // ✅ ADDED
+  
   const [schedule, setSchedule] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
+  // ✅ REMOVED: const [message, setMessage] = useState('');
 
   useEffect(() => {
     fetchAvailability();
@@ -32,7 +35,6 @@ const TherapistAvailability = () => {
   const fetchAvailability = async () => {
     const token = localStorage.getItem('token');
     try {
-      // FIXED: Using API_URL cleanly
       const res = await fetch(`${API_URL}/therapist/availability`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -52,6 +54,7 @@ const TherapistAvailability = () => {
       }
     } catch (err) {
       console.error('Failed to fetch availability', err);
+      addToast('Failed to load your schedule. Please try again.', 'error'); // ✅ ADDED
     } finally {
       setLoading(false);
     }
@@ -97,7 +100,6 @@ const TherapistAvailability = () => {
 
   const handleSave = async () => {
     setSaving(true);
-    setMessage('');
 
     const slots = [];
     Object.entries(schedule).forEach(([dayId, daySlots]) => {
@@ -113,7 +115,6 @@ const TherapistAvailability = () => {
 
     const token = localStorage.getItem('token');
     try {
-      // FIXED: Using API_URL cleanly
       const res = await fetch(`${API_URL}/therapist/availability`, {
         method: 'POST',
         headers: {
@@ -124,14 +125,13 @@ const TherapistAvailability = () => {
       });
 
       if (res.ok) {
-        setMessage('✅ Schedule saved successfully!');
-        setTimeout(() => setMessage(''), 3000);
+        addToast('Schedule saved successfully!', 'success'); // ✅ CONVERTED
       } else {
         const data = await res.json();
-        setMessage(`❌ ${data.detail || 'Failed to save schedule'}`);
+        addToast(data.detail || 'Failed to save schedule', 'error'); // ✅ CONVERTED
       }
     } catch (err) {
-      setMessage('❌ Network error. Please try again.');
+      addToast('Network error. Please try again.', 'error'); // ✅ CONVERTED
     } finally {
       setSaving(false);
     }
@@ -150,7 +150,7 @@ const TherapistAvailability = () => {
       <header style={{ background: 'white', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, zIndex: 100 }}>
         <div style={{ maxWidth: '800px', margin: '0 auto', padding: '1rem 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <button onClick={() => navigate('/therapist-dashboard')} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: '10px', padding: '0.5rem', cursor: 'pointer', color: '#374151', display: 'flex' }}>
+            <button onClick={() => navigate('/dashboard')} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: '10px', padding: '0.5rem', cursor: 'pointer', color: '#374151', display: 'flex' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
             </button>
             <h1 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#111827', margin: 0 }}>Set Your Availability</h1>
@@ -162,11 +162,7 @@ const TherapistAvailability = () => {
       </header>
 
       <main style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem 20px' }}>
-        {message && (
-          <div style={{ padding: '1rem', background: message.includes('✅') ? '#E8F5E9' : '#FEE2E2', color: message.includes('✅') ? '#1B5E20' : '#991B1B', borderRadius: '10px', marginBottom: '1.5rem', fontWeight: '600' }}>
-            {message}
-          </div>
-        )}
+        {/* ✅ REMOVED: The custom message banner block */}
 
         <div style={{ background: 'white', borderRadius: '16px', padding: '1.5rem', border: '1px solid #E5E7EB', marginBottom: '1.5rem' }}>
           <p style={{ color: '#6B7280', fontSize: '0.9rem', margin: '0 0 1rem 0', lineHeight: 1.6 }}>

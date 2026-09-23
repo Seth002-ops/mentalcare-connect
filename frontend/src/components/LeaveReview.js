@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useToast } from './ToastContext'; // ✅ ADDED
 
 const LeaveReview = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { addToast } = useToast(); // ✅ ADDED
+  
   const { therapist_id, booking_id, therapist_name } = location.state || {};
 
   const [rating, setRating] = useState(0);
@@ -47,7 +50,7 @@ const LeaveReview = () => {
       });
 
       if (response.ok) {
-        alert('Thank you for your review!');
+        addToast('Thank you for your review!', 'success'); // ✅ CONVERTED
         navigate('/dashboard');
       } else {
         const data = await response.json().catch(() => ({}));

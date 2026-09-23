@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
 import RageRoomWaiver from './RageRoomWaiver';
+import { useToast } from './ToastContext'; // ✅ ADDED
 
 // ============ PROFESSIONAL ICONS ============
 const IconX = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
@@ -21,6 +22,7 @@ const TIER_STYLES = {
 
 const RageRooms = ({ logout }) => {
   const navigate = useNavigate();
+  const { addToast } = useToast(); // ✅ ADDED
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedPackage, setSelectedPackage] = useState(null);
@@ -71,6 +73,7 @@ const RageRooms = ({ logout }) => {
       if (res.ok) setRooms(await res.json());
     } catch (err) {
       console.error('Failed to fetch rage rooms', err);
+      addToast('Failed to load rage rooms. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -107,7 +110,7 @@ const RageRooms = ({ logout }) => {
 
   const handleConfirmBooking = () => {
     if (!selectedDate || !selectedTime) {
-      alert('Please select a date and time.');
+      addToast('Please select a date and time.', 'error'); // ✅ CONVERTED
       return;
     }
     // Waiver must be signed BEFORE the booking is created
@@ -138,34 +141,36 @@ const RageRooms = ({ logout }) => {
         setShowWaiverModal(false);
         setShowPaymentModal(true);
       } else {
-        alert(data.detail || 'Booking failed');
+        addToast(data.detail || 'Booking failed', 'error'); // ✅ CONVERTED
       }
     } catch (err) {
-      alert('Failed to book. Please try again.');
+      addToast('Failed to book. Please try again.', 'error'); // ✅ CONVERTED
     }
   };
 
   const handlePayment = async () => {
     if (!phone || phone.length < 10) {
-      alert('Please enter a valid M-Pesa phone number.');
+      addToast('Please enter a valid M-Pesa phone number.', 'error'); // ✅ CONVERTED
       return;
     }
     setPaying(true);
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`/rage-rooms/pay?booking_id=${bookingId}&phone=${phone}`, {
+      // ✅ FIXED: Full backend URL instead of relative path
+      const res = await fetch(`https://mecac-backend.onrender.com/rage-rooms/pay?booking_id=${bookingId}&phone=${phone}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (data.success) {
         setBooked(true);
+        addToast('Payment successful! Your rage room session is booked.', 'success'); // ✅ ADDED
         fetchMyBookings();
       } else {
-        alert(data.message || 'Payment failed');
+        addToast(data.message || 'Payment failed', 'error'); // ✅ CONVERTED
       }
     } catch (err) {
-      alert('Payment failed. Please try again.');
+      addToast('Payment failed. Please try again.', 'error'); // ✅ CONVERTED
     } finally {
       setPaying(false);
     }

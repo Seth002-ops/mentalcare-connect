@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { API_URL } from '../config'; // ✅ ADDED
+import { useToast } from './ToastContext'; // ✅ ADDED
 
 const AdminBookings = () => {
+  const { addToast } = useToast(); // ✅ ADDED
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -9,22 +12,39 @@ const AdminBookings = () => {
   const fetchBookings = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('https://mecac-backend.onrender.com/admin/bookings', { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) setBookings(await res.json());
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
+      const res = await fetch(`${API_URL}/admin/bookings`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        setBookings(await res.json());
+      } else {
+        addToast('Failed to load bookings.', 'error'); // ✅ ADDED
+      }
+    } catch (err) { 
+      console.error(err); 
+      addToast('Network error. Could not load bookings.', 'error'); // ✅ ADDED
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const handleRefund = async (id) => {
     if (!confirm('Refund this booking? This cannot be undone.')) return;
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`/admin/bookings/${id}/refund`, {
+      // ✅ FIXED: Use API_URL instead of relative path
+      const res = await fetch(`${API_URL}/admin/bookings/${id}/refund`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) fetchBookings();
-    } catch (err) { console.error(err); }
+      if (res.ok) {
+        addToast('Refund processed successfully!', 'success'); // ✅ ADDED
+        fetchBookings();
+      } else {
+        addToast('Failed to process refund.', 'error'); // ✅ ADDED
+      }
+    } catch (err) { 
+      console.error(err); 
+      addToast('Network error. Refund failed.', 'error'); // ✅ ADDED
+    }
   };
 
   const statusBadge = (status) => {

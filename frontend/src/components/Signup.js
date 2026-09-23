@@ -85,6 +85,7 @@ const Signup = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [verifySent, setVerifySent] = useState(false);
+  const [shakeCard, setShakeCard] = useState(false); // ✅ NEW: For error shake
 
   useEffect(() => {
     if (userRole === 'student') {
@@ -120,31 +121,41 @@ const Signup = ({ onLogin }) => {
     setError('');
   };
 
+  const triggerShake = () => {
+    setShakeCard(true);
+    setTimeout(() => setShakeCard(false), 500);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
+      triggerShake(); // ✅ NEW: Shake on error
       return;
     }
     if (formData.password.length < 6) {
       setError('Password must be at least 6 characters');
+      triggerShake(); // ✅ NEW: Shake on error
       return;
     }
 
     if (userRole === 'student') {
       if (!selectedUni) {
         setError('Please select your university');
+        triggerShake(); // ✅ NEW: Shake on error
         return;
       }
       if (!isUniActive) {
         setError(`${selectedUni.name} is not yet registered on Mecac. Please contact your university counsellor or sign up as a regular client.`);
+        triggerShake();
         return;
       }
       const emailDomain = formData.email.split('@')[1]?.toLowerCase();
       if (!emailDomain.endsWith(selectedUni.domain.toLowerCase())) {
         setError(`Email must end with @${selectedUni.domain}`);
+        triggerShake();
         return;
       }
     }
@@ -194,19 +205,22 @@ const Signup = ({ onLogin }) => {
         } else {
           setError(data.detail || 'Signup failed');
         }
+        triggerShake(); // ✅ NEW: Shake on backend error too
       }
     } catch (err) {
       setError('Network error. Please try again.');
+      triggerShake();
     } finally {
       setLoading(false);
     }
   };
 
+  // ===== VERIFY EMAIL VIEW =====
   if (verifySent) {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#F9FAFB', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-        <div style={{ background: 'white', borderRadius: '20px', padding: '2.5rem', maxWidth: '440px', width: '100%', textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
-          <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#E8F5E9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', color: '#2E7D32' }}>
+        <div className="signup-entrance" style={{ background: 'white', borderRadius: '20px', padding: '2.5rem', maxWidth: '440px', width: '100%', textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
+          <div className="verify-icon-float" style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#E8F5E9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', color: '#2E7D32' }}>
             <IconMail />
           </div>
           <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.3rem', fontWeight: '700', color: '#111827' }}>Check Your University Email</h2>
@@ -214,26 +228,83 @@ const Signup = ({ onLogin }) => {
             We sent a verification link to <strong>{formData.email}</strong>.<br />
             Click it to activate your student account, then log in to unlock KSh 100/150/200 pricing.
           </p>
-          <button onClick={() => navigate('/login')} style={{ width: '100%', padding: '0.85rem', background: '#2E7D32', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', fontSize: '0.95rem', marginBottom: '0.75rem' }}>
+          <button 
+            onClick={() => navigate('/login')} 
+            className="signup-btn-primary"
+            style={{ 
+              width: '100%', 
+              padding: '0.85rem', 
+              background: '#2E7D32', 
+              color: 'white', 
+              border: 'none', 
+              borderRadius: '10px', 
+              fontWeight: '700', 
+              cursor: 'pointer', 
+              fontSize: '0.95rem', 
+              marginBottom: '0.75rem',
+              transition: 'all 0.2s ease'
+            }}
+          >
             I've Verified — Go to Login
           </button>
-          <button onClick={() => setVerifySent(false)} style={{ width: '100%', padding: '0.85rem', background: '#F3F4F6', color: '#374151', border: '1px solid #E5E7EB', borderRadius: '10px', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem' }}>
+          <button 
+            onClick={() => setVerifySent(false)} 
+            style={{ 
+              width: '100%', 
+              padding: '0.85rem', 
+              background: '#F3F4F6', 
+              color: '#374151', 
+              border: '1px solid #E5E7EB', 
+              borderRadius: '10px', 
+              fontWeight: '600', 
+              cursor: 'pointer', 
+              fontSize: '0.9rem',
+              transition: 'all 0.2s ease'
+            }}
+          >
             Use a different email
           </button>
         </div>
+
+        <style>{`
+          .verify-icon-float {
+            animation: verifyFloat 3s ease-in-out infinite;
+          }
+          @keyframes verifyFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+          }
+          .signup-btn-primary:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(46, 125, 50, 0.25);
+          }
+        `}</style>
       </div>
     );
   }
 
+  // ===== MAIN SIGNUP VIEW =====
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#F9FAFB', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-      <div style={{ background: 'white', borderRadius: '20px', padding: '2rem', maxWidth: '460px', width: '100%', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
+      <div 
+        className={`signup-entrance ${shakeCard ? 'shake-error' : ''}`} 
+        style={{ 
+          background: 'white', 
+          borderRadius: '20px', 
+          padding: '2rem', 
+          maxWidth: '460px', 
+          width: '100%', 
+          boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+          transition: 'transform 0.1s ease'
+        }}
+      >
 
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '800', color: '#2E7D32', letterSpacing: '-0.02em' }}>MECAC</h2>
+          <h2 className="logo-breathe" style={{ margin: 0, fontSize: '1.5rem', fontWeight: '800', color: '#2E7D32', letterSpacing: '-0.02em' }}>MECAC</h2>
           <p style={{ margin: '0.25rem 0 0', color: '#6B7280', fontSize: '0.85rem' }}>Care Connect — Create Account</p>
         </div>
 
+        {/* ===== ROLE SELECTOR WITH HOVER EFFECTS ===== */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginBottom: '1.25rem' }}>
           {[
             { key: 'client', label: 'Client', icon: <IconUser />, desc: 'Seek support' },
@@ -244,6 +315,7 @@ const Signup = ({ onLogin }) => {
               key={role.key}
               type="button"
               onClick={() => { setUserRole(role.key); setSelectedUni(null); setUniSearch(''); setError(''); }}
+              className="role-selector-btn"
               style={{
                 padding: '0.75rem 0.5rem',
                 borderRadius: '12px',
@@ -251,17 +323,44 @@ const Signup = ({ onLogin }) => {
                 background: userRole === role.key ? '#E8F5E9' : 'white',
                 cursor: 'pointer',
                 textAlign: 'center',
-                transition: 'all 0.15s ease',
+                transition: 'all 0.2s ease',
+                transform: userRole === role.key ? 'scale(1.02)' : 'scale(1)',
               }}
             >
-              <div style={{ color: userRole === role.key ? '#2E7D32' : '#6B7280', display: 'flex', justifyContent: 'center', marginBottom: '0.3rem' }}>{role.icon}</div>
+              <div 
+                className={userRole === role.key ? 'icon-selected' : ''}
+                style={{ 
+                  color: userRole === role.key ? '#2E7D32' : '#6B7280', 
+                  display: 'flex', 
+                  justifyContent: 'center', 
+                  marginBottom: '0.3rem',
+                  transition: 'transform 0.3s ease'
+                }}
+              >
+                {role.icon}
+              </div>
               <div style={{ fontWeight: '700', fontSize: '0.8rem', color: userRole === role.key ? '#2E7D32' : '#111827' }}>{role.label}</div>
               <div style={{ fontSize: '0.65rem', color: '#9CA3AF' }}>{role.desc}</div>
             </button>
           ))}
         </div>
 
-        {error && <div style={{ padding: '0.75rem', background: '#FEE2E2', color: '#991B1B', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.85rem' }}>{error}</div>}
+        {error && (
+          <div 
+            className="error-slide-in"
+            style={{ 
+              padding: '0.75rem', 
+              background: '#FEE2E2', 
+              color: '#991B1B', 
+              borderRadius: '8px', 
+              marginBottom: '1rem', 
+              fontSize: '0.85rem',
+              animation: 'errorSlideIn 0.3s ease-out'
+            }}
+          >
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '1rem' }}>
@@ -270,6 +369,7 @@ const Signup = ({ onLogin }) => {
               {userRole === 'therapist' ? 'Full Name (Required)' : userRole === 'student' ? 'Name or Registration Number' : 'Name (Optional — stay anonymous)'}
             </label>
             <input
+              className="signup-input"
               type="text"
               name="name"
               value={formData.name}
@@ -282,7 +382,16 @@ const Signup = ({ onLogin }) => {
                   : 'Leave blank to stay anonymous'
               }
               required={userRole === 'therapist'}
-              style={{ width: '100%', padding: '0.7rem', border: '1px solid #D1D5DB', borderRadius: '10px', fontSize: '0.95rem', boxSizing: 'border-box' }}
+              style={{ 
+                width: '100%', 
+                padding: '0.7rem', 
+                border: '1px solid #D1D5DB', 
+                borderRadius: '10px', 
+                fontSize: '0.95rem', 
+                boxSizing: 'border-box',
+                outline: 'none',
+                transition: 'all 0.2s ease'
+              }}
             />
             {userRole === 'client' && (
               <div style={{ fontSize: '0.72rem', color: '#9CA3AF', marginTop: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
@@ -304,20 +413,47 @@ const Signup = ({ onLogin }) => {
               <div style={{ position: 'relative' }}>
                 <span style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF' }}><IconSearch /></span>
                 <input
+                  className="signup-input"
                   type="text"
                   value={uniSearch}
                   onChange={(e) => { setUniSearch(e.target.value); setShowUniDropdown(true); setSelectedUni(null); }}
                   onFocus={() => setShowUniDropdown(true)}
                   placeholder="Type to search your university..."
                   autoComplete="off"
-                  style={{ width: '100%', padding: '0.7rem 0.7rem 0.7rem 2.25rem', border: `1px solid ${selectedUni ? (isUniActive ? '#2E7D32' : '#F59E0B') : '#D1D5DB'}`, borderRadius: '10px', fontSize: '0.95rem', boxSizing: 'border-box' }}
+                  style={{ 
+                    width: '100%', 
+                    padding: '0.7rem 0.7rem 0.7rem 2.25rem', 
+                    border: `1px solid ${selectedUni ? (isUniActive ? '#2E7D32' : '#F59E0B') : '#D1D5DB'}`, 
+                    borderRadius: '10px', 
+                    fontSize: '0.95rem', 
+                    boxSizing: 'border-box',
+                    outline: 'none',
+                    transition: 'all 0.2s ease'
+                  }}
                 />
               </div>
 
               {showUniDropdown && (
                 <>
                   <div style={{ position: 'fixed', inset: 0, zIndex: 50 }} onClick={() => setShowUniDropdown(false)} />
-                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, maxHeight: '220px', overflowY: 'auto', background: 'white', border: '1px solid #E5E7EB', borderRadius: '10px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 60, marginTop: '4px' }}>
+                  <div 
+                    className="uni-dropdown-slide"
+                    style={{ 
+                      position: 'absolute', 
+                      top: '100%', 
+                      left: 0, 
+                      right: 0, 
+                      maxHeight: '220px', 
+                      overflowY: 'auto', 
+                      background: 'white', 
+                      border: '1px solid #E5E7EB', 
+                      borderRadius: '10px', 
+                      boxShadow: '0 10px 25px rgba(0,0,0,0.1)', 
+                      zIndex: 60, 
+                      marginTop: '4px',
+                      animation: 'dropdownSlide 0.2s ease-out'
+                    }}
+                  >
                     {filteredUniversities.length === 0 ? (
                       <div style={{ padding: '1rem', textAlign: 'center', color: '#9CA3AF', fontSize: '0.85rem' }}>No universities found</div>
                     ) : (
@@ -327,8 +463,21 @@ const Signup = ({ onLogin }) => {
                           <button
                             key={idx}
                             type="button"
+                            className="uni-option-hover"
                             onClick={() => handleSelectUniversity(uni)}
-                            style={{ width: '100%', padding: '0.6rem 0.75rem', border: 'none', borderBottom: '1px solid #F3F4F6', background: selectedUni?.domain === uni.domain ? '#E8F5E9' : 'white', cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                            style={{ 
+                              width: '100%', 
+                              padding: '0.6rem 0.75rem', 
+                              border: 'none', 
+                              borderBottom: '1px solid #F3F4F6', 
+                              background: selectedUni?.domain === uni.domain ? '#E8F5E9' : 'white', 
+                              cursor: 'pointer', 
+                              textAlign: 'left', 
+                              display: 'flex', 
+                              justifyContent: 'space-between', 
+                              alignItems: 'center',
+                              transition: 'background 0.15s ease'
+                            }}
                           >
                             <div>
                               <div style={{ fontWeight: '600', fontSize: '0.85rem', color: '#111827' }}>{uni.name}</div>
@@ -348,7 +497,21 @@ const Signup = ({ onLogin }) => {
               )}
 
               {selectedUni && (
-                <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', borderRadius: '8px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.4rem', background: isUniActive ? '#E8F5E9' : '#FEF3C7', color: isUniActive ? '#1B5E20' : '#92400E' }}>
+                <div 
+                  className="uni-confirmation-slide"
+                  style={{ 
+                    marginTop: '0.5rem', 
+                    padding: '0.5rem 0.75rem', 
+                    borderRadius: '8px', 
+                    fontSize: '0.78rem', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '0.4rem', 
+                    background: isUniActive ? '#E8F5E9' : '#FEF3C7', 
+                    color: isUniActive ? '#1B5E20' : '#92400E',
+                    animation: 'uniConfirmSlide 0.3s ease-out'
+                  }}
+                >
                   <IconShield />
                   {isUniActive
                     ? `Verified — use your @${selectedUni.domain} email`
@@ -366,13 +529,23 @@ const Signup = ({ onLogin }) => {
               )}
             </label>
             <input
+              className="signup-input"
               type="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
               placeholder={userRole === 'student' && selectedUni ? `you@${selectedUni.domain}` : 'your@email.com'}
               required
-              style={{ width: '100%', padding: '0.7rem', border: '1px solid #D1D5DB', borderRadius: '10px', fontSize: '0.95rem', boxSizing: 'border-box' }}
+              style={{ 
+                width: '100%', 
+                padding: '0.7rem', 
+                border: '1px solid #D1D5DB', 
+                borderRadius: '10px', 
+                fontSize: '0.95rem', 
+                boxSizing: 'border-box',
+                outline: 'none',
+                transition: 'all 0.2s ease'
+              }}
             />
           </div>
 
@@ -380,25 +553,204 @@ const Signup = ({ onLogin }) => {
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.35rem', fontWeight: '600', fontSize: '0.85rem', color: '#374151' }}>
               <IconLock /> Password
             </label>
-            <input type="password" name="password" value={formData.password} onChange={handleChange} placeholder="At least 6 characters" required style={{ width: '100%', padding: '0.7rem', border: '1px solid #D1D5DB', borderRadius: '10px', fontSize: '0.95rem', boxSizing: 'border-box' }} />
+            <input 
+              className="signup-input"
+              type="password" 
+              name="password" 
+              value={formData.password} 
+              onChange={handleChange} 
+              placeholder="At least 6 characters" 
+              required 
+              style={{ 
+                width: '100%', 
+                padding: '0.7rem', 
+                border: '1px solid #D1D5DB', 
+                borderRadius: '10px', 
+                fontSize: '0.95rem', 
+                boxSizing: 'border-box',
+                outline: 'none',
+                transition: 'all 0.2s ease'
+              }} 
+            />
           </div>
 
           <div style={{ marginBottom: '1.25rem' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.35rem', fontWeight: '600', fontSize: '0.85rem', color: '#374151' }}>
               <IconLock /> Confirm Password
             </label>
-            <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} placeholder="Repeat password" required style={{ width: '100%', padding: '0.7rem', border: '1px solid #D1D5DB', borderRadius: '10px', fontSize: '0.95rem', boxSizing: 'border-box' }} />
+            <input 
+              className="signup-input"
+              type="password" 
+              name="confirmPassword" 
+              value={formData.confirmPassword} 
+              onChange={handleChange} 
+              placeholder="Repeat password" 
+              required 
+              style={{ 
+                width: '100%', 
+                padding: '0.7rem', 
+                border: '1px solid #D1D5DB', 
+                borderRadius: '10px', 
+                fontSize: '0.95rem', 
+                boxSizing: 'border-box',
+                outline: 'none',
+                transition: 'all 0.2s ease'
+              }} 
+            />
           </div>
 
-          <button type="submit" disabled={loading} style={{ width: '100%', padding: '0.85rem', background: loading ? '#9CA3AF' : '#2E7D32', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '0.95rem' }}>
+          <button 
+            type="submit" 
+            disabled={loading} 
+            className="signup-submit-btn"
+            style={{ 
+              width: '100%', 
+              padding: '0.85rem', 
+              background: loading ? '#9CA3AF' : '#2E7D32', 
+              color: 'white', 
+              border: 'none', 
+              borderRadius: '10px', 
+              fontWeight: '700', 
+              cursor: loading ? 'not-allowed' : 'pointer', 
+              fontSize: '0.95rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            {loading && (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" style={{ animation: 'spin 1s linear infinite' }}>
+                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+              </svg>
+            )}
             {loading ? 'Creating Account...' : userRole === 'student' ? 'Sign Up as Student' : userRole === 'therapist' ? 'Sign Up as Therapist' : 'Create Account'}
           </button>
         </form>
 
         <p style={{ textAlign: 'center', marginTop: '1.25rem', fontSize: '0.85rem', color: '#6B7280' }}>
-          Already have an account? <Link to="/login" style={{ color: '#2E7D32', fontWeight: '600', textDecoration: 'none' }}>Log In</Link>
+          Already have an account? <Link to="/login" style={{ color: '#2E7D32', fontWeight: '600', textDecoration: 'none', transition: 'opacity 0.2s' }} onMouseEnter={(e) => e.target.style.opacity = '0.7'} onMouseLeave={(e) => e.target.style.opacity = '1'}>Log In</Link>
         </p>
       </div>
+
+      {/* ✅ ALL CSS ANIMATIONS */}
+      <style>{`
+        /* Card entrance - slide up with fade */
+        @keyframes cardSlideUp {
+          from {
+            opacity: 0;
+            transform: translateY(25px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .signup-entrance {
+          animation: cardSlideUp 0.5s ease-out;
+        }
+
+        /* Error shake animation */
+        @keyframes shakeError {
+          0%, 100% { transform: translateX(0); }
+          10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+          20%, 40%, 60%, 80% { transform: translateX(4px); }
+        }
+        .shake-error {
+          animation: shakeError 0.5s ease-in-out;
+        }
+
+        /* Error message slide in */
+        @keyframes errorSlideIn {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        /* University dropdown slide */
+        @keyframes dropdownSlide {
+          from {
+            opacity: 0;
+            transform: translateY(-5px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        /* University confirmation slide */
+        @keyframes uniConfirmSlide {
+          from {
+            opacity: 0;
+            transform: translateY(-5px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        /* Logo subtle breathe */
+        @keyframes breathe {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.02); }
+        }
+        .logo-breathe {
+          animation: breathe 4s ease-in-out infinite;
+        }
+
+        /* Icon bounce when selected */
+        @keyframes iconBounce {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.2); }
+        }
+        .icon-selected {
+          animation: iconBounce 0.4s ease-out;
+        }
+
+        /* Role button hover scale */
+        .role-selector-btn:hover {
+          transform: scale(1.03) !important;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        /* University option hover */
+        .uni-option-hover:hover {
+          background: #F9FAFB !important;
+        }
+
+        /* Input focus glow effect */
+        .signup-input:focus {
+          border-color: #2E7D32 !important;
+          box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.15) !important;
+        }
+        .signup-input:hover:not(:focus) {
+          border-color: #9CA3AF !important;
+        }
+
+        /* Submit button hover lift */
+        .signup-submit-btn:hover:not(:disabled) {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(46, 125, 50, 0.3);
+        }
+        .signup-submit-btn:active:not(:disabled) {
+          transform: translateY(0);
+          box-shadow: 0 2px 8px rgba(46, 125, 50, 0.2);
+        }
+
+        /* Spinner for loading */
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 };

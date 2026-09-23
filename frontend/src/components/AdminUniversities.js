@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
+import { API_URL } from '../config'; // ✅ ADDED
+import { useToast } from './ToastContext'; // ✅ ADDED
 
 // ============ PROFESSIONAL ICONS ============
 const IconPlus = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>;
@@ -22,6 +24,8 @@ const TIERS = [
 
 const AdminUniversities = ({ logout }) => {
   const navigate = useNavigate();
+  const { addToast } = useToast(); // ✅ ADDED
+  
   const [universities, setUniversities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -29,66 +33,95 @@ const AdminUniversities = ({ logout }) => {
   const [selectedUni, setSelectedUni] = useState(null);
   const [creditsToAdd, setCreditsToAdd] = useState('');
   const [newUni, setNewUni] = useState({ name: '', email_domain: '', subscription_tier: 'starter', rage_room_credit_pool: 500 });
-  const [message, setMessage] = useState('');
+  // ✅ REMOVED: const [message, setMessage] = useState('');
 
   useEffect(() => { fetchUniversities(); }, []);
 
   const fetchUniversities = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('https://mecac-backend.onrender.com/admin/universities/list', { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) setUniversities(await res.json());
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
+      const res = await fetch(`${API_URL}/admin/universities/list`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        setUniversities(await res.json());
+      } else {
+        addToast('Failed to load universities.', 'error');
+      }
+    } catch (err) { 
+      console.error(err); 
+      addToast('Network error. Could not load universities.', 'error');
+    } finally { 
+      setLoading(false); 
+    }
   };
 
-  const showMessage = (msg) => { setMessage(msg); setTimeout(() => setMessage(''), 3000); };
+  // ✅ REMOVED: const showMessage = (msg) => { setMessage(msg); setTimeout(() => setMessage(''), 3000); };
 
   const handleAddUniversity = async () => {
-    if (!newUni.name || !newUni.email_domain) { alert('Fill all fields'); return; }
+    if (!newUni.name || !newUni.email_domain) { 
+      addToast('Fill all fields', 'error'); 
+      return; 
+    }
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('https://mecac-backend.onrender.com/admin/universities', {
+      const res = await fetch(`${API_URL}/admin/universities`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(newUni),
       });
       if (res.ok) {
-        showMessage('University added successfully!');
+        addToast('University added successfully!', 'success');
         setShowAddModal(false);
         setNewUni({ name: '', email_domain: '', subscription_tier: 'starter', rage_room_credit_pool: 500 });
         fetchUniversities();
       } else {
         const data = await res.json();
-        alert(data.detail || 'Failed to add university');
+        addToast(data.detail || 'Failed to add university', 'error');
       }
-    } catch (err) { alert('Network error'); }
+    } catch (err) { 
+      addToast('Network error', 'error'); 
+    }
   };
 
   const handleToggleActive = async (id) => {
     const token = localStorage.getItem('token');
     try {
-      await fetch(`/admin/universities/${id}/toggle-active`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
-      fetchUniversities();
-    } catch (err) { alert('Failed to toggle'); }
+      // ✅ FIXED: Added API_URL to relative path
+      const res = await fetch(`${API_URL}/admin/universities/${id}/toggle-active`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        addToast('University status updated!', 'success');
+        fetchUniversities();
+      } else {
+        addToast('Failed to toggle status', 'error');
+      }
+    } catch (err) { 
+      addToast('Failed to toggle', 'error'); 
+    }
   };
 
   const handleAddCredits = async () => {
-    if (!creditsToAdd || parseInt(creditsToAdd) <= 0) { alert('Enter a valid number'); return; }
+    if (!creditsToAdd || parseInt(creditsToAdd) <= 0) { 
+      addToast('Enter a valid number', 'error'); 
+      return; 
+    }
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`/admin/universities/${selectedUni.id}/add-credits?credits=${parseInt(creditsToAdd)}`, {
+      // ✅ FIXED: Added API_URL to relative path
+      const res = await fetch(`${API_URL}/admin/universities/${selectedUni.id}/add-credits?credits=${parseInt(creditsToAdd)}`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        showMessage(`Added ${creditsToAdd} credits to ${selectedUni.name}`);
+        addToast(`Added ${creditsToAdd} credits to ${selectedUni.name}`, 'success');
         setShowCreditsModal(false);
         setCreditsToAdd('');
         setSelectedUni(null);
         fetchUniversities();
+      } else {
+        addToast('Failed to add credits', 'error');
       }
-    } catch (err) { alert('Failed to add credits'); }
+    } catch (err) { 
+      addToast('Failed to add credits', 'error'); 
+    }
   };
 
   if (loading) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B7280' }}>Loading...</div>;
@@ -115,11 +148,7 @@ const AdminUniversities = ({ logout }) => {
       </header>
 
       <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 20px' }}>
-        {message && (
-          <div style={{ padding: '0.85rem 1.25rem', background: '#E8F5E9', color: '#1B5E20', borderRadius: '10px', marginBottom: '1.25rem', fontWeight: '600', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <IconCheck /> {message}
-          </div>
-        )}
+        {/* ✅ REMOVED: Inline message banner block */}
 
         {/* STATS ROW */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
