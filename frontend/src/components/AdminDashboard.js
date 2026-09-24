@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
 import AdminBookings from './AdminBookings';
@@ -17,82 +17,247 @@ const IconX = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" 
 const IconShield = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>;
 const IconGlobe = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>;
 const IconCreditCard = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>;
+const IconChart = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg>;
+
+// ============ TEMP BRAND MARK ============
+const BrandMark = ({ size = 32 }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: Math.round(size * 0.32),
+        background: 'linear-gradient(135deg, #2E7D32, #66BB6A)',
+        color: 'white',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontWeight: 900,
+        fontSize: size * 0.45,
+        boxShadow: '0 6px 16px rgba(46,125,50,0.22)',
+        flexShrink: 0,
+      }}
+    >
+      M
+    </div>
+    <div style={{ lineHeight: 1.1 }}>
+      <div style={{ fontWeight: 900, fontSize: '0.95rem', color: 'white', letterSpacing: '-0.02em' }}>MECAC</div>
+      <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.68)', fontWeight: 600 }}>Admin Control</div>
+    </div>
+  </div>
+);
+
+// ============ SKELETON SYSTEM ============
+const Skeleton = ({ w = '100%', h = '16px', r = '10px', style = {} }) => (
+  <div className="admin-skel" style={{ width: w, height: h, borderRadius: r, ...style }} />
+);
+
+const AdminDashboardSkeleton = () => (
+  <div style={{ minHeight: '100vh', backgroundColor: '#F9FAFB', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+    <header style={{ background: '#1F2937', color: 'white', padding: '1.25rem 0' }}>
+      <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '1200px', margin: '0 auto', padding: '0 20px', gap: '1rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(255,255,255,0.14)' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ width: 140, height: 14, borderRadius: 8, background: 'rgba(255,255,255,0.16)' }} />
+            <div style={{ width: 96, height: 10, borderRadius: 8, background: 'rgba(255,255,255,0.10)' }} />
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(255,255,255,0.12)' }} />
+          <div style={{ width: 88, height: 38, borderRadius: 8, background: 'rgba(255,255,255,0.12)' }} />
+        </div>
+      </nav>
+    </header>
+
+    <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 20px', width: '100%', boxSizing: 'border-box' }}>
+      <Skeleton h="190px" r="16px" style={{ marginBottom: '2rem' }} />
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+        {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+          <Skeleton key={i} h="86px" r="12px" />
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '2rem' }}>
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} h="76px" r="14px" />
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', overflowX: 'auto' }}>
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} w="140px" h="42px" r="10px" />
+        ))}
+      </div>
+
+      <div style={{ background: 'white', borderRadius: '16px', padding: '1.5rem', border: '1px solid #E5E7EB' }}>
+        <Skeleton w="220px" h="22px" style={{ marginBottom: '1rem' }} />
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+          <Skeleton h="44px" r="8px" style={{ flex: 1, minWidth: '200px' }} />
+          <Skeleton w="160px" h="44px" r="8px" />
+          <Skeleton w="130px" h="44px" r="8px" />
+        </div>
+
+        {Array.from({ length: 6 }).map((_, rowIndex) => (
+          <div key={rowIndex} style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: '1rem', padding: '0.75rem 0', borderBottom: '1px solid #F3F4F6' }}>
+            {Array.from({ length: 8 }).map((__, colIndex) => (
+              <Skeleton key={colIndex} h="16px" r="6px" />
+            ))}
+          </div>
+        ))}
+      </div>
+    </main>
+  </div>
+);
 
 const AdminDashboard = ({ logout }) => {
   const navigate = useNavigate();
   const { addToast } = useToast();
+
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [pendingTherapists, setPendingTherapists] = useState([]);
-  const [loading, setLoading] = useState(true);
+
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [usersLoading, setUsersLoading] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('');
   const [activeTab, setActiveTab] = useState('users');
 
-  useEffect(() => {
-    fetchStats();
-    fetchUsers();
-    fetchPendingTherapists();
-  }, []);
+  const initialLoadedRef = useRef(false);
 
-  useEffect(() => {
-    fetchUsers();
-  }, [searchQuery, filterType]);
+  const buildUsersUrl = () => {
+    let url = `${API_URL}/admin/users?`;
+    if (searchQuery) url += `search=${encodeURIComponent(searchQuery)}&`;
+    if (filterType) url += `user_type=${filterType}`;
+    return url;
+  };
 
-  const fetchStats = async () => {
+  const fetchStats = async (showError = true) => {
     const token = localStorage.getItem('token');
     try {
       const res = await fetch(`${API_URL}/admin/stats`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) setStats(await res.json());
+      if (res.ok) {
+        setStats(await res.json());
+      } else if (showError) {
+        addToast('Failed to load platform stats.', 'error');
+      }
     } catch (err) {
       console.error('Failed to fetch stats', err);
+      if (showError) addToast('Network error loading stats.', 'error');
     }
   };
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (showError = true) => {
     const token = localStorage.getItem('token');
-    setLoading(true);
+    setUsersLoading(true);
     try {
-      let url = `${API_URL}/admin/users?`; 
-      if (searchQuery) url += `search=${encodeURIComponent(searchQuery)}&`;
-      if (filterType) url += `user_type=${filterType}`;
-      
-      const res = await fetch(url, {
+      const res = await fetch(buildUsersUrl(), {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) setUsers(await res.json());
+      if (res.ok) {
+        setUsers(await res.json());
+      } else if (showError) {
+        addToast('Failed to load users.', 'error');
+      }
     } catch (err) {
       console.error('Failed to fetch users', err);
+      if (showError) addToast('Network error loading users.', 'error');
     } finally {
-      setLoading(false);
+      setUsersLoading(false);
     }
   };
 
-  const fetchPendingTherapists = async () => {
+  const fetchPendingTherapists = async (showError = true) => {
     const token = localStorage.getItem('token');
     try {
       const res = await fetch(`${API_URL}/admin/therapists/pending`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) setPendingTherapists(await res.json());
+      if (res.ok) {
+        setPendingTherapists(await res.json());
+      } else if (showError) {
+        addToast('Failed to load pending therapists.', 'error');
+      }
     } catch (err) {
       console.error('Failed to fetch pending therapists', err);
+      if (showError) addToast('Network error loading pending therapists.', 'error');
     }
   };
+
+  useEffect(() => {
+    const loadInitial = async () => {
+      const token = localStorage.getItem('token');
+
+      if (!token) {
+        addToast('Session expired. Please log in again.', 'error');
+        if (typeof logout === 'function') logout();
+        setInitialLoading(false);
+        return;
+      }
+
+      const headers = { Authorization: `Bearer ${token}` };
+
+      const [statsRes, usersRes, pendingRes] = await Promise.allSettled([
+        fetch(`${API_URL}/admin/stats`, { headers }),
+        fetch(buildUsersUrl(), { headers }),
+        fetch(`${API_URL}/admin/therapists/pending`, { headers }),
+      ]);
+
+      let hadError = false;
+
+      if (statsRes.status === 'fulfilled' && statsRes.value.ok) {
+        setStats(await statsRes.value.json());
+      } else {
+        hadError = true;
+      }
+
+      if (usersRes.status === 'fulfilled' && usersRes.value.ok) {
+        setUsers(await usersRes.value.json());
+      } else {
+        hadError = true;
+      }
+
+      if (pendingRes.status === 'fulfilled' && pendingRes.value.ok) {
+        setPendingTherapists(await pendingRes.value.json());
+      } else {
+        hadError = true;
+      }
+
+      if (hadError) {
+        addToast('Some admin data could not be loaded.', 'error');
+      }
+
+      initialLoadedRef.current = true;
+      setInitialLoading(false);
+    };
+
+    loadInitial();
+  }, []);
+
+  useEffect(() => {
+    if (!initialLoadedRef.current) return;
+    fetchUsers();
+  }, [searchQuery, filterType]);
 
   const handleToggleActive = async (userId) => {
     const token = localStorage.getItem('token');
     try {
-        const res = await fetch(`${API_URL}/admin/users/${userId}/toggle-active`, {
+      const res = await fetch(`${API_URL}/admin/users/${userId}/toggle-active`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
       });
+
       if (res.ok) {
         addToast('User status updated successfully', 'success');
-        fetchUsers();
-        fetchStats();
+        fetchUsers(false);
+        fetchStats(false);
+      } else {
+        addToast('Failed to update user status', 'error');
       }
     } catch (err) {
       console.error('Failed to toggle user', err);
@@ -107,11 +272,12 @@ const AdminDashboard = ({ logout }) => {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
       });
+
       if (res.ok) {
         addToast('Therapist approved successfully!', 'success');
-        fetchPendingTherapists();
-        fetchUsers();
-        fetchStats();
+        fetchPendingTherapists(false);
+        fetchUsers(false);
+        fetchStats(false);
       } else {
         addToast('Failed to approve therapist', 'error');
       }
@@ -124,17 +290,18 @@ const AdminDashboard = ({ logout }) => {
   const handleRejectTherapist = async (userId) => {
     const token = localStorage.getItem('token');
     if (!confirm('Are you sure you want to reject this therapist?')) return;
-    
+
     try {
-        const res = await fetch(`${API_URL}/admin/therapists/${userId}/reject`, {
+      const res = await fetch(`${API_URL}/admin/therapists/${userId}/reject`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
       });
+
       if (res.ok) {
         addToast('Therapist application rejected', 'info');
-        fetchPendingTherapists();
-        fetchUsers();
-        fetchStats();
+        fetchPendingTherapists(false);
+        fetchUsers(false);
+        fetchStats(false);
       } else {
         addToast('Failed to reject therapist', 'error');
       }
@@ -150,6 +317,7 @@ const AdminDashboard = ({ logout }) => {
       const res = await fetch(`${API_URL}/admin/export/users`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
       if (res.ok) {
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
@@ -170,6 +338,7 @@ const AdminDashboard = ({ logout }) => {
 
   const handlePlatformWithdrawal = async () => {
     const platformRevenue = stats?.total_platform_revenue || 0;
+
     if (platformRevenue <= 0) {
       addToast('No platform earnings available for withdrawal', 'error');
       return;
@@ -178,7 +347,7 @@ const AdminDashboard = ({ logout }) => {
     const amount = prompt(
       `Available balance: KSh ${platformRevenue.toLocaleString()}\nEnter withdrawal amount (KSh):`
     );
-    
+
     if (!amount || isNaN(amount) || parseInt(amount) <= 0) {
       addToast('Please enter a valid amount', 'error');
       return;
@@ -196,17 +365,19 @@ const AdminDashboard = ({ logout }) => {
     }
 
     const token = localStorage.getItem('token');
+
     try {
-        const res = await fetch(
+      const res = await fetch(
         `${API_URL}/admin/withdraw-platform-earnings?amount=${parseInt(amount)}&destination=bank&account_details=${encodeURIComponent(bankDetails)}`,
         {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
         }
       );
+
       if (res.ok) {
         addToast(`Withdrawal request of KSh ${parseInt(amount).toLocaleString()} submitted successfully!`, 'success');
-        fetchStats();
+        fetchStats(false);
       } else {
         addToast('Failed to submit withdrawal request', 'error');
       }
@@ -216,7 +387,6 @@ const AdminDashboard = ({ logout }) => {
     }
   };
 
-  // Safe stat values with fallbacks
   const totalUsers = stats?.total_users || 0;
   const totalClients = stats?.total_clients || 0;
   const totalTherapists = stats?.total_therapists || 0;
@@ -230,12 +400,10 @@ const AdminDashboard = ({ logout }) => {
   const totalTherapistPayouts = stats?.total_therapist_payouts || 0;
 
   const styles = {
-    container: { minHeight: '100vh', backgroundColor: '#F9FAFB', overflowX: 'hidden' },
+    container: { minHeight: '100vh', backgroundColor: '#F9FAFB', overflowX: 'hidden', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
     header: { background: '#1F2937', color: 'white', padding: '1.25rem 0' },
     nav: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '1200px', margin: '0 auto', padding: '0 20px', gap: '1rem', flexWrap: 'wrap' },
-    navTitle: { fontSize: '1.5rem', fontWeight: '700' },
-    navSubtitle: { fontSize: '0.85rem', opacity: 0.7, marginLeft: '0.75rem' },
-    logoutBtn: { backgroundColor: 'rgba(255,255,255,0.15)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', padding: '0.6rem 1.25rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.9rem', minHeight: '44px' },
+    logoutBtn: { backgroundColor: 'rgba(255,255,255,0.15)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', padding: '0.6rem 1.25rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.9rem', minHeight: '44px', transition: 'all 0.2s ease' },
     main: { maxWidth: '1200px', margin: '0 auto', padding: '2rem 20px', width: '100%', boxSizing: 'border-box' },
     statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' },
     statCard: { background: 'white', borderRadius: '12px', padding: '1.25rem', border: '1px solid #E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' },
@@ -245,13 +413,13 @@ const AdminDashboard = ({ logout }) => {
     earningsTitle: { fontSize: '1.3rem', fontWeight: '700', color: '#111827', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' },
     earningsAmount: { fontSize: '2.5rem', fontWeight: '800', color: '#2E7D32' },
     earningsSubtitle: { color: '#6B7280', fontSize: '0.9rem', marginTop: '0.25rem' },
-    withdrawBtn: { padding: '1rem 2rem', background: '#2E7D32', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '700', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', minHeight: '48px' },
+    withdrawBtn: { padding: '1rem 2rem', background: '#2E7D32', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '700', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', minHeight: '48px', transition: 'all 0.2s ease' },
     section: { background: 'white', borderRadius: '16px', padding: '1.5rem', border: '1px solid #E5E7EB', marginBottom: '2rem', overflow: 'hidden' },
     sectionTitle: { fontSize: '1.2rem', fontWeight: '700', color: '#111827', marginBottom: '1rem' },
     filterRow: { display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center' },
-    searchInput: { flex: 1, minWidth: '200px', padding: '0.75rem 1rem', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '0.95rem', minHeight: '44px', boxSizing: 'border-box' },
-    filterSelect: { padding: '0.75rem 1rem', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '0.95rem', background: 'white', minHeight: '44px' },
-    exportBtn: { padding: '0.75rem 1.5rem', background: '#2E7D32', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem', minHeight: '44px', display: 'flex', alignItems: 'center', gap: '0.4rem' },
+    searchInput: { flex: 1, minWidth: '200px', padding: '0.75rem 1rem', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '0.95rem', minHeight: '44px', boxSizing: 'border-box', outline: 'none', transition: 'all 0.2s ease' },
+    filterSelect: { padding: '0.75rem 1rem', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '0.95rem', background: 'white', minHeight: '44px', outline: 'none' },
+    exportBtn: { padding: '0.75rem 1.5rem', background: '#2E7D32', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem', minHeight: '44px', display: 'flex', alignItems: 'center', gap: '0.4rem', transition: 'all 0.2s ease' },
     tableWrapper: { width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' },
     table: { width: '100%', borderCollapse: 'collapse', minWidth: '700px' },
     th: { textAlign: 'left', padding: '0.75rem 1rem', borderBottom: '2px solid #E5E7EB', fontSize: '0.8rem', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' },
@@ -275,6 +443,7 @@ const AdminDashboard = ({ logout }) => {
       color: isActive ? '#991B1B' : '#1B5E20',
       borderColor: isActive ? '#FECACA' : '#BBF7D0',
       minHeight: '36px',
+      transition: 'all 0.2s ease',
     }),
     emptyState: { textAlign: 'center', padding: '3rem', color: '#9CA3AF' },
     tabs: { display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '2px solid #E5E7EB', overflowX: 'auto', WebkitOverflowScrolling: 'touch' },
@@ -293,6 +462,7 @@ const AdminDashboard = ({ logout }) => {
       display: 'flex',
       alignItems: 'center',
       gap: '0.4rem',
+      transition: 'all 0.2s ease',
     }),
     therapistCard: {
       border: '1px solid #E5E7EB',
@@ -300,6 +470,7 @@ const AdminDashboard = ({ logout }) => {
       padding: '1.5rem',
       marginBottom: '1rem',
       background: '#F9FAFB',
+      transition: 'all 0.2s ease',
     },
     therapistHeader: {
       display: 'flex',
@@ -357,6 +528,7 @@ const AdminDashboard = ({ logout }) => {
       alignItems: 'center',
       justifyContent: 'center',
       gap: '0.4rem',
+      transition: 'all 0.2s ease',
     },
     rejectBtn: {
       padding: '0.6rem 1.25rem',
@@ -373,6 +545,7 @@ const AdminDashboard = ({ logout }) => {
       alignItems: 'center',
       justifyContent: 'center',
       gap: '0.4rem',
+      transition: 'all 0.2s ease',
     },
     pendingBadge: {
       padding: '0.25rem 0.75rem',
@@ -383,7 +556,7 @@ const AdminDashboard = ({ logout }) => {
       color: '#92400E',
       whiteSpace: 'nowrap',
     },
-    uniManageBtn: {
+    managementCard: {
       display: 'flex',
       alignItems: 'center',
       gap: '0.75rem',
@@ -394,104 +567,130 @@ const AdminDashboard = ({ logout }) => {
       cursor: 'pointer',
       width: '100%',
       textAlign: 'left',
-      transition: 'all 0.15s ease',
+      transition: 'all 0.2s ease',
       marginBottom: '0.75rem',
+      textDecoration: 'none',
+      color: 'inherit',
+      boxSizing: 'border-box',
     },
   };
+
+  if (initialLoading) {
+    return <AdminDashboardSkeleton />;
+  }
 
   return (
     <div style={styles.container}>
       <header style={styles.header}>
         <nav style={styles.nav}>
-          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
-            <h1 style={styles.navTitle}>Mecac Admin Panel</h1>
-            <span style={styles.navSubtitle}>Platform Management</span>
-          </div>
+          <BrandMark size={32} />
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <NotificationBell />
-            <button onClick={logout} style={styles.logoutBtn}>Logout</button>
+            <button
+              onClick={logout}
+              style={styles.logoutBtn}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.25)';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.15)';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              Logout
+            </button>
           </div>
         </nav>
       </header>
 
       <main style={styles.main}>
-     
         {/* Platform Earnings & Withdrawal Section */}
-        {stats && (
-          <div style={styles.earningsSection}>
-            <h2 style={styles.earningsTitle}>
-              <IconDollarSign /> Platform Earnings
-            </h2>
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.5rem' }}>
-              <div>
-                <div style={styles.earningsAmount}>
-                  KSh {totalPlatformRevenue.toLocaleString()}
-                </div>
-                <div style={styles.earningsSubtitle}>
-                  Total available for withdrawal (15% commission from all sessions)
-                </div>
-                <div style={{ display: 'flex', gap: '2rem', marginTop: '1rem', flexWrap: 'wrap' }}>
-                  <div>
-                    <div style={{ fontSize: '0.8rem', color: '#6B7280' }}>Total Revenue</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#111827' }}>
-                      KSh {totalRevenue.toLocaleString()}
-                    </div>
+        <div style={styles.earningsSection}>
+          <h2 style={styles.earningsTitle}>
+            <IconDollarSign /> Platform Earnings
+          </h2>
+
+          {!stats && (
+            <div style={{ padding: '0.85rem 1rem', background: '#FEF3C7', color: '#92400E', borderRadius: '10px', fontSize: '0.88rem', fontWeight: '600', marginBottom: '1rem' }}>
+              Platform stats are currently unavailable. Values below may be incomplete.
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.5rem' }}>
+            <div>
+              <div style={styles.earningsAmount}>
+                KSh {totalPlatformRevenue.toLocaleString()}
+              </div>
+              <div style={styles.earningsSubtitle}>
+                Total available for withdrawal (15% commission from all sessions)
+              </div>
+              <div style={{ display: 'flex', gap: '2rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontSize: '0.8rem', color: '#6B7280' }}>Total Revenue</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#111827' }}>
+                    KSh {totalRevenue.toLocaleString()}
                   </div>
-                  <div>
-                    <div style={{ fontSize: '0.8rem', color: '#6B7280' }}>Therapist Payouts</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#111827' }}>
-                      KSh {totalTherapistPayouts.toLocaleString()}
-                    </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.8rem', color: '#6B7280' }}>Therapist Payouts</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#111827' }}>
+                    KSh {totalTherapistPayouts.toLocaleString()}
                   </div>
-                  <div>
-                    <div style={{ fontSize: '0.8rem', color: '#6B7280' }}>Your Share (5% each × 3)</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#2E7D32' }}>
-                      KSh {Math.round(totalPlatformRevenue / 3).toLocaleString()} per person
-                    </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.8rem', color: '#6B7280' }}>Your Share (5% each × 3)</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#2E7D32' }}>
+                    KSh {Math.round(totalPlatformRevenue / 3).toLocaleString()} per person
                   </div>
                 </div>
               </div>
-              
-              <button
-                onClick={handlePlatformWithdrawal}
-                style={styles.withdrawBtn}
-              >
-                Withdraw to Company Bank
-              </button>
             </div>
+
+            <button
+              onClick={handlePlatformWithdrawal}
+              style={styles.withdrawBtn}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 10px 24px rgba(46,125,50,0.25)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              Withdraw to Company Bank
+            </button>
           </div>
-        )}
+        </div>
 
         {/* Stats Grid */}
-        {stats && (
-          <div style={styles.statsGrid}>
-            {[
-              { label: 'Total Users', value: totalUsers },
-              { label: 'Clients', value: totalClients },
-              { label: 'Therapists', value: totalTherapists },
-              { label: 'Total Bookings', value: totalBookings },
-              { label: 'Completed', value: completedBookings },
-              { label: 'Avg Rating', value: averageRating.toFixed(1) },
-              { label: 'Messages', value: totalMessages },
-              { label: 'Mood Entries', value: totalMoodEntries },
-            ].map((stat) => (
-              <div key={stat.label} style={styles.statCard}>
-                <div style={styles.statValue}>{stat.value}</div>
-                <div style={styles.statLabel}>{stat.label}</div>
-              </div>
-            ))}
-          </div>
-        )}
-        {/* ===== ANALYTICS CARD ===== */}
+        <div style={styles.statsGrid}>
+          {[
+            { label: 'Total Users', value: totalUsers },
+            { label: 'Clients', value: totalClients },
+            { label: 'Therapists', value: totalTherapists },
+            { label: 'Total Bookings', value: totalBookings },
+            { label: 'Completed', value: completedBookings },
+            { label: 'Avg Rating', value: averageRating.toFixed(1) },
+            { label: 'Messages', value: totalMessages },
+            { label: 'Mood Entries', value: totalMoodEntries },
+          ].map((stat) => (
+            <div key={stat.label} className="admin-stat-card" style={styles.statCard}>
+              <div style={styles.statValue}>{stat.value}</div>
+              <div style={styles.statLabel}>{stat.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Management Cards */}
         <div
-          style={styles.uniManageBtn}
+          className="admin-action-card"
+          style={styles.managementCard}
           onClick={() => navigate('/admin/analytics')}
-          onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2E7D32'; e.currentTarget.style.background = '#E8F5E9'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.background = 'white'; }}
         >
           <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#DBEAFE', color: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg>
+            <IconChart />
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: '700', fontSize: '1rem', color: '#111827' }}>View Analytics</div>
@@ -500,12 +699,10 @@ const AdminDashboard = ({ logout }) => {
           <span style={{ color: '#9CA3AF' }}><IconArrowRight /></span>
         </div>
 
-        {/* ===== UNIVERSITY MANAGEMENT CARD ===== */}
         <div
-          style={styles.uniManageBtn}
+          className="admin-action-card"
+          style={styles.managementCard}
           onClick={() => navigate('/admin/universities')}
-          onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2E7D32'; e.currentTarget.style.background = '#E8F5E9'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.background = 'white'; }}
         >
           <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#EDE9FE', color: '#6D28D9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <IconGradCap />
@@ -517,23 +714,52 @@ const AdminDashboard = ({ logout }) => {
           <span style={{ color: '#9CA3AF' }}><IconArrowRight /></span>
         </div>
 
+        <Link to="/admin/rage-rooms" className="admin-action-card" style={styles.managementCard}>
+          <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#FCE4EC', color: '#C2185B', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <IconShield />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: '700', fontSize: '1rem', color: '#111827' }}>Rage Rooms</div>
+            <div style={{ fontSize: '0.8rem', color: '#6B7280' }}>Register spaces with photos & locations</div>
+          </div>
+          <span style={{ color: '#9CA3AF' }}><IconArrowRight /></span>
+        </Link>
+
         {/* Tabs */}
         <div style={styles.tabs}>
           <button
             style={styles.tab(activeTab === 'users')}
             onClick={() => setActiveTab('users')}
+            onMouseEnter={(e) => {
+              if (activeTab !== 'users') e.currentTarget.style.color = '#111827';
+            }}
+            onMouseLeave={(e) => {
+              if (activeTab !== 'users') e.currentTarget.style.color = '#6B7280';
+            }}
           >
             <IconUsers /> All Users ({users.length})
           </button>
           <button
             style={styles.tab(activeTab === 'pending')}
             onClick={() => setActiveTab('pending')}
+            onMouseEnter={(e) => {
+              if (activeTab !== 'pending') e.currentTarget.style.color = '#111827';
+            }}
+            onMouseLeave={(e) => {
+              if (activeTab !== 'pending') e.currentTarget.style.color = '#6B7280';
+            }}
           >
             <IconClock /> Pending Approvals ({pendingTherapists.length})
           </button>
           <button
             style={styles.tab(activeTab === 'bookings')}
             onClick={() => setActiveTab('bookings')}
+            onMouseEnter={(e) => {
+              if (activeTab !== 'bookings') e.currentTarget.style.color = '#111827';
+            }}
+            onMouseLeave={(e) => {
+              if (activeTab !== 'bookings') e.currentTarget.style.color = '#6B7280';
+            }}
           >
             <IconDollarSign /> Bookings & Refunds
           </button>
@@ -543,7 +769,7 @@ const AdminDashboard = ({ logout }) => {
         {activeTab === 'users' && (
           <div style={styles.section}>
             <h2 style={styles.sectionTitle}>User Management</h2>
-            
+
             <div style={styles.filterRow}>
               <input
                 type="text"
@@ -551,6 +777,14 @@ const AdminDashboard = ({ logout }) => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={styles.searchInput}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = '#2E7D32';
+                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(46,125,50,0.12)';
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = '#D1D5DB';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
               />
               <select
                 value={filterType}
@@ -562,13 +796,45 @@ const AdminDashboard = ({ logout }) => {
                 <option value="therapist">Therapists</option>
                 <option value="admin">Admins</option>
               </select>
-              <button onClick={handleExportCSV} style={styles.exportBtn}>
+              <button
+                onClick={handleExportCSV}
+                style={styles.exportBtn}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 8px 18px rgba(46,125,50,0.2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
                 <IconDownload /> Export CSV
               </button>
             </div>
 
-            {loading ? (
-              <p style={{ color: '#6B7280' }}>Loading users...</p>
+            {usersLoading ? (
+              <div style={styles.tableWrapper}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      {['ID', 'Name', 'Email', 'Role', 'Status', 'Terms', 'Joined', 'Actions'].map((h) => (
+                        <th key={h} style={styles.th}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.from({ length: 6 }).map((_, rowIndex) => (
+                      <tr key={rowIndex}>
+                        {Array.from({ length: 8 }).map((__, colIndex) => (
+                          <td key={colIndex} style={styles.td}>
+                            <Skeleton h="16px" r="6px" />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : users.length === 0 ? (
               <div style={styles.emptyState}>No users found</div>
             ) : (
@@ -588,7 +854,7 @@ const AdminDashboard = ({ logout }) => {
                   </thead>
                   <tbody>
                     {users.map((user) => (
-                      <tr key={user.id}>
+                      <tr key={user.id} className="admin-table-row">
                         <td style={styles.td}>{user.id}</td>
                         <td style={styles.td}>{user.name || 'N/A'}</td>
                         <td style={styles.td}>{user.email}</td>
@@ -609,6 +875,14 @@ const AdminDashboard = ({ logout }) => {
                             <button
                               onClick={() => handleToggleActive(user.id)}
                               style={styles.actionBtn(user.is_active)}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                                e.currentTarget.style.boxShadow = '0 6px 14px rgba(0,0,0,0.08)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.boxShadow = 'none';
+                              }}
                             >
                               {user.is_active ? 'Disable' : 'Enable'}
                             </button>
@@ -622,28 +896,12 @@ const AdminDashboard = ({ logout }) => {
             )}
           </div>
         )}
-<Link to="/admin/rage-rooms" style={{
-  display: 'flex',
-  alignItems: 'center',
-  gap: '0.75rem',
-  padding: '1rem',
-  background: '#F9FAFB',
-  border: '1px solid #E5E7EB',
-  borderRadius: '12px',
-  textDecoration: 'none',
-  color: '#111827'
-}}>
-  <span style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#E8F5E9', color: '#2E7D32', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>R</span>
-  <div>
-    <div style={{ fontWeight: '700', fontSize: '0.95rem' }}>Rage Rooms</div>
-    <div style={{ fontSize: '0.82rem', color: '#6B7280' }}>Register spaces with photos & locations</div>
-  </div>
-</Link>
+
         {/* Pending Therapists Tab */}
         {activeTab === 'pending' && (
           <div style={styles.section}>
             <h2 style={styles.sectionTitle}>Pending Therapist Approvals</h2>
-            
+
             {pendingTherapists.length === 0 ? (
               <div style={styles.emptyState}>
                 <p>No pending therapist applications</p>
@@ -653,7 +911,18 @@ const AdminDashboard = ({ logout }) => {
               </div>
             ) : (
               pendingTherapists.map((therapist) => (
-                <div key={therapist.id} style={styles.therapistCard}>
+                <div
+                  key={therapist.id}
+                  style={styles.therapistCard}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = '#C8E6C9';
+                    e.currentTarget.style.boxShadow = '0 10px 24px rgba(0,0,0,0.06)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = '#E5E7EB';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
                   <div style={styles.therapistHeader}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={styles.therapistName}>{therapist.name || 'Unnamed'}</div>
@@ -699,12 +968,28 @@ const AdminDashboard = ({ logout }) => {
                     <button
                       onClick={() => handleApproveTherapist(therapist.id)}
                       style={styles.approveBtn}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = '#1B5E20';
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = '#2E7D32';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
                     >
                       <IconCheck /> Approve Therapist
                     </button>
                     <button
                       onClick={() => handleRejectTherapist(therapist.id)}
                       style={styles.rejectBtn}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = '#FEF2F2';
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'white';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
                     >
                       <IconX /> Reject Application
                     </button>
@@ -714,6 +999,7 @@ const AdminDashboard = ({ logout }) => {
             )}
           </div>
         )}
+
         {/* Bookings & Refunds Tab */}
         {activeTab === 'bookings' && (
           <div style={styles.section}>
@@ -722,6 +1008,59 @@ const AdminDashboard = ({ logout }) => {
           </div>
         )}
       </main>
+
+      <style>{`
+        .admin-skel {
+          background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 37%, #f3f4f6 63%);
+          background-size: 400% 100%;
+          animation: adminShimmer 1.4s ease infinite;
+        }
+
+        @keyframes adminShimmer {
+          0% { background-position: 100% 50%; }
+          100% { background-position: 0 50%; }
+        }
+
+        .admin-stat-card {
+          transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+        .admin-stat-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 10px 24px rgba(0,0,0,0.08);
+          border-color: #D1D5DB;
+        }
+
+        .admin-action-card:hover {
+          border-color: #2E7D32 !important;
+          background: #F9FAFB !important;
+          transform: translateY(-1px);
+          box-shadow: 0 10px 24px rgba(0,0,0,0.06);
+        }
+
+        .admin-table-row {
+          transition: background 0.15s ease;
+        }
+        .admin-table-row:hover {
+          background: #F9FAFB;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .admin-skel,
+          .admin-stat-card,
+          .admin-action-card,
+          .admin-table-row {
+            animation: none !important;
+            transition: none !important;
+          }
+        }
+
+        @media (max-width: 640px) {
+          nav {
+            flex-direction: column;
+            align-items: flex-start !important;
+          }
+        }
+      `}</style>
     </div>
   );
 };

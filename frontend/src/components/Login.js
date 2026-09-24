@@ -67,7 +67,7 @@ const Login = ({ onLogin }) => {
 
       // Call onLogin and force page reload to sync state and route correctly
       onLogin(data.access_token, data.user_type, email);
-      window.location.href = '/dashboard';
+      return;
 
     } catch (err) {
       console.error("Login error:", err);

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { API_URL } from '../config';
 import { useToast } from './ToastContext';
 
 // Convert "09:00" (24h from backend) to "9:00 AM" for display
@@ -40,7 +41,7 @@ const Booking = () => {
       setErrorMessage('');
 
       try {
-        const response = await fetch('https://mecac-backend.onrender.com/users?user_type=therapist', {
+        const response = await fetch(`${API_URL}/users?user_type=therapist`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -62,7 +63,7 @@ const Booking = () => {
             let avgRating = user.rating || 0;
             let reviewCount = 0;
             try {
-              const revRes = await fetch(`/reviews/therapist/${user.id}`, {
+              const revRes = await fetch(`${API_URL}/reviews/therapist/${user.id}`, {
                 headers: { Authorization: `Bearer ${token}` },
               });
               if (revRes.ok) {
@@ -72,7 +73,9 @@ const Booking = () => {
                   avgRating = (reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount).toFixed(1);
                 }
               }
-            } catch (e) { /* ignore rating fetch errors */ }
+            } catch (e) {
+              // ignore rating fetch errors
+            }
 
             return {
               id: user.id,
@@ -90,21 +93,22 @@ const Booking = () => {
       } catch (error) {
         console.error('Therapist fetch error:', error);
         setErrorMessage('Could not load therapists. Make sure the backend is running.');
+        addToast('Could not load therapists.', 'error');
       } finally {
         setLoading(false);
       }
     };
 
     fetchTherapists();
-  }, []);
+  }, [addToast]);
 
   useEffect(() => {
     const therapistIdParam = searchParams.get('therapist_id');
-    
+
     if (therapistIdParam && therapists.length > 0 && !selectedTherapist) {
       const therapistId = parseInt(therapistIdParam, 10);
       const foundTherapist = therapists.find(t => t.id === therapistId);
-      
+
       if (foundTherapist) {
         setSelectedTherapist(foundTherapist);
       }
@@ -127,7 +131,7 @@ const Booking = () => {
 
       try {
         const res = await fetch(
-          `/therapist/${selectedTherapist.id}/available-slots?date=${selectedDate}`,
+          `${API_URL}/therapist/${selectedTherapist.id}/available-slots?date=${selectedDate}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
 
@@ -140,16 +144,18 @@ const Booking = () => {
           }
         } else {
           setSlotsMessage('Could not load availability. Please try again.');
+          addToast('Could not load availability.', 'error');
         }
       } catch (err) {
         setSlotsMessage('Could not load availability. Please try again.');
+        addToast('Network error loading availability.', 'error');
       } finally {
         setSlotsLoading(false);
       }
     };
 
     fetchSlots();
-  }, [selectedTherapist, selectedDate]);
+  }, [selectedTherapist, selectedDate, addToast]);
 
   const handleBook = async () => {
     if (!selectedTherapist || !selectedDate || !selectedTime) {
@@ -164,9 +170,8 @@ const Booking = () => {
       return;
     }
 
-    // selectedTime is now in "09:00" format from the backend
     try {
-      const response = await fetch('https://mecac-backend.onrender.com/bookings', {
+      const response = await fetch(`${API_URL}/bookings`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -383,9 +388,33 @@ const Booking = () => {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     {therapist.photo ? (
-                      <img src={therapist.photo} alt={therapist.name} style={{ width: '52px', height: '52px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #2BB3A3' }} />
+                      <img
+                        src={therapist.photo}
+                        alt={therapist.name}
+                        style={{
+                          width: '52px',
+                          height: '52px',
+                          borderRadius: '50%',
+                          objectFit: 'cover',
+                          border: '2px solid #2BB3A3',
+                        }}
+                      />
                     ) : (
-                      <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: '#E3F2FD', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2BB3A3', fontWeight: '700', fontSize: '1.2rem', flexShrink: 0 }}>
+                      <div
+                        style={{
+                          width: '52px',
+                          height: '52px',
+                          borderRadius: '50%',
+                          background: '#E3F2FD',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#2BB3A3',
+                          fontWeight: '700',
+                          fontSize: '1.2rem',
+                          flexShrink: 0,
+                        }}
+                      >
                         {therapist.name.charAt(0).toUpperCase()}
                       </div>
                     )}
@@ -405,8 +434,13 @@ const Booking = () => {
                       KSh {therapist.price.toLocaleString()}
                     </div>
 
-                     <div style={{ color: '#F59E0B', fontWeight: '600', fontSize: '0.85rem' }}>
-                      ★ {therapist.rating} {therapist.reviewCount > 0 && <span style={{ color: '#9CA3AF', fontWeight: '400' }}>({therapist.reviewCount})</span>}
+                    <div style={{ color: '#F59E0B', fontWeight: '600', fontSize: '0.85rem' }}>
+                      ★ {therapist.rating}{' '}
+                      {therapist.reviewCount > 0 && (
+                        <span style={{ color: '#9CA3AF', fontWeight: '400' }}>
+                          ({therapist.reviewCount})
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -461,7 +495,9 @@ const Booking = () => {
                   </label>
 
                   {slotsLoading ? (
-                    <p style={{ color: '#6B7280' }}>Checking {selectedTherapist.name}'s availability...</p>
+                    <p style={{ color: '#6B7280' }}>
+                      Checking {selectedTherapist.name}'s availability...
+                    </p>
                   ) : !selectedDate ? (
                     <p style={{ color: '#6B7280' }}>Select a date to see open time slots.</p>
                   ) : availableSlots.length === 0 ? (
@@ -568,5 +604,5 @@ const Booking = () => {
     </div>
   );
 };
-      
+
 export default Booking;
