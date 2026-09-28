@@ -19,6 +19,9 @@ import AdminDashboard from './components/AdminDashboard';
 import Chat from './components/Chat';
 import Booking from './components/Booking';
 import Payment from './components/Payment';
+import VideoCall from './components/VideoCall';
+import VerifyEmail from './components/VerifyEmail';
+import AICompanion from './components/AICompanion';
 
 import Login from './components/Login';
 import Signup from './components/Signup';
@@ -46,6 +49,7 @@ import TherapistSessionNotes from './components/TherapistSessionNotes';
 
 import AdminUniversities from './components/AdminUniversities';
 import AdminRageRooms from './components/AdminRageRooms';
+import AdminAnalyticsPage from './components/AdminAnalyticsPage';
 
 import { API_URL } from './config';
 
@@ -62,6 +66,7 @@ function ScrollToTop() {
 
 function TherapistRedirect() {
   const { id } = useParams();
+
   // Temporary until TherapistPublicProfile.jsx is built
   return <Navigate to={`/booking?therapist_id=${id}`} replace />;
 }
@@ -104,6 +109,7 @@ function AppLoader({ label = 'Preparing your safe space...' }) {
       <div style={{ fontSize: '1rem', fontWeight: '800', color: '#111827', marginBottom: '0.35rem' }}>
         MECAC
       </div>
+
       <div style={{ fontSize: '0.92rem', color: '#4B5563', marginBottom: '1.25rem' }}>{label}</div>
 
       <div
@@ -123,13 +129,16 @@ function AppLoader({ label = 'Preparing your safe space...' }) {
           0%, 100% { transform: translateY(0px); }
           50% { transform: translateY(-8px); }
         }
+
         @keyframes appLoaderBar {
           0% { transform: translateX(-100%); }
           100% { transform: translateX(220%); }
         }
+
         .app-loader-badge {
           animation: appLoaderFloat 2.8s ease-in-out infinite;
         }
+
         .app-loader-bar {
           width: 45%;
           height: 100%;
@@ -137,6 +146,7 @@ function AppLoader({ label = 'Preparing your safe space...' }) {
           background: linear-gradient(90deg, #2E7D32, #66BB6A);
           animation: appLoaderBar 1.2s ease-in-out infinite;
         }
+
         @media (prefers-reduced-motion: reduce) {
           .app-loader-badge,
           .app-loader-bar {
@@ -170,77 +180,9 @@ function AdminToolShell({ children }) {
           color: '#374151',
         }}
       >
-        ← Back to Admin
+        Back to Admin
       </button>
       {children}
-    </div>
-  );
-}
-
-function AdminAnalyticsPlaceholder() {
-  const navigate = useNavigate();
-
-  return (
-    <div
-      style={{
-        minHeight: '100vh',
-        backgroundColor: '#F9FAFB',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '2rem',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      }}
-    >
-      <div
-        style={{
-          background: 'white',
-          borderRadius: '20px',
-          padding: '2.5rem',
-          maxWidth: '520px',
-          width: '100%',
-          textAlign: 'center',
-          boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
-          border: '1px solid #E5E7EB',
-        }}
-      >
-        <div
-          style={{
-            width: '64px',
-            height: '64px',
-            borderRadius: '50%',
-            background: '#DBEAFE',
-            color: '#2563EB',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 1rem',
-            fontSize: '1.8rem',
-            fontWeight: '900',
-          }}
-        >
-          📊
-        </div>
-        <h2 style={{ margin: '0 0 0.5rem', color: '#111827' }}>Analytics Coming Soon</h2>
-        <p style={{ color: '#6B7280', lineHeight: 1.6, margin: '0 0 1.5rem' }}>
-          This page is reserved for platform metrics, booking trends, therapist performance,
-          revenue insights, and engagement analytics.
-        </p>
-        <button
-          onClick={() => navigate('/dashboard')}
-          style={{
-            padding: '0.85rem 1.5rem',
-            background: '#2E7D32',
-            color: 'white',
-            border: 'none',
-            borderRadius: '10px',
-            fontWeight: '700',
-            cursor: 'pointer',
-          }}
-        >
-          Back to Dashboard
-        </button>
-      </div>
     </div>
   );
 }
@@ -279,9 +221,11 @@ function AppShell() {
         if (res.status === 401) {
           clearAuth();
           setAuthReady(true);
+
           if (showToast) {
             addToast('Session expired. Please log in again.', 'error');
           }
+
           navigate('/login', { replace: true });
           return null;
         }
@@ -295,6 +239,7 @@ function AppShell() {
         setTermsAccepted(Boolean(data.terms_accepted));
 
         const resolvedType = data.user_type || localStorage.getItem('userType');
+
         if (resolvedType) {
           setUserType(resolvedType);
           localStorage.setItem('userType', resolvedType);
@@ -329,6 +274,7 @@ function AppShell() {
     } else {
       setAuthReady(true);
     }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -429,17 +375,23 @@ function AppShell() {
             path="/"
             element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />}
           />
+
           <Route
             path="/login"
             element={user ? <Navigate to="/dashboard" replace /> : <Login onLogin={login} />}
           />
+
           <Route
             path="/signup"
             element={user ? <Navigate to="/dashboard" replace /> : <Signup onLogin={login} />}
           />
+
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/services" element={<Services />} />
+
+          {/* Email verification route */}
+          <Route path="/verify-email" element={<VerifyEmail />} />
 
           {/* Terms gate */}
           <Route
@@ -628,6 +580,30 @@ function AppShell() {
             element={user ? <Payment /> : <Navigate to="/login" replace />}
           />
 
+          {/* Video call route */}
+          <Route
+            path="/session/video/:bookingId"
+            element={
+              user ? (
+                <VideoCall user={user} userType={userType} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+
+          {/* AI companion route */}
+          <Route
+            path="/ai-companion"
+            element={
+              user ? (
+                <AICompanion user={user} userType={userType} logout={logout} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+
           {/* Admin routes */}
           <Route
             path="/admin"
@@ -668,7 +644,7 @@ function AppShell() {
             path="/admin/analytics"
             element={
               user && userType === 'admin' ? (
-                <AdminAnalyticsPlaceholder />
+                <AdminAnalyticsPage />
               ) : (
                 <Navigate to="/login" replace />
               )
