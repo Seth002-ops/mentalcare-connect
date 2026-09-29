@@ -32,6 +32,7 @@ import AdminAnalyticsPage from './components/AdminAnalyticsPage';
 import AICompanionWidget from './components/AICompanionWidget';
 import AdminRageRooms from './components/AdminRageRooms';
 import { ToastProvider } from './components/ToastContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import './App.css';
 
 const App = () => {
@@ -142,8 +143,9 @@ const App = () => {
   }
 
   return (
-    <ToastProvider>
-      <Router>
+    <ErrorBoundary>
+      <ToastProvider>
+        <Router>
         <div className="App">
           <Routes>
             {/* Public Routes */}
@@ -433,7 +435,8 @@ const App = () => {
 
         </div>
       </Router>
-    </ToastProvider>
+      </ToastProvider>
+    </ErrorBoundary>
   );
 };
 

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import {
   BrowserRouter as Router,
   Routes,
@@ -10,50 +10,48 @@ import {
 } from 'react-router-dom';
 
 import { ToastProvider, useToast } from './components/ToastContext';
-
-import LandingPage from './components/LandingPage';
-import ClientDashboard from './components/ClientDashboard';
-import TherapistDashboard from './components/TherapistDashboard';
-import AdminDashboard from './components/AdminDashboard';
-
-import Chat from './components/Chat';
-import Booking from './components/Booking';
-import Payment from './components/Payment';
-import VideoCall from './components/VideoCall';
-import VerifyEmail from './components/VerifyEmail';
-import AICompanion from './components/AICompanion';
-
-import Login from './components/Login';
-import Signup from './components/Signup';
-
-import BrowseTherapists from './components/BrowseTherapists';
-import TherapistProfile from './components/TherapistProfile';
-
-import TermsOfService from './components/TermsOfService';
-import PrivacyPolicy from './components/PrivacyPolicy';
-import Services from './components/Services';
-import TermsAcceptance from './components/TermsAcceptance';
-
-import TherapistRegistration from './components/TherapistRegistration';
-import TherapistPendingPage from './components/TherapistPendingPage';
-
-import LeaveReview from './components/LeaveReview';
-
-import RageRooms from './components/RageRooms';
-
-import TherapistWithdrawals from './components/TherapistWithdrawals';
-import TherapistAvailability from './components/TherapistAvailability';
-import TherapistClients from './components/TherapistClients';
-import TherapistMessages from './components/TherapistMessages';
-import TherapistSessionNotes from './components/TherapistSessionNotes';
-
-import AdminUniversities from './components/AdminUniversities';
-import AdminRageRooms from './components/AdminRageRooms';
-import AdminAnalyticsPage from './components/AdminAnalyticsPage';
-
+import ErrorBoundary from './components/ErrorBoundary';
 import { API_URL } from './config';
 
-// ============ SMALL HELPERS ============
+const LandingPage = lazy(() => import('./components/LandingPage'));
+const ClientDashboard = lazy(() => import('./components/ClientDashboard'));
+const TherapistDashboard = lazy(() => import('./components/TherapistDashboard'));
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
+
+const Chat = lazy(() => import('./components/Chat'));
+const Booking = lazy(() => import('./components/Booking'));
+const Payment = lazy(() => import('./components/Payment'));
+const VideoCall = lazy(() => import('./components/VideoCall'));
+const VerifyEmail = lazy(() => import('./components/VerifyEmail'));
+const AICompanion = lazy(() => import('./components/AICompanion'));
+
+const Login = lazy(() => import('./components/Login'));
+const Signup = lazy(() => import('./components/Signup'));
+
+const BrowseTherapists = lazy(() => import('./components/BrowseTherapists'));
+const TherapistProfile = lazy(() => import('./components/TherapistProfile'));
+
+const TermsOfService = lazy(() => import('./components/TermsOfService'));
+const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
+const Services = lazy(() => import('./components/Services'));
+const TermsAcceptance = lazy(() => import('./components/TermsAcceptance'));
+
+const TherapistRegistration = lazy(() => import('./components/TherapistRegistration'));
+const TherapistPendingPage = lazy(() => import('./components/TherapistPendingPage'));
+
+const LeaveReview = lazy(() => import('./components/LeaveReview'));
+const RageRooms = lazy(() => import('./components/RageRooms'));
+
+const TherapistWithdrawals = lazy(() => import('./components/TherapistWithdrawals'));
+const TherapistAvailability = lazy(() => import('./components/TherapistAvailability'));
+const TherapistClients = lazy(() => import('./components/TherapistClients'));
+const TherapistMessages = lazy(() => import('./components/TherapistMessages'));
+const TherapistSessionNotes = lazy(() => import('./components/TherapistSessionNotes'));
+
+const AdminUniversities = lazy(() => import('./components/AdminUniversities'));
+const AdminRageRooms = lazy(() => import('./components/AdminRageRooms'));
+const AdminAnalyticsPage = lazy(() => import('./components/AdminAnalyticsPage'));
+
 function ScrollToTop() {
   const { pathname } = useLocation();
 
@@ -67,7 +65,6 @@ function ScrollToTop() {
 function TherapistRedirect() {
   const { id } = useParams();
 
-  // Temporary until TherapistPublicProfile.jsx is built
   return <Navigate to={`/booking?therapist_id=${id}`} replace />;
 }
 
@@ -106,11 +103,26 @@ function AppLoader({ label = 'Preparing your safe space...' }) {
         M
       </div>
 
-      <div style={{ fontSize: '1rem', fontWeight: '800', color: '#111827', marginBottom: '0.35rem' }}>
+      <div
+        style={{
+          fontSize: '1rem',
+          fontWeight: '800',
+          color: '#111827',
+          marginBottom: '0.35rem',
+        }}
+      >
         MECAC
       </div>
 
-      <div style={{ fontSize: '0.92rem', color: '#4B5563', marginBottom: '1.25rem' }}>{label}</div>
+      <div
+        style={{
+          fontSize: '0.92rem',
+          color: '#4B5563',
+          marginBottom: '1.25rem',
+        }}
+      >
+        {label}
+      </div>
 
       <div
         style={{
@@ -187,7 +199,6 @@ function AdminToolShell({ children }) {
   );
 }
 
-// ============ MAIN APP SHELL ============
 function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -215,7 +226,9 @@ function AppShell() {
 
       try {
         const res = await fetch(`${API_URL}/users/me`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         });
 
         if (res.status === 401) {
@@ -262,7 +275,6 @@ function AppShell() {
     [addToast, clearAuth, navigate]
   );
 
-  // Initial session restore
   useEffect(() => {
     const token = localStorage.getItem('token');
     const storedEmail = localStorage.getItem('email');
@@ -278,7 +290,6 @@ function AppShell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Keep Render backend warm, but only when tab is visible
   useEffect(() => {
     let intervalId;
 
@@ -289,7 +300,7 @@ function AppShell() {
     };
 
     ping();
-    intervalId = setInterval(ping, 240000); // 4 minutes
+    intervalId = setInterval(ping, 240000);
 
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') ping();
@@ -369,294 +380,283 @@ function AppShell() {
       <ScrollToTop />
 
       <div className="app-route-transition" key={location.pathname}>
-        <Routes>
-          {/* Public routes */}
-          <Route
-            path="/"
-            element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />}
-          />
+        <Suspense fallback={<AppLoader label="Loading secure area..." />}>
+          <Routes>
+            <Route
+              path="/"
+              element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />}
+            />
 
-          <Route
-            path="/login"
-            element={user ? <Navigate to="/dashboard" replace /> : <Login onLogin={login} />}
-          />
+            <Route
+              path="/login"
+              element={user ? <Navigate to="/dashboard" replace /> : <Login onLogin={login} />}
+            />
 
-          <Route
-            path="/signup"
-            element={user ? <Navigate to="/dashboard" replace /> : <Signup onLogin={login} />}
-          />
+            <Route
+              path="/signup"
+              element={user ? <Navigate to="/dashboard" replace /> : <Signup onLogin={login} />}
+            />
 
-          <Route path="/terms" element={<TermsOfService />} />
-          <Route path="/privacy" element={<PrivacyPolicy />} />
-          <Route path="/services" element={<Services />} />
+            <Route path="/terms" element={<TermsOfService />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/services" element={<Services />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
 
-          {/* Email verification route */}
-          <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route
+              path="/terms-acceptance"
+              element={
+                !user ? (
+                  <Navigate to="/login" replace />
+                ) : termsAccepted ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <TermsAcceptance onAccept={handleTermsAccepted} />
+                )
+              }
+            />
 
-          {/* Terms gate */}
-          <Route
-            path="/terms-acceptance"
-            element={
-              !user ? (
-                <Navigate to="/login" replace />
-              ) : termsAccepted ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <TermsAcceptance onAccept={handleTermsAccepted} />
-              )
-            }
-          />
+            <Route
+              path="/therapist-register"
+              element={
+                !user || userType !== 'therapist' ? (
+                  <Navigate to="/login" replace />
+                ) : profileComplete ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <TherapistRegistration onComplete={handleProfileComplete} />
+                )
+              }
+            />
 
-          {/* Therapist onboarding gates */}
-          <Route
-            path="/therapist-register"
-            element={
-              !user || userType !== 'therapist' ? (
-                <Navigate to="/login" replace />
-              ) : profileComplete ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <TherapistRegistration onComplete={handleProfileComplete} />
-              )
-            }
-          />
+            <Route
+              path="/therapist-pending"
+              element={
+                !user || userType !== 'therapist' ? (
+                  <Navigate to="/login" replace />
+                ) : (
+                  <TherapistPendingPage />
+                )
+              }
+            />
 
-          <Route
-            path="/therapist-pending"
-            element={
-              !user || userType !== 'therapist' ? (
-                <Navigate to="/login" replace />
-              ) : (
-                <TherapistPendingPage />
-              )
-            }
-          />
+            <Route path="/dashboard" element={renderDashboard()} />
 
-          {/* Main dashboard */}
-          <Route path="/dashboard" element={renderDashboard()} />
+            <Route
+              path="/therapists"
+              element={
+                user && userType === 'client' ? (
+                  <BrowseTherapists />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
 
-          {/* Client routes */}
-          <Route
-            path="/therapists"
-            element={
-              user && userType === 'client' ? (
-                <BrowseTherapists />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
+            <Route
+              path="/therapists/:id"
+              element={
+                user && userType === 'client' ? (
+                  <TherapistRedirect />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
 
-          <Route
-            path="/therapists/:id"
-            element={
-              user && userType === 'client' ? (
-                <TherapistRedirect />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
+            <Route
+              path="/leave-review"
+              element={
+                user && userType === 'client' ? (
+                  <LeaveReview />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
 
-          <Route
-            path="/leave-review"
-            element={
-              user && userType === 'client' ? (
-                <LeaveReview />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
+            <Route
+              path="/rage-rooms"
+              element={
+                user ? (
+                  <RageRooms logout={logout} />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
 
-          <Route
-            path="/rage-rooms"
-            element={
-              user ? (
-                <RageRooms logout={logout} />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
+            <Route
+              path="/therapist/profile"
+              element={
+                user && userType === 'therapist' ? (
+                  <TherapistProfile />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
 
-          {/* Therapist routes */}
-          <Route
-            path="/therapist/profile"
-            element={
-              user && userType === 'therapist' ? (
-                <TherapistProfile />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
+            <Route
+              path="/therapist/clients"
+              element={
+                user && userType === 'therapist' ? (
+                  <TherapistClients logout={logout} />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
 
-          <Route
-            path="/therapist/clients"
-            element={
-              user && userType === 'therapist' ? (
-                <TherapistClients logout={logout} />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
+            <Route
+              path="/therapist/messages"
+              element={
+                user && userType === 'therapist' ? (
+                  <TherapistMessages logout={logout} />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
 
-          <Route
-            path="/therapist/messages"
-            element={
-              user && userType === 'therapist' ? (
-                <TherapistMessages logout={logout} />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
+            <Route
+              path="/therapist/session-notes"
+              element={
+                user && userType === 'therapist' ? (
+                  <TherapistSessionNotes />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
 
-          <Route
-            path="/therapist/session-notes"
-            element={
-              user && userType === 'therapist' ? (
-                <TherapistSessionNotes />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
+            <Route
+              path="/therapist/session-notes/:bookingId"
+              element={
+                user && userType === 'therapist' ? (
+                  <TherapistSessionNotes />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
 
-          <Route
-            path="/therapist/session-notes/:bookingId"
-            element={
-              user && userType === 'therapist' ? (
-                <TherapistSessionNotes />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
+            <Route
+              path="/therapist/withdrawals"
+              element={
+                user && userType === 'therapist' ? (
+                  <TherapistWithdrawals logout={logout} />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
 
-          <Route
-            path="/therapist/withdrawals"
-            element={
-              user && userType === 'therapist' ? (
-                <TherapistWithdrawals logout={logout} />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
+            <Route
+              path="/therapist-availability"
+              element={
+                user && userType === 'therapist' ? (
+                  <TherapistAvailability />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
 
-          <Route
-            path="/therapist-availability"
-            element={
-              user && userType === 'therapist' ? (
-                <TherapistAvailability />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
+            <Route
+              path="/chat/:roomId"
+              element={
+                user ? (
+                  <Chat user={user} userType={userType} />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
 
-          {/* Shared authenticated routes */}
-          <Route
-            path="/chat/:roomId"
-            element={
-              user ? (
-                <Chat user={user} userType={userType} />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
+            <Route
+              path="/booking"
+              element={user ? <Booking /> : <Navigate to="/login" replace />}
+            />
 
-          <Route
-            path="/booking"
-            element={user ? <Booking /> : <Navigate to="/login" replace />}
-          />
+            <Route
+              path="/payment"
+              element={user ? <Payment /> : <Navigate to="/login" replace />}
+            />
 
-          <Route
-            path="/payment"
-            element={user ? <Payment /> : <Navigate to="/login" replace />}
-          />
+            <Route
+              path="/session/video/:bookingId"
+              element={
+                user ? (
+                  <VideoCall user={user} userType={userType} />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
 
-          {/* Video call route */}
-          <Route
-            path="/session/video/:bookingId"
-            element={
-              user ? (
-                <VideoCall user={user} userType={userType} />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
+            <Route
+              path="/ai-companion"
+              element={
+                user ? (
+                  <AICompanion user={user} userType={userType} logout={logout} />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
 
-          {/* AI companion route */}
-          <Route
-            path="/ai-companion"
-            element={
-              user ? (
-                <AICompanion user={user} userType={userType} logout={logout} />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
+            <Route
+              path="/admin"
+              element={
+                user && userType === 'admin' ? (
+                  <AdminDashboard logout={logout} />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
 
-          {/* Admin routes */}
-          <Route
-            path="/admin"
-            element={
-              user && userType === 'admin' ? (
-                <AdminDashboard logout={logout} />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
+            <Route
+              path="/admin/universities"
+              element={
+                user && userType === 'admin' ? (
+                  <AdminUniversities logout={logout} />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
 
-          <Route
-            path="/admin/universities"
-            element={
-              user && userType === 'admin' ? (
-                <AdminUniversities logout={logout} />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
+            <Route
+              path="/admin/rage-rooms"
+              element={
+                user && userType === 'admin' ? (
+                  <AdminToolShell>
+                    <AdminRageRooms />
+                  </AdminToolShell>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
 
-          <Route
-            path="/admin/rage-rooms"
-            element={
-              user && userType === 'admin' ? (
-                <AdminToolShell>
-                  <AdminRageRooms />
-                </AdminToolShell>
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
+            <Route
+              path="/admin/analytics"
+              element={
+                user && userType === 'admin' ? (
+                  <AdminAnalyticsPage />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
 
-          <Route
-            path="/admin/analytics"
-            element={
-              user && userType === 'admin' ? (
-                <AdminAnalyticsPage />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
-
-          {/* Fallback */}
-          <Route
-            path="*"
-            element={<Navigate to={user ? '/dashboard' : '/'} replace />}
-          />
-        </Routes>
+            <Route
+              path="*"
+              element={<Navigate to={user ? '/dashboard' : '/'} replace />}
+            />
+          </Routes>
+        </Suspense>
       </div>
 
       <style>{`
@@ -686,13 +686,14 @@ function AppShell() {
   );
 }
 
-// ============ ROOT EXPORT ============
 export default function App() {
   return (
-    <ToastProvider>
+    <ErrorBoundary>
       <Router>
-        <AppShell />
+        <ToastProvider>
+          <AppShell />
+        </ToastProvider>
       </Router>
-    </ToastProvider>
+    </ErrorBoundary>
   );
 }
