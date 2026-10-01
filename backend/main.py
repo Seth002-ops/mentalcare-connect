@@ -3,6 +3,7 @@ import io
 import json
 import logging
 import os
+import re
 import secrets
 import shutil
 import smtplib
@@ -52,6 +53,7 @@ from models import (
     Review,
     SessionBooking,
     SessionNote,
+    TherapistAvailability,
     University,
     User,
 )
@@ -1167,6 +1169,218 @@ def therapist_withdraw(
         "withdrawal_id": getattr(withdrawal, "id", None),
         "amount": amount,
         "mpesa_phone": mpesa_phone,
+    }
+
+
+# =========================
+# THERAPIST AVAILABILITY
+# =========================
+
+# 30-minute booking grid used to generate slots from availability windows.
+SLOT_GRID_MINUTES = 30
+TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
+
+
+def _parse_hhmm(value: str) -> int:
+    """Convert 'HH:MM' to minutes since midnight. Raises ValueError if invalid."""
+    match = TIME_RE.match(str(value or "").strip())
+    if not match:
+        raise ValueError(f"Invalid time format: {value!r}. Expected HH:MM.")
+    return int(match.group(1)) * 60 + int(match.group(2))
+
+
+def _minutes_to_hhmm(minutes: int) -> str:
+    return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
+
+class AvailabilitySlotIn(BaseModel):
+    day_of_week: int  # 0 = Monday ... 6 = Sunday
+    start_time: str  # "HH:MM"
+    end_time: str  # "HH:MM"
+    is_available: bool = True
+
+
+@app.get("/therapist/availability")
+def get_availability(db=Depends(get_db), current_user=Depends(get_current_user)):
+    if current_user.user_type != "therapist":
+        raise HTTPException(status_code=403, detail="Only therapists can view availability")
+
+    rows = (
+        db.query(TherapistAvailability)
+        .filter(TherapistAvailability.therapist_id == current_user.id)
+        .order_by(TherapistAvailability.day_of_week.asc(), TherapistAvailability.start_time.asc())
+        .all()
+    )
+
+    return [
+        {
+            "id": row.id,
+            "day_of_week": row.day_of_week,
+            "start_time": row.start_time,
+            "end_time": row.end_time,
+            "is_available": bool(getattr(row, "is_available", True)),
+        }
+        for row in rows
+    ]
+
+
+@app.post("/therapist/availability")
+def save_availability(
+    slots: list[AvailabilitySlotIn],
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Replace the therapist's full weekly schedule with the submitted slots."""
+    if current_user.user_type != "therapist":
+        raise HTTPException(status_code=403, detail="Only therapists can set availability")
+
+    # Validate before touching the database so nothing is saved on a bad payload.
+    for slot in slots:
+        if not 0 <= slot.day_of_week <= 6:
+            raise HTTPException(status_code=400, detail="day_of_week must be 0 (Monday) to 6 (Sunday)")
+        try:
+            start = _parse_hhmm(slot.start_time)
+            end = _parse_hhmm(slot.end_time)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        if end <= start:
+            raise HTTPException(
+                status_code=400,
+                detail=f"End time must be after start time ({slot.start_time} - {slot.end_time})",
+            )
+
+    db.query(TherapistAvailability).filter(
+        TherapistAvailability.therapist_id == current_user.id
+    ).delete()
+
+    for slot in slots:
+        db.add(
+            TherapistAvailability(
+                therapist_id=current_user.id,
+                day_of_week=slot.day_of_week,
+                start_time=slot.start_time,
+                end_time=slot.end_time,
+                is_available=True,
+            )
+        )
+
+    db.commit()
+
+    return {
+        "message": "Schedule saved successfully!",
+        "slots_saved": len(slots),
+    }
+
+
+@app.get("/therapist/stats")
+def therapist_stats(db=Depends(get_db), current_user=Depends(get_current_user)):
+    """Aggregate stats for the therapist dashboard cards."""
+    if current_user.user_type != "therapist":
+        raise HTTPException(status_code=403, detail="Only therapists can view stats")
+
+    bookings = (
+        db.query(SessionBooking)
+        .filter(SessionBooking.therapist_id == current_user.id)
+        .all()
+    )
+
+    total_sessions = len(bookings)
+    completed_sessions = sum(1 for b in bookings if b.status == "completed")
+
+    wallet = get_or_create_wallet(db, current_user.id)
+    total_earnings = float(getattr(wallet, "total_earned", 0) or 0)
+
+    avg_rating = 0.0
+    review_count = 0
+    try:
+        avg_rating, review_count = (
+            db.query(func.coalesce(func.avg(Review.rating), 0.0), func.count(Review.id))
+            .filter(Review.therapist_id == current_user.id)
+            .one()
+        )
+        avg_rating = float(avg_rating or 0)
+        review_count = int(review_count or 0)
+    except Exception as exc:
+        logger.debug("Failed to compute rating stats: %s", exc)
+
+    completion_rate = round((completed_sessions / total_sessions) * 100) if total_sessions else 0
+
+    return {
+        "average_rating": round(avg_rating, 1),
+        "review_count": review_count,
+        "total_earnings": total_earnings,
+        "completed_sessions": completed_sessions,
+        "total_sessions": total_sessions,
+        "completion_rate": completion_rate,
+    }
+
+
+@app.get("/therapist/{therapist_id}/available-slots")
+def get_available_slots(
+    therapist_id: int,
+    date: str,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Public-to-authenticated listing of bookable 30-minute slots for a
+    therapist on a given date (YYYY-MM-DD), based on their weekly schedule.
+    Already-booked times are excluded.
+    """
+    try:
+        target_date = datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="date must be YYYY-MM-DD")
+
+    therapist = get_user_by_id(db, therapist_id)
+    if not therapist or therapist.user_type != "therapist":
+        raise HTTPException(status_code=404, detail="Therapist not found")
+
+    # JS day-of-week: 0=Sunday ... 6=Saturday. Schedule uses 0=Monday ... 6=Sunday.
+    js_dow = (target_date.weekday() + 1) % 7
+    schedule_dow = (js_dow - 1) % 7
+
+    windows = (
+        db.query(TherapistAvailability)
+        .filter(
+            TherapistAvailability.therapist_id == therapist_id,
+            TherapistAvailability.day_of_week == schedule_dow,
+            TherapistAvailability.is_available == True,
+        )
+        .all()
+    )
+
+    # 30-minute grid across the availability windows; last slot must END by window close.
+    slot_set: set[str] = set()
+    for window in windows:
+        start = _parse_hhmm(window.start_time)
+        end = _parse_hhmm(window.end_time)
+        t = start
+        while t + SLOT_GRID_MINUTES <= end:
+            slot_set.add(_minutes_to_hhmm(t))
+            t += SLOT_GRID_MINUTES
+
+    # Exclude slots already taken by non-cancelled bookings on that date.
+    day_start = datetime(target_date.year, target_date.month, target_date.day)
+    day_end = day_start + timedelta(days=1)
+    taken = (
+        db.query(SessionBooking)
+        .filter(
+            SessionBooking.therapist_id == therapist_id,
+            SessionBooking.scheduled_time >= day_start,
+            SessionBooking.scheduled_time < day_end,
+            SessionBooking.status != "cancelled",
+        )
+        .all()
+    )
+    for booking in taken:
+        booked_hhmm = booking.scheduled_time.strftime("%H:%M")
+        slot_set.discard(booked_hhmm)
+
+    return {
+        "date": date,
+        "therapist_id": therapist_id,
+        "available_slots": sorted(slot_set),
     }
 
 
