@@ -33,6 +33,7 @@ import AICompanionWidget from './components/AICompanionWidget';
 import AdminRageRooms from './components/AdminRageRooms';
 import { ToastProvider } from './components/ToastContext';
 import ErrorBoundary from './components/ErrorBoundary';
+import { API_URL } from './config';
 import './App.css';
 
 const App = () => {
@@ -53,7 +54,7 @@ const App = () => {
       setUser({ email: storedEmail, token });
       setUserType(storedType);
 
-      fetch('https://mecac-backend.onrender.com/users/me', {
+      fetch(`${API_URL}/users/me`, {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((res) => (res.ok ? res.json() : null))
@@ -83,7 +84,7 @@ const App = () => {
     setUser({ email, token });
     setUserType(type);
     
-    fetch('https://mecac-backend.onrender.com/users/me', {
+    fetch(`${API_URL}/users/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => (res.ok ? res.json() : null))
@@ -169,8 +170,26 @@ const App = () => {
                 )
               }
             />
-            <Route path="/login" element={<Login onLogin={login} />} />
-            <Route path="/signup" element={<Signup onLogin={login} />} />
+            <Route
+              path="/login"
+              element={
+                user ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <Login onLogin={login} />
+                )
+              }
+            />
+            <Route
+              path="/signup"
+              element={
+                user ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <Signup onLogin={login} />
+                )
+              }
+            />
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/terms" element={<TermsOfService />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
