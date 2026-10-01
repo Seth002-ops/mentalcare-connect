@@ -29,6 +29,9 @@ class Settings:
 
     PROJECT_NAME = "Afya Care Connect API"
 
+    # Disable Swagger/ReDoc/OpenAPI unless explicitly running in debug mode.
+    DEBUG = os.getenv("DEBUG", "false").lower() in ("1", "true", "yes")
+
     # ==========================================
     # FEATURE FLAGS - Control features without deleting code
     # Flip any flag to True/False to enable/disable a feature

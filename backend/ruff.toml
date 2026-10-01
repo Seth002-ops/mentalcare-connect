@@ -1,0 +1,37 @@
+# Ruff configuration for the FastAPI backend.
+target-version = "py312"
+line-length = 100
+
+[lint]
+# Rules surfaced by the editor diagnostics for this project.
+select = [
+    "F401",   # unused imports
+    "I001",   # import sorting
+    "UP006",  # typing.Dict/List -> dict/list
+    "UP035",  # deprecated typing imports
+    "UP045",  # Optional[X] -> X | None
+    "B008",   # function calls in argument defaults
+    "BLE001", # blind except
+    "S110",   # try-except-pass
+    "SIM103", # needless bool
+    "DTZ003", # datetime.utcnow()
+    "DTZ005", # datetime.now() without tz
+    "ASYNC230", # blocking open() in async functions
+    "RUF010", # explicit f-string conversion
+    "PLW1508",# invalid env var default type
+]
+ignore = [
+    # Broad defensive exception handling is intentional in this MVP:
+    # optional columns/tables and third-party failures must not crash requests.
+    "BLE001",
+    # The codebase (models, crud) consistently uses naive UTC datetimes with
+    # SQLite. Switching to tz-aware now() only here would create mixed
+    # comparisons. Revisit with a full migration to datetime.now(timezone.utc).
+    "DTZ003",
+    "DTZ005",
+]
+
+[lint.flake8-bugbear]
+# FastAPI dependency calls in argument defaults are the framework's standard
+# idiom (app = Depends(get_db)); they are immutable and safe here.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.File", "fastapi.Form"]
