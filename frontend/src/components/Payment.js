@@ -1,788 +1,561 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { stripEmoji } from '../utils/sanitizeText';
-import { API_URL } from '../config'; // ✅ FIXED: Using centralized config
+import { API_URL } from '../config';
 import { useToast } from './ToastContext';
-
-// ============ ICONS ============
-const IconMobile = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>;
-const IconCard = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>;
-const IconLock = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>;
-const IconAlert = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>;
-const IconCheck = () => <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>;
-const IconSpinner = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'paySpin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>;
-const IconArrowLeft = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>;
 
 const Payment = () => {
   const { addToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  
-  const [formData, setFormData] = useState({
-    amount: 0,
-    phone: '',
-    method: 'mpesa'
-  });
-  
-  const [therapistName, setTherapistName] = useState('your therapist');
+
   const [bookingId, setBookingId] = useState(null);
-  
-  // States: idle | processing | success | failed
-  const [status, setStatus] = useState('idle'); 
-  const [errorMessage, setErrorMessage] = useState('');
-  const [countdown, setCountdown] = useState(60); // Seconds to wait for STK push
-  
-  const timerRef = useRef(null);
+  const [amount, setAmount] = useState(0);
+  const [therapistName, setTherapistName] = useState('your therapist');
 
-  // Initialize data from route state
+  const [phone, setPhone] = useState('');
+  const [phoneError, setPhoneError] = useState('');
+  const [serverError, setServerError] = useState('');
+
+  // idle | processing | success | failed
+  const [status, setStatus] = useState('idle');
+
+  const phoneInputRef = useRef(null);
+
+  const state = location.state || {};
+  const nextBookingId = state.bookingId ? Number(state.bookingId) : null;
+  const nextAmount = Number(state.amount) || 0;
+  const nextTherapist = state.therapist_name || 'your therapist';
+
   useEffect(() => {
-    const state = location.state || {};
-    if (!state.bookingId) {
-      addToast('Invalid booking reference. Redirecting...', 'error');
-      setTimeout(() => navigate('/dashboard'), 2000);
+    if (!nextBookingId) {
+      addToast('Missing booking reference. Start from the booking page.', 'error');
+      navigate('/booking');
       return;
     }
-    
-    setBookingId(state.bookingId);
-    setFormData(prev => ({ ...prev, amount: Number(state.amount) || 0 }));
-    setTherapistName(state.therapist_name || 'your therapist');
-  }, [location.state, navigate, addToast]);
+    setBookingId(nextBookingId);
+    setAmount(nextAmount);
+    setTherapistName(nextTherapist);
+  }, [nextBookingId, nextAmount, nextTherapist, navigate, addToast]);
 
-  // Handle Countdown Timer during Processing
-  useEffect(() => {
-    if (status === 'processing') {
-      setCountdown(60);
-      timerRef.current = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timerRef.current);
-            handleTimeout();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else {
-      clearInterval(timerRef.current);
-    }
-
-    return () => clearInterval(timerRef.current);
-  }, [status]);
-
-  const handleTimeout = () => {
-    setStatus('failed');
-    setErrorMessage('Request timed out. Please check your SMS inbox or try again.');
-    addToast('Payment request timed out.', 'error');
+  // Store the full international number (2547XXXXXXXX), display it nationally.
+  const formatDisplay = (value) => {
+    const national = value.startsWith('254') ? value.slice(3) : value;
+    return national.replace(/(\d{3})(\d{3})(\d{0,3})/, '$1 $2 $3').trim();
   };
 
-  const formatPhoneInput = (value) => {
-    let clean = value.replace(/\D/g, '');
-    if (clean.startsWith('0')) clean = '254' + clean.substring(1);
-    if (clean.length > 12) clean = clean.substring(0, 12);
-    return clean;
+  const handlePhoneChange = (event) => {
+    let digits = event.target.value.replace(/\D/g, '');
+    if (digits.startsWith('0')) digits = `254${digits.slice(1)}`;
+    if (!digits.startsWith('254')) digits = `254${digits}`;
+    setPhone(digits.slice(0, 12));
+    if (phoneError) setPhoneError('');
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    if (name === 'phone') {
-      setFormData(prev => ({ ...prev, phone: formatPhoneInput(value) }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+  const validatePhone = () => {
+    if (!/^254[17]\d{8}$/.test(phone)) {
+      const message = 'Enter a valid Safaricom number, for example 712 345 678.';
+      setPhoneError(message);
+      phoneInputRef.current?.focus();
+      return false;
     }
+    return true;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!formData.phone || formData.phone.length !== 12) {
-      addToast('Please enter a valid Safaricom number (e.g., 2547...).', 'error');
-      return;
-    }
+  const extractError = (data, fallback) =>
+    (typeof data?.detail === 'string' && data.detail) ||
+    data?.message ||
+    fallback;
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setServerError('');
+
+    if (!validatePhone()) return;
 
     setStatus('processing');
-    setErrorMessage('');
 
     const token = localStorage.getItem('token');
-    
+
     try {
       const response = await fetch(`${API_URL}/payments/simulate`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          booking_id: Number(bookingId),
-          phone: formData.phone,
-          amount: Number(formData.amount),
-          method: formData.method
-        })
+          booking_id: bookingId,
+          phone,
+          amount,
+        }),
       });
-      
-      const data = await response.json();
-      
-      if (response.ok && data.success) {
-        // Simulate slight delay for realism after API confirms receipt
-        setTimeout(() => {
-          setStatus('success');
-          addToast('Payment successful! Session confirmed.', 'success');
-          
-          // Auto redirect after success
-          setTimeout(() => {
-            navigate('/dashboard');
-          }, 2500);
-        }, 1500);
-      } else {
-        throw new Error(data.message || 'Payment initialization failed.');
+
+      let data = {};
+      try {
+        data = await response.json();
+      } catch {
+        data = {};
       }
-    } catch (error) {
-      console.error("Payment Error:", error);
+
+      if (response.ok && data.success) {
+        setStatus('success');
+        addToast('Payment confirmed. Your session is booked.', 'success');
+      } else {
+        const message = extractError(data, 'Payment could not be completed. Please try again.');
+        setStatus('failed');
+        setServerError(message);
+        addToast(message, 'error');
+      }
+    } catch {
+      const message =
+        'Could not reach the payment service. Check your connection and try again.';
       setStatus('failed');
-      setErrorMessage(error.message);
-      addToast(error.message, 'error');
+      setServerError(message);
+      addToast(message, 'error');
     }
   };
 
   const retryPayment = () => {
     setStatus('idle');
-    setErrorMessage('');
+    setServerError('');
   };
 
-  // ============ RENDER STATES ============
+  const formatKsh = (value) =>
+    new Intl.NumberFormat('en-KE', { maximumFractionDigits: 0 }).format(value);
 
-  // 1. SUCCESS STATE
   if (status === 'success') {
     return (
-      <div className="pay-container">
-        <div className="pay-overlay" />
-        <div className="pay-card pay-success-card">
-          <div className="pay-check-circle">
-            <IconCheck />
-          </div>
-          <h2 className="pay-title">Payment Successful</h2>
-          <p className="pay-subtitle">Your session with {therapistName} is confirmed.</p>
-          
-          <div className="pay-summary-box">
-            <div className="pay-summary-row">
-              <span>Amount Paid</span>
-              <strong>KSh {formData.amount.toLocaleString()}</strong>
-            </div>
-            <div className="pay-summary-row">
-              <span>Reference</span>
-              <code className="pay-ref-code">{bookingId}</code>
-            </div>
-          </div>
+      <div className="pay">
+        <main className="pay-main">
+          <div className="pay-card" role="status" aria-live="polite">
+            <h1 className="pay-title">Payment confirmed</h1>
+            <p className="pay-subtitle">
+              Your session with {therapistName} is booked.
+            </p>
 
-          <p className="pay-redirect-text">Redirecting to dashboard...</p>
-        </div>
+            <dl className="pay-summary">
+              <div>
+                <dt>Amount paid</dt>
+                <dd>KSh {formatKsh(amount)}</dd>
+              </div>
+              <div>
+                <dt>Reference</dt>
+                <dd>
+                  <code>MC-{bookingId}</code>
+                </dd>
+              </div>
+            </dl>
+
+            <p className="pay-note">A confirmation is on its way to your email.</p>
+
+            <button
+              type="button"
+              className="pay-btn-primary"
+              onClick={() => navigate('/dashboard')}
+            >
+              Go to dashboard
+            </button>
+          </div>
+        </main>
       </div>
     );
   }
 
-  // 2. PROCESSING STATE
-  if (status === 'processing') {
-    return (
-      <div className="pay-container">
-        <div className="pay-overlay" />
-        <div className="pay-card pay-processing-card">
-          <div className="pay-spinner-wrapper">
-            <IconSpinner />
-          </div>
-          <h2 className="pay-title">Waiting for Approval</h2>
-          <p className="pay-subtitle">
-            Check your phone for an M-Pesa PIN prompt.<br/>
-            We are waiting for confirmation...
-          </p>
-          
-          <div className="pay-timer-bar">
-            <div 
-              className="pay-timer-fill" 
-              style={{ width: `${(countdown / 60) * 100}%` }} 
-            />
-          </div>
-          <div className="pay-timer-text">{countdown}s remaining</div>
-
-          <button onClick={handleTimeout} className="pay-cancel-btn">
-            Cancel Request
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // 3. FAILED STATE
   if (status === 'failed') {
     return (
-      <div className="pay-container">
-        <div className="pay-overlay" />
-        <div className="pay-card pay-failed-card">
-          <div className="pay-alert-icon">
-            <IconAlert />
+      <div className="pay">
+        <main className="pay-main">
+          <div className="pay-card" role="alert">
+            <h1 className="pay-title">Payment not completed</h1>
+            <p className="pay-error">{serverError}</p>
+
+            <div className="pay-actions">
+              <button type="button" className="pay-btn-primary" onClick={retryPayment}>
+                Try again
+              </button>
+              <button
+                type="button"
+                className="pay-btn-ghost"
+                onClick={() => navigate('/dashboard')}
+              >
+                Back to dashboard
+              </button>
+            </div>
           </div>
-          <h2 className="pay-title">Payment Failed</h2>
-          <p className="pay-error-msg">{errorMessage || 'Something went wrong.'}</p>
-          
-          <div className="pay-actions-group">
-            <button onClick={retryPayment} className="pay-retry-btn">
-              Try Again
-            </button>
-            <button onClick={() => navigate('/dashboard')} className="pay-back-btn">
-              Back to Dashboard
-            </button>
-          </div>
-        </div>
+        </main>
       </div>
     );
   }
 
-  // 4. IDLE STATE (MAIN FORM)
   return (
-    <div className="pay-container">
-      <div className="pay-overlay" />
-      
-      <div className="pay-card">
-        {/* Header */}
-        <div className="pay-header">
-          <button onClick={() => navigate(-1)} className="pay-back-icon" aria-label="Go back">
-            <IconArrowLeft />
-          </button>
-          <h2 className="pay-title">Secure Checkout</h2>
-          <div className="pay-secure-badge">
-            <IconLock /> Encrypted
-          </div>
-        </div>
-
-        {/* Amount Display */}
-        <div className="pay-amount-display">
-          <span className="pay-currency">KSh</span>
-          <span className="pay-value">{formData.amount.toLocaleString()}</span>
-          <div className="pay-desc">Session with {therapistName}</div>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit}>
-          {/* Phone Input */}
-          <div className="pay-input-group">
-            <label className="pay-label">M-PESA Phone Number</label>
-            <div className="pay-input-wrapper">
-              <span className="pay-prefix">+254</span>
-              <input
-                type="tel"
-                name="phone"
-                placeholder="7XX XXX XXX"
-                value={formData.phone.replace(/^254/, '')}
-                onChange={(e) => {
-                  const raw = e.target.value.replace(/\D/g, '');
-                  const formatted = '254' + raw;
-                  setFormData(prev => ({ ...prev, phone: formatPhoneInput(formatted) }));
-                }}
-                className="pay-input"
-                required
-                maxLength={12}
-                autoFocus
-              />
-            </div>
-            <small className="pay-hint">Enter your Safaricom registered number</small>
-          </div>
-
-          {/* Method Selection (Visual Only for MVP) */}
-          <div className="pay-method-section">
-            <label className="pay-label">Payment Method</label>
-            <div className="pay-method-grid">
-              <button
-                type="button"
-                className={`pay-method-btn active`}
-                disabled
-              >
-                <IconMobile />
-                <span>M-PESA</span>
-                <small>Instant</small>
-              </button>
-              
-              <button
-                type="button"
-                className={`pay-method-btn disabled`}
-                title="Coming Soon"
-              >
-                <IconCard />
-                <span>Card</span>
-                <small>Soon</small>
-              </button>
-            </div>
-          </div>
-
-          {/* Submit Button */}
+    <div className="pay">
+      <main className="pay-main">
+        <div className="pay-card">
           <button
-            type="submit"
-            className="pay-submit-btn"
-            disabled={!formData.phone || formData.phone.length !== 12}
+            type="button"
+            className="pay-back"
+            onClick={() => navigate(-1)}
           >
-            Pay KSh {formData.amount.toLocaleString()}
+            Back
           </button>
-        </form>
 
-        {/* Footer Trust */}
-        <div className="pay-footer">
-          <p>
-            <IconLock /> Secured by 256-bit SSL encryption. 
-            Your financial data is never stored on our servers.
+          <h1 className="pay-title">Checkout</h1>
+
+          <div className="pay-amount">
+            <span className="pay-currency">KSh</span>
+            <span className="pay-value">{formatKsh(amount)}</span>
+            <span className="pay-desc">Session with {therapistName}</span>
+          </div>
+
+          <form onSubmit={handleSubmit} noValidate>
+            <div className="pay-field">
+              <label htmlFor="pay-phone">M-PESA phone number</label>
+              <div className={`pay-phone-wrap${phoneError ? ' pay-phone-invalid' : ''}`}>
+                <span className="pay-prefix" aria-hidden="true">
+                  +254
+                </span>
+                <input
+                  id="pay-phone"
+                  ref={phoneInputRef}
+                  name="phone"
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel"
+                  placeholder="712 345 678"
+                  value={formatDisplay(phone)}
+                  onChange={handlePhoneChange}
+                  disabled={status === 'processing'}
+                  aria-invalid={Boolean(phoneError)}
+                  aria-describedby={phoneError ? 'pay-phone-error' : undefined}
+                />
+              </div>
+              {phoneError ? (
+                <p className="pay-field-error" id="pay-phone-error" role="alert">
+                  {phoneError}
+                </p>
+              ) : (
+                <p className="pay-hint">You will confirm the payment on your phone.</p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              className="pay-btn-primary pay-submit"
+              disabled={status === 'processing' || !phone}
+            >
+              {status === 'processing' ? 'Processing…' : `Pay KSh ${formatKsh(amount)}`}
+            </button>
+          </form>
+
+          <p className="pay-footer">
+            Payments run through a secure simulated gateway for this release.
           </p>
         </div>
-      </div>
+      </main>
 
       <style>{`
-        .pay-container {
+        .pay {
           min-height: 100vh;
+          background: #F8F7F4;
+          color: #1A2E22;
+          font-family: "Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          line-height: 1.6;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .pay-main {
+          flex: 1;
           display: flex;
           align-items: center;
           justify-content: center;
-          background-image: url('https://images.pexels.com/photos/6962625/pexels-photo-6962625.jpeg');
-          background-size: cover;
-          background-position: center;
-          position: relative;
-          padding: 1rem;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        }
-
-        .pay-overlay {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(135deg, rgba(10, 28, 34, 0.85), rgba(46, 125, 50, 0.4));
-          backdrop-filter: blur(8px);
-          z-index: 0;
+          padding: 2.5rem 20px;
         }
 
         .pay-card {
-          position: relative;
-          z-index: 1;
-          background: rgba(255, 255, 255, 0.95);
-          backdrop-filter: blur(20px);
-          border: 1px solid rgba(255, 255, 255, 0.4);
-          border-radius: 24px;
-          padding: 2.5rem;
+          background: #fff;
+          border: 1px solid #E2E0D8;
+          border-radius: 14px;
+          box-shadow: 0 12px 32px rgba(26, 46, 34, 0.08);
           width: 100%;
-          max-width: 440px;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-          animation: paySlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+          max-width: 430px;
+          padding: 2.25rem;
+          animation: payRise 0.4s ease both;
         }
 
-        @keyframes paySlideUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Header Styles */
-        .pay-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 2rem;
-        }
-
-        .pay-back-icon {
+        .pay-back {
           background: none;
           border: none;
+          padding: 0;
+          margin-bottom: 1.25rem;
+          color: #5B7A66;
+          font: inherit;
+          font-size: 0.9rem;
+          font-weight: 500;
           cursor: pointer;
-          color: #6B7280;
-          padding: 0.5rem;
-          border-radius: 8px;
-          transition: all 0.2s ease;
+          text-decoration: underline;
+          text-underline-offset: 4px;
+          text-decoration-color: #C9CDBF;
+          transition: text-decoration-color 0.15s ease;
         }
-        .pay-back-icon:hover {
-          background: #F3F4F6;
-          color: #111827;
+
+        .pay-back:hover {
+          text-decoration-color: #14532D;
         }
 
         .pay-title {
-          margin: 0;
-          font-size: 1.5rem;
-          font-weight: 800;
-          color: #111827;
-          letter-spacing: -0.02em;
+          font-family: "Fraunces", Georgia, "Times New Roman", serif;
+          font-size: 1.55rem;
+          font-weight: 600;
+          margin: 0 0 0.4rem;
+          letter-spacing: -0.01em;
         }
 
-        .pay-secure-badge {
+        .pay-subtitle {
+          margin: 0 0 1.5rem;
+          color: #3E4C42;
+        }
+
+        .pay-amount {
           display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          background: #E8F5E9;
-          color: #1B5E20;
-          padding: 0.4rem 0.8rem;
-          border-radius: 999px;
-          font-size: 0.75rem;
-          font-weight: 700;
-        }
-
-        /* Amount Display */
-        .pay-amount-display {
-          text-align: center;
-          margin-bottom: 2.5rem;
-          padding: 1.5rem;
-          background: #F9FAFB;
-          border-radius: 16px;
-          border: 1px solid #E5E7EB;
+          flex-direction: column;
+          align-items: flex-start;
+          background: #F8F7F4;
+          border: 1px solid #E9E7E0;
+          border-radius: 12px;
+          padding: 1.25rem 1.4rem;
+          margin: 0 0 1.75rem;
         }
 
         .pay-currency {
-          font-size: 1.2rem;
-          font-weight: 700;
-          color: #6B7280;
-          vertical-align: top;
-          margin-right: 0.2rem;
+          font-size: 1rem;
+          font-weight: 600;
+          color: #5B7A66;
         }
 
         .pay-value {
-          font-size: 3rem;
-          font-weight: 900;
-          color: #111827;
-          letter-spacing: -0.05em;
-          line-height: 1;
+          font-family: "Fraunces", Georgia, serif;
+          font-size: 2.4rem;
+          font-weight: 600;
+          line-height: 1.1;
+          font-variant-numeric: tabular-nums;
         }
 
         .pay-desc {
-          margin-top: 0.5rem;
-          color: #6B7280;
+          margin-top: 0.25rem;
+          color: #5B7A66;
           font-size: 0.9rem;
-          font-weight: 500;
         }
 
-        /* Inputs */
-        .pay-input-group {
+        .pay-field {
           margin-bottom: 1.5rem;
         }
 
-        .pay-label {
+        .pay-field label {
           display: block;
-          margin-bottom: 0.5rem;
-          font-size: 0.85rem;
-          font-weight: 700;
-          color: #374151;
+          margin-bottom: 0.45rem;
+          font-size: 0.9rem;
+          font-weight: 600;
+          color: #1A2E22;
         }
 
-        .pay-input-wrapper {
+        .pay-phone-wrap {
           display: flex;
-          align-items: center;
-          border: 2px solid #E5E7EB;
-          border-radius: 12px;
-          overflow: hidden;
-          transition: all 0.2s ease;
-          background: white;
+          align-items: stretch;
+          border: 1px solid #C9CDBF;
+          border-radius: 10px;
+          background: #fff;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
         }
 
-        .pay-input-wrapper:focus-within {
-          border-color: #2E7D32;
-          box-shadow: 0 0 0 4px rgba(46, 125, 50, 0.1);
+        .pay-phone-wrap:focus-within {
+          border-color: #14532D;
+          box-shadow: 0 0 0 3px rgba(20, 83, 45, 0.12);
+        }
+
+        .pay-phone-invalid,
+        .pay-phone-invalid:focus-within {
+          border-color: #B42318;
+          box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.1);
         }
 
         .pay-prefix {
-          padding: 0 0.75rem;
-          background: #F9FAFB;
-          color: #6B7280;
+          display: flex;
+          align-items: center;
+          padding: 0 0.8rem;
+          border-right: 1px solid #E9E7E0;
+          color: #5B7A66;
           font-weight: 600;
-          border-right: 1px solid #E5E7EB;
           font-size: 0.95rem;
+          font-variant-numeric: tabular-nums;
         }
 
-        .pay-input {
+        .pay-phone-wrap input {
           flex: 1;
+          min-width: 0;
           border: none;
-          padding: 1rem;
-          font-size: 1.1rem;
-          font-weight: 600;
           outline: none;
-          color: #111827;
-          font-family: inherit;
+          background: transparent;
+          padding: 0.9rem 0.9rem;
+          font: inherit;
+          font-size: 1.05rem;
+          font-weight: 600;
+          color: #1A2E22;
+          font-variant-numeric: tabular-nums;
+        }
+
+        .pay-hint,
+        .pay-field-error {
+          margin: 0.45rem 0 0;
+          font-size: 0.82rem;
         }
 
         .pay-hint {
-          display: block;
-          margin-top: 0.4rem;
-          font-size: 0.75rem;
-          color: #9CA3AF;
+          color: #5B7A66;
         }
 
-        /* Methods */
-        .pay-method-section {
-          margin-bottom: 2rem;
+        .pay-field-error {
+          color: #B42318;
+          font-weight: 500;
         }
 
-        .pay-method-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1rem;
-        }
-
-        .pay-method-btn {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          padding: 1rem;
-          border: 2px solid #E5E7EB;
-          border-radius: 12px;
-          background: white;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          color: #6B7280;
-        }
-
-        .pay-method-btn.active {
-          border-color: #2E7D32;
-          background: #F0FDF4;
-          color: #1B5E20;
-        }
-
-        .pay-method-btn.disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-          background: #F9FAFB;
-        }
-
-        .pay-method-btn span {
-          font-weight: 700;
-          font-size: 0.9rem;
-        }
-
-        .pay-method-btn small {
-          font-size: 0.7rem;
-          opacity: 0.8;
-        }
-
-        /* Submit Button */
-        .pay-submit-btn {
+        .pay-btn-primary {
           width: 100%;
-          padding: 1.25rem;
-          background: linear-gradient(135deg, #2E7D32 0%, #1B5E20 100%);
-          color: white;
-          border: none;
-          border-radius: 12px;
-          font-size: 1.1rem;
-          font-weight: 800;
+          min-height: 50px;
+          padding: 0 1.5rem;
+          border: 1px solid transparent;
+          border-radius: 10px;
+          background: #14532D;
+          color: #fff;
+          font: inherit;
+          font-size: 1rem;
+          font-weight: 600;
           cursor: pointer;
-          transition: all 0.2s ease;
-          box-shadow: 0 10px 20px rgba(46, 125, 50, 0.2);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
+          transition: background-color 0.15s ease;
         }
 
-        .pay-submit-btn:hover:not(:disabled) {
-          transform: translateY(-2px);
-          box-shadow: 0 14px 28px rgba(46, 125, 50, 0.3);
+        .pay-btn-primary:hover:not(:disabled) {
+          background: #0F3D22;
         }
 
-        .pay-submit-btn:disabled {
-          background: #D1D5DB;
+        .pay-btn-primary:disabled {
+          background: #A8B5AC;
           cursor: not-allowed;
-          box-shadow: none;
-          transform: none;
         }
 
-        /* Footer */
-        .pay-footer {
-          margin-top: 2rem;
-          text-align: center;
+        .pay-submit {
+          margin-top: 0.25rem;
         }
 
-        .pay-footer p {
-          font-size: 0.75rem;
-          color: #9CA3AF;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.4rem;
-          margin: 0;
+        .pay-actions {
+          display: grid;
+          gap: 0.75rem;
+          margin-top: 1.5rem;
         }
 
-        /* Processing State Specifics */
-        .pay-processing-card {
-          text-align: center;
-          padding: 3rem 2rem;
-        }
-
-        .pay-spinner-wrapper {
-          margin-bottom: 1.5rem;
-          color: #2E7D32;
-        }
-
-        .pay-timer-bar {
-          height: 6px;
-          background: #E5E7EB;
-          border-radius: 3px;
-          margin: 1.5rem 0 0.5rem;
-          overflow: hidden;
-        }
-
-        .pay-timer-fill {
-          height: 100%;
-          background: #2E7D32;
-          transition: width 1s linear;
-        }
-
-        .pay-timer-text {
-          font-size: 0.85rem;
-          color: #6B7280;
-          font-weight: 600;
-        }
-
-        .pay-cancel-btn {
-          margin-top: 2rem;
-          background: none;
-          border: 1px solid #E5E7EB;
-          color: #DC2626;
-          padding: 0.6rem 1.5rem;
-          border-radius: 8px;
+        .pay-btn-ghost {
+          width: 100%;
+          min-height: 48px;
+          padding: 0 1.5rem;
+          border: 1px solid #C9CDBF;
+          border-radius: 10px;
+          background: transparent;
+          color: #1A2E22;
+          font: inherit;
+          font-size: 0.95rem;
           font-weight: 600;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: border-color 0.15s ease;
         }
 
-        .pay-cancel-btn:hover {
-          background: #FEF2F2;
-          border-color: #FECACA;
+        .pay-btn-ghost:hover {
+          border-color: #14532D;
         }
 
-        /* Success State Specifics */
-        .pay-success-card {
-          text-align: center;
+        .pay-summary {
+          margin: 0 0 1.25rem;
+          border-top: 1px solid #E9E7E0;
         }
 
-        .pay-check-circle {
-          width: 80px;
-          height: 80px;
-          border-radius: 50%;
-          background: #E8F5E9;
-          color: #2E7D32;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin: 0 auto 1.5rem;
-          animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-
-        @keyframes popIn {
-          from { transform: scale(0); }
-          to { transform: scale(1); }
-        }
-
-        .pay-summary-box {
-          background: #F9FAFB;
-          border: 1px solid #E5E7EB;
-          border-radius: 12px;
-          padding: 1.25rem;
-          margin: 1.5rem 0;
-          text-align: left;
-        }
-
-        .pay-summary-row {
+        .pay-summary > div {
           display: flex;
           justify-content: space-between;
-          margin-bottom: 0.5rem;
+          gap: 1rem;
+          padding: 0.65rem 0;
+          border-bottom: 1px solid #E9E7E0;
+        }
+
+        .pay-summary dt {
+          color: #5B7A66;
           font-size: 0.9rem;
         }
 
-        .pay-summary-row:last-child {
-          margin-bottom: 0;
+        .pay-summary dd {
+          margin: 0;
+          font-weight: 600;
+          font-size: 0.9rem;
+          font-variant-numeric: tabular-nums;
         }
 
-        .pay-summary-row span {
-          color: #6B7280;
-        }
-
-        .pay-summary-row strong {
-          color: #111827;
-        }
-
-        .pay-ref-code {
-          background: #E5E7EB;
-          padding: 0.2rem 0.5rem;
-          border-radius: 4px;
-          font-family: monospace;
+        .pay-summary code {
+          font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
           font-size: 0.85rem;
+          background: #F8F7F4;
+          border: 1px solid #E9E7E0;
+          border-radius: 6px;
+          padding: 0.1rem 0.45rem;
         }
 
-        .pay-redirect-text {
+        .pay-note {
+          margin: 0 0 1.25rem;
           font-size: 0.85rem;
-          color: #9CA3AF;
-          margin-top: 1rem;
+          color: #5B7A66;
         }
 
-        /* Failed State Specifics */
-        .pay-failed-card {
+        .pay-error {
+          margin: 0 0 0.5rem;
+          color: #B42318;
+          font-size: 0.95rem;
+          line-height: 1.6;
+        }
+
+        .pay-footer {
+          margin: 1.5rem 0 0;
+          font-size: 0.78rem;
+          color: #8A978D;
           text-align: center;
         }
 
-        .pay-alert-icon {
-          width: 60px;
-          height: 60px;
-          border-radius: 50%;
-          background: #FEE2E2;
-          color: #DC2626;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin: 0 auto 1.5rem;
+        .pay :is(a, button, input):focus-visible {
+          outline: 2px solid #14532D;
+          outline-offset: 2px;
+          border-radius: 4px;
         }
 
-        .pay-error-msg {
-          color: #991B1B;
-          font-size: 0.95rem;
-          margin-bottom: 2rem;
-          line-height: 1.5;
-        }
-
-        .pay-actions-group {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .pay-retry-btn {
-          width: 100%;
-          padding: 1rem;
-          background: #2E7D32;
-          color: white;
-          border: none;
-          border-radius: 10px;
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .pay-retry-btn:hover {
-          background: #1B5E20;
-        }
-
-        .pay-back-btn {
-          width: 100%;
-          padding: 1rem;
-          background: transparent;
-          color: #6B7280;
-          border: 1px solid #E5E7EB;
-          border-radius: 10px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .pay-back-btn:hover {
-          background: #F9FAFB;
-          color: #111827;
-        }
-
-        @keyframes paySpin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
+        @keyframes payRise {
+          from {
+            opacity: 0;
+            transform: translateY(12px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
 
         @media (max-width: 480px) {
           .pay-card {
             padding: 1.5rem;
           }
+
           .pay-value {
-            font-size: 2.5rem;
+            font-size: 2rem;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .pay-card {
+            animation: none;
           }
         }
       `}</style>

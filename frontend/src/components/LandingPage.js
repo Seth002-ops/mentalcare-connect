@@ -1,172 +1,76 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 
-// ============ ICONS ============
-const IconShield = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-  </svg>
-);
-
-const IconVideo = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="23 7 16 12 23 17 23 7" />
-    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-  </svg>
-);
-
-const IconSparkle = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 3l1.9 5.7L19.6 10l-5.7 1.9L12 17.6l-1.9-5.7L4.4 10l5.7-1.9z" />
-    <line x1="19" y1="3" x2="19" y2="7" />
-    <line x1="17" y1="5" x2="21" y2="5" />
-    <line x1="5" y1="17" x2="5" y2="21" />
-    <line x1="3" y1="19" x2="7" y2="19" />
-  </svg>
-);
-
-const IconHeart = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-  </svg>
-);
-
-const IconCalendar = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-    <line x1="16" y1="2" x2="16" y2="6" />
-    <line x1="8" y1="2" x2="8" y2="6" />
-    <line x1="3" y1="10" x2="21" y2="10" />
-  </svg>
-);
-
-const IconGradCap = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-    <path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5" />
-  </svg>
-);
-
-const IconCheck = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="20 6 9 17 4 12" />
-  </svg>
-);
-
-const IconChevronDown = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="6 9 12 15 18 9" />
-  </svg>
-);
-
-const IconArrowRight = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="5" y1="12" x2="19" y2="12" />
-    <polyline points="12 5 19 12 12 19" />
-  </svg>
-);
-
-const IconLock = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-  </svg>
-);
-
-const IconUsers = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-    <circle cx="9" cy="7" r="4" />
-    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-  </svg>
-);
-
-// ============ DATA ============
 const FEATURES = [
   {
-    icon: <IconShield />,
-    title: 'Privacy First',
-    text: 'Your conversations are protected with encryption and strict access rules. Therapy should feel safe, not exposed.',
+    title: 'Private by design',
+    text: 'Messages between you and your therapist are encrypted, and your records stay under role-based access controls.',
   },
   {
-    icon: <IconVideo />,
-    title: 'Video & Voice Sessions',
-    text: 'Connect face-to-face or by voice from anywhere in Kenya. Secure sessions designed for real therapeutic conversations.',
+    title: 'Video and voice sessions',
+    text: 'Meet face-to-face or by voice from anywhere in Kenya, on a schedule that works for both of you.',
   },
   {
-    icon: <IconSparkle />,
-    title: 'AI Support Between Sessions',
-    text: 'Get gentle coping prompts, mood reflections, and guidance while you wait for your next therapist session.',
+    title: 'Support between sessions',
+    text: 'Gentle coping prompts and mood reflections help you hold the work you do in therapy between visits.',
   },
   {
-    icon: <IconHeart />,
-    title: 'Mood Tracking',
-    text: 'Check in daily, notice patterns, and share meaningful insights with your therapist when you are ready.',
+    title: 'Mood tracking',
+    text: 'Check in with yourself daily, notice patterns over time, and share what you choose with your therapist.',
   },
   {
-    icon: <IconCalendar />,
-    title: 'Simple Booking',
-    text: 'Browse available therapists, choose a time that works for you, and confirm your session in a few clicks.',
+    title: 'Straightforward booking',
+    text: 'Browse verified therapists, see real availability, and confirm a session in a few clicks.',
   },
   {
-    icon: <IconGradCap />,
-    title: 'Student Pricing',
-    text: 'Verified university students can access more affordable mental health support through institutional partnerships.',
+    title: 'Student pricing',
+    text: 'Verified university students pay less for care through partnerships with their institutions.',
   },
 ];
 
 const STEPS = [
   {
     title: 'Create your account',
-    text: 'Sign up as a client, therapist, or student. Accept our terms and start in a secure environment.',
+    text: 'Sign up as a client, therapist, or student and accept the terms in a secure environment.',
   },
   {
     title: 'Choose your care path',
-    text: 'Browse therapists, check availability, and book a session that fits your schedule and budget.',
+    text: 'Browse therapists, check who is available when you are, and book a time that fits your week.',
   },
   {
     title: 'Connect securely',
-    text: 'Chat, call, or meet by video. Track your mood, review sessions, and grow at your own pace.',
+    text: 'Chat, call, or meet by video. Track your mood and review your progress at your own pace.',
   },
 ];
 
 const AUDIENCES = [
   {
-    title: 'For Clients',
-    text: 'Find compassionate support without the friction of traditional booking systems.',
-    icon: <IconHeart />,
-    points: ['Browse licensed therapists', 'Book secure sessions', 'Track mood privately'],
+    title: 'Clients',
+    text: 'Find licensed support without the friction of traditional booking systems. Book, pay, and meet in one place.',
+    points: ['Browse verified therapists', 'Book secure sessions', 'Track your mood privately'],
     to: '/signup',
-    cta: 'Start your journey',
-    dark: false,
+    cta: 'Create a client account',
   },
   {
-    title: 'For Therapists',
-    text: 'Manage your practice, clients, availability, earnings, and clinical notes in one portal.',
-    icon: <IconUsers />,
-    points: ['Set your schedule', 'Manage clients', 'Withdraw earnings'],
+    title: 'Therapists',
+    text: 'Run your practice from one portal: clients, availability, earnings, and clinical notes.',
+    points: ['Set your weekly schedule', 'Manage clients and notes', 'Withdraw earnings'],
     to: '/signup',
-    cta: 'Join as therapist',
-    dark: true,
+    cta: 'Join as a therapist',
   },
   {
-    title: 'For Students',
-    text: 'Access affordable mental health care using your verified university email.',
-    icon: <IconGradCap />,
+    title: 'Students',
+    text: 'Access affordable care with your verified university email. Support stays confidential.',
     points: ['University verification', 'Student-friendly pricing', 'Confidential support'],
     to: '/signup',
-    cta: 'Check eligibility',
-    dark: false,
+    cta: 'Check student pricing',
   },
   {
-    title: 'For Universities',
-    text: 'Partner with Mecac to provide scalable wellbeing support for your student community.',
-    icon: <IconShield />,
-    points: ['Institutional dashboard', 'Credit pools', 'Student wellbeing reporting'],
+    title: 'Universities',
+    text: 'Partner with Mecac to offer scalable wellbeing support to your student community.',
+    points: ['Institutional dashboard', 'Credit pools', 'Wellbeing reporting'],
     to: '/services',
-    cta: 'Explore partnership',
-    dark: true,
+    cta: 'Explore partnerships',
   },
 ];
 
@@ -179,1274 +83,812 @@ const SAFETY_POINTS = [
 ];
 
 const LandingPage = () => {
-  const [scrolled, setScrolled] = useState(false);
-  const [logoError, setLogoError] = useState(false);
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24);
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-
-  useEffect(() => {
-    const elements = document.querySelectorAll('.lp-reveal');
-
-    if (!('IntersectionObserver' in window)) {
-      elements.forEach((el) => el.classList.add('lp-visible'));
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('lp-visible');
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      {
-        threshold: 0.12,
-        rootMargin: '0px 0px -40px 0px',
-      }
-    );
-
-    elements.forEach((el) => observer.observe(el));
-
-    return () => observer.disconnect();
-  }, []);
-
-  const scrollToSection = (id) => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
-
   return (
-    <>
-      {/* NAVBAR */}
-      <header className={`lp-nav ${scrolled ? 'lp-nav-scrolled' : ''}`}>
-        <div className="lp-nav-inner">
-          <Link to="/" className="lp-brand" aria-label="Mecac home">
-            {!logoError ? (
-              <img
-                src="/logo.PNG"
-                alt="Mecac logo"
-                className="lp-logo"
-                onError={() => setLogoError(true)}
-              />
-            ) : (
-              <span className="lp-logo-fallback">M</span>
-            )}
-            <span className="lp-brand-text">
-              Mecac
-              <span>Mental Care Connect</span>
-            </span>
-          </Link>
+    <div className="lp">
+      <a href="#main" className="lp-skip">
+        Skip to content
+      </a>
 
-          <nav className="lp-nav-links" aria-label="Main navigation">
-            <Link to="/services" className="lp-hide-mobile">
+      <header className="lp-header">
+        <div className="lp-shell lp-header-inner">
+          <Link to="/" className="lp-brand">
+            Mecac
+            <span>Mental Care Connect</span>
+          </Link>
+          <nav className="lp-header-nav" aria-label="Main">
+            <Link to="/services" className="lp-nav-link lp-hide-mobile">
               Services
             </Link>
-            <Link to="/privacy" className="lp-hide-mobile">
+            <Link to="/privacy" className="lp-nav-link lp-hide-mobile">
               Privacy
             </Link>
-            <Link to="/login" className="lp-nav-login">
-              Sign In
+            <Link to="/login" className="lp-nav-link">
+              Sign in
             </Link>
-            <Link to="/signup" className="lp-nav-cta">
-              Create Account
+            <Link to="/signup" className="lp-btn lp-btn-primary lp-btn-small">
+              Create account
             </Link>
           </nav>
         </div>
       </header>
 
-      {/* HERO */}
-      <section className="lp-hero">
-        <div className="lp-hero-bg" />
-        <div className="lp-hero-overlay" />
-        <div className="lp-hero-orb lp-hero-orb-one" />
-        <div className="lp-hero-orb lp-hero-orb-two" />
-
-        <div className="lp-hero-content lp-reveal">
-          <span className="lp-eyebrow">
-            <IconShield /> Kenya’s secure mental wellness platform
-          </span>
-
-          <h1 className="lp-headline">
-            Bridging You and Your Therapist,{' '}
-            <span className="lp-headline-accent">Safely</span>
-          </h1>
-
-          <p className="lp-subhead">
-            Find licensed therapists who understand you. Secure, confidential mental health support
-            at your fingertips — whether you are a client, therapist, or university student.
-          </p>
-
-          <div className="lp-hero-actions">
-            <Link to="/signup" className="lp-btn lp-btn-primary">
-              Get Started
-            </Link>
-            <Link to="/login" className="lp-btn lp-btn-secondary">
-              Sign In
-            </Link>
-          </div>
-
-          <div className="lp-trust-row">
-            <span className="lp-trust-pill">
-              <IconLock /> Encrypted chats
-            </span>
-            <span className="lp-trust-pill">
-              <IconCheck /> Verified therapists
-            </span>
-            <span className="lp-trust-pill">
-              <IconGradCap /> Student pricing
-            </span>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          className="lp-scroll-cue"
-          onClick={() => scrollToSection('features')}
-          aria-label="Scroll to features"
-        >
-          <IconChevronDown />
-        </button>
-      </section>
-
-      {/* FEATURES */}
-      <section id="features" className="lp-section lp-section-light">
-        <div className="lp-container">
-          <div className="lp-section-head lp-reveal">
-            <span className="lp-kicker">Why Mecac</span>
-            <h2>Care that feels safe, human, and accessible</h2>
-            <p>
-              Mecac brings together therapy booking, secure communication, mood tracking, AI support,
-              and practitioner tools in one calm, trusted environment.
-            </p>
-          </div>
-
-          <div className="lp-feature-grid">
-            {FEATURES.map((feature) => (
-              <article key={feature.title} className="lp-feature-card lp-reveal">
-                <div className="lp-feature-icon">{feature.icon}</div>
-                <h3>{feature.title}</h3>
-                <p>{feature.text}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* HOW IT WORKS */}
-      <section id="how-it-works" className="lp-section lp-section-white">
-        <div className="lp-container">
-          <div className="lp-section-head lp-reveal">
-            <span className="lp-kicker">How it works</span>
-            <h2>Three simple steps to supported wellbeing</h2>
-            <p>
-              Whether you are seeking care or providing it, Mecac is designed to reduce friction and
-              increase trust.
-            </p>
-          </div>
-
-          <div className="lp-steps">
-            {STEPS.map((step, index) => (
-              <article key={step.title} className="lp-step lp-reveal">
-                <div className="lp-step-number">{index + 1}</div>
-                <h3>{step.title}</h3>
-                <p>{step.text}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* AUDIENCES */}
-      <section id="audiences" className="lp-section lp-section-tint">
-        <div className="lp-container">
-          <div className="lp-section-head lp-reveal">
-            <span className="lp-kicker">Who it’s for</span>
-            <h2>Built for clients, therapists, students, and universities</h2>
-            <p>
-              Mental health is a ecosystem. Mecac connects the people who need support with the
-              professionals and institutions that provide it.
-            </p>
-          </div>
-
-          <div className="lp-audience-grid">
-            {AUDIENCES.map((audience) => (
-              <article
-                key={audience.title}
-                className={`lp-audience-card lp-reveal ${audience.dark ? 'lp-audience-dark' : ''}`}
-              >
-                <div className="lp-audience-icon">{audience.icon}</div>
-                <h3>{audience.title}</h3>
-                <p>{audience.text}</p>
-
-                <ul>
-                  {audience.points.map((point) => (
-                    <li key={point}>
-                      <IconCheck /> {point}
-                    </li>
-                  ))}
-                </ul>
-
-                <Link to={audience.to} className="lp-audience-link">
-                  {audience.cta} <IconArrowRight />
-                </Link>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* SAFETY */}
-      <section id="safety" className="lp-section lp-section-white">
-        <div className="lp-container">
-          <div className="lp-safety-panel lp-reveal">
-            <div>
-              <span className="lp-kicker">Safety & privacy</span>
-              <h2 className="lp-safety-title">Your mental health data deserves protection</h2>
-              <p className="lp-safety-copy">
-                Mecac is built with privacy as a core principle, not an afterthought. From encrypted
-                messaging to controlled clinical notes and verified therapist access, every layer is
-                designed to help people seek help without fear.
+      <main id="main">
+        <section className="lp-hero">
+          <div className="lp-shell lp-hero-grid">
+            <div className="lp-hero-copy">
+              <h1>
+                Talk to a licensed therapist, safely and on your schedule.
+              </h1>
+              <p className="lp-lede">
+                Mecac connects you to verified mental health professionals across
+                Kenya. Book a session, meet by video or chat, and keep your
+                journey private.
               </p>
+              <div className="lp-hero-actions">
+                <Link to="/signup" className="lp-btn lp-btn-primary">
+                  Create your account
+                </Link>
+                <Link to="/login" className="lp-btn lp-btn-ghost">
+                  Sign in
+                </Link>
+              </div>
+              <ul className="lp-trust">
+                <li>Encrypted sessions</li>
+                <li>Verified therapists</li>
+                <li>Student pricing</li>
+              </ul>
+            </div>
 
-              <div className="lp-safety-list">
-                {SAFETY_POINTS.map((point) => (
-                  <div key={point} className="lp-safety-item">
-                    <span className="lp-safety-check">
-                      <IconCheck />
-                    </span>
-                    <span>{point}</span>
+            <aside className="lp-slip" aria-label="Example session confirmation">
+              <p className="lp-slip-label">Session confirmation</p>
+              <p className="lp-slip-name">Dr. Amina Yusuf</p>
+              <p className="lp-slip-meta">Clinical psychologist, Nairobi</p>
+              <dl className="lp-slip-rows">
+                <div>
+                  <dt>Day</dt>
+                  <dd>Thursday</dd>
+                </div>
+                <div>
+                  <dt>Time</dt>
+                  <dd>4:30 pm</dd>
+                </div>
+                <div>
+                  <dt>Session</dt>
+                  <dd>Video, 50 minutes</dd>
+                </div>
+                <div>
+                  <dt>Fee</dt>
+                  <dd>KSh 1,500</dd>
+                </div>
+              </dl>
+              <p className="lp-slip-status">
+                Confirmed. Your join link is in your email.
+              </p>
+            </aside>
+          </div>
+        </section>
+
+        <section className="lp-section" id="features">
+          <div className="lp-shell">
+            <h2 className="lp-title">What Mecac does</h2>
+            <div className="lp-feature-grid">
+              {FEATURES.map((feature) => (
+                <article key={feature.title} className="lp-feature">
+                  <h3>{feature.title}</h3>
+                  <p>{feature.text}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="lp-section lp-section-tint" id="how-it-works">
+          <div className="lp-shell">
+            <h2 className="lp-title">How it works</h2>
+            <ol className="lp-steps">
+              {STEPS.map((step, index) => (
+                <li key={step.title}>
+                  <span className="lp-step-num" aria-hidden="true">
+                    {index + 1}
+                  </span>
+                  <h3>{step.title}</h3>
+                  <p>{step.text}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        <section className="lp-section" id="audiences">
+          <div className="lp-shell">
+            <h2 className="lp-title">Built for everyone in the room</h2>
+            <div className="lp-audience-list">
+              {AUDIENCES.map((audience) => (
+                <article key={audience.title} className="lp-audience">
+                  <h3>{audience.title}</h3>
+                  <div className="lp-audience-body">
+                    <p>{audience.text}</p>
+                    <ul>
+                      {audience.points.map((point) => (
+                        <li key={point}>{point}</li>
+                      ))}
+                    </ul>
+                    <Link to={audience.to} className="lp-audience-cta">
+                      {audience.cta}
+                    </Link>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="lp-safety-visual">
-              <div className="lp-safety-stat">
-                <span className="lp-safety-stat-icon">
-                  <IconLock />
-                </span>
-                <div>
-                  <strong>Secure messaging</strong>
-                  <p>Private conversations between client and therapist</p>
-                </div>
-              </div>
-
-              <div className="lp-safety-stat">
-                <span className="lp-safety-stat-icon">
-                  <IconShield />
-                </span>
-                <div>
-                  <strong>Verified care</strong>
-                  <p>Therapists reviewed before platform approval</p>
-                </div>
-              </div>
-
-              <div className="lp-safety-stat">
-                <span className="lp-safety-stat-icon">
-                  <IconGradCap />
-                </span>
-                <div>
-                  <strong>Student trust</strong>
-                  <p>University email verification for pricing access</p>
-                </div>
-              </div>
+                </article>
+              ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* FINAL CTA */}
-      <section className="lp-cta">
-        <div className="lp-cta-orb lp-cta-orb-one" />
-        <div className="lp-cta-orb lp-cta-orb-two" />
-
-        <div className="lp-container lp-cta-content lp-reveal">
-          <h2>Ready to take the first step?</h2>
-          <p>
-            Join Mecac today and experience mental health support that is secure, compassionate, and
-            built for Kenya.
-          </p>
-
-          <div className="lp-hero-actions">
-            <Link to="/signup" className="lp-btn lp-btn-white">
-              Create Account
-            </Link>
-            <Link to="/services" className="lp-btn lp-btn-outline-white">
-              Explore Services
-            </Link>
+        <section className="lp-section lp-section-tint" id="safety">
+          <div className="lp-shell lp-safety-grid">
+            <div>
+              <h2 className="lp-title">Your data deserves protection</h2>
+              <p className="lp-safety-copy">
+                Privacy is a principle here, not a feature. From encrypted
+                messaging to controlled clinical notes, every layer exists so
+                people can seek help without fear.
+              </p>
+            </div>
+            <ul className="lp-safety-list">
+              {SAFETY_POINTS.map((point) => (
+                <li key={point}>{point}</li>
+              ))}
+            </ul>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* FOOTER */}
+        <section className="lp-cta-band">
+          <div className="lp-shell">
+            <h2>Start with one conversation.</h2>
+            <div className="lp-hero-actions">
+              <Link to="/signup" className="lp-btn lp-btn-white">
+                Create your account
+              </Link>
+              <Link to="/services" className="lp-cta-link">
+                Explore services
+              </Link>
+            </div>
+          </div>
+        </section>
+      </main>
+
       <footer className="lp-footer">
-        <div className="lp-container">
+        <div className="lp-shell">
           <div className="lp-footer-inner">
             <div className="lp-footer-brand">
-              <div className="lp-brand" style={{ color: 'white' }}>
-                {!logoError ? (
-                  <img
-                    src="/logo.PNG"
-                    alt="Mecac logo"
-                    className="lp-logo"
-                    onError={() => setLogoError(true)}
-                  />
-                ) : (
-                  <span className="lp-logo-fallback">M</span>
-                )}
-                <span className="lp-brand-text">
-                  Mecac
-                  <span>Mental Care Connect</span>
-                </span>
-              </div>
-
+              <span className="lp-brand lp-brand-footer">Mecac</span>
               <p>
-                Secure mental wellness platform connecting clients, therapists, students, and
-                universities across Kenya.
+                A secure mental wellness platform connecting clients, therapists,
+                students, and universities across Kenya.
               </p>
             </div>
-
-            <div className="lp-footer-links">
+            <nav className="lp-footer-links" aria-label="Footer">
               <Link to="/services">Services</Link>
               <Link to="/privacy">Privacy Policy</Link>
               <Link to="/terms">Terms of Service</Link>
-              <Link to="/login">Sign In</Link>
-              <Link to="/signup">Create Account</Link>
-            </div>
+              <Link to="/login">Sign in</Link>
+              <Link to="/signup">Create account</Link>
+            </nav>
           </div>
-
           <div className="lp-footer-bottom">
             <span>© {new Date().getFullYear()} Mecac. All rights reserved.</span>
-            <span>Built with care for safer mental health support.</span>
+            <span>Built for safer mental health support.</span>
           </div>
         </div>
       </footer>
 
       <style>{`
-        .lp-nav {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          z-index: 50;
-          padding: 0.9rem 0;
-          transition: all 0.25s ease;
+        .lp {
+          background: #F8F7F4;
+          color: #1A2E22;
+          font-family: "Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          line-height: 1.6;
         }
 
-        .lp-nav-scrolled {
-          background: rgba(255, 255, 255, 0.92);
-          backdrop-filter: blur(14px);
-          -webkit-backdrop-filter: blur(14px);
-          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
-        }
-
-        .lp-nav-inner {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 0 20px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 1rem;
-        }
-
-        .lp-brand {
-          display: flex;
-          align-items: center;
-          gap: 0.65rem;
-          text-decoration: none;
-          color: white;
-        }
-
-        .lp-nav-scrolled .lp-brand {
-          color: #111827;
-        }
-
-        .lp-logo {
-          width: 38px;
-          height: 38px;
-          object-fit: contain;
-          border-radius: 10px;
-          background: white;
-          padding: 2px;
+        .lp *,
+        .lp *::before,
+        .lp *::after {
           box-sizing: border-box;
         }
 
-        .lp-logo-fallback {
-          width: 38px;
-          height: 38px;
-          border-radius: 12px;
-          background: linear-gradient(135deg, #2E7D32, #66BB6A);
-          color: white;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: 900;
-          box-shadow: 0 8px 18px rgba(46, 125, 50, 0.22);
+        .lp-shell {
+          max-width: 1120px;
+          margin: 0 auto;
+          padding: 0 24px;
         }
 
-        .lp-brand-text {
-          font-weight: 900;
-          letter-spacing: -0.02em;
-          line-height: 1;
+        .lp h1,
+        .lp h2,
+        .lp h3,
+        .lp-brand,
+        .lp-step-num,
+        .lp-slip-name {
+          font-family: "Fraunces", Georgia, "Times New Roman", serif;
+          letter-spacing: -0.01em;
+        }
+
+        /* Skip link */
+        .lp-skip {
+          position: absolute;
+          left: -9999px;
+          top: 0;
+          background: #14532D;
+          color: #fff;
+          padding: 0.6rem 1rem;
+          z-index: 100;
+          text-decoration: none;
+        }
+
+        .lp-skip:focus {
+          left: 8px;
+          top: 8px;
+        }
+
+        /* Header */
+        .lp-header {
+          position: sticky;
+          top: 0;
+          z-index: 40;
+          background: rgba(248, 247, 244, 0.96);
+          border-bottom: 1px solid #E2E0D8;
+        }
+
+        .lp-header-inner {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          height: 68px;
+        }
+
+        .lp-brand {
+          font-size: 1.35rem;
+          font-weight: 600;
+          color: #14532D;
+          text-decoration: none;
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          line-height: 1.1;
         }
 
-        .lp-brand-text span {
-          font-size: 0.7rem;
-          font-weight: 700;
-          opacity: 0.75;
+        .lp-brand span {
+          font-family: "Public Sans", sans-serif;
+          font-size: 0.72rem;
+          font-weight: 500;
+          color: #5B7A66;
           letter-spacing: 0.02em;
         }
 
-        .lp-nav-links {
+        .lp-header-nav {
           display: flex;
           align-items: center;
-          gap: 1.1rem;
+          gap: 1.4rem;
         }
 
-        .lp-nav-links a {
-          color: rgba(255, 255, 255, 0.86);
+        .lp-nav-link {
+          color: #1A2E22;
           text-decoration: none;
-          font-weight: 650;
-          font-size: 0.92rem;
-          transition: color 0.2s ease, transform 0.2s ease;
+          font-weight: 500;
+          font-size: 0.95rem;
+          transition: color 0.15s ease;
         }
 
-        .lp-nav-scrolled .lp-nav-links a {
-          color: #374151;
+        .lp-nav-link:hover {
+          color: #14532D;
+          text-decoration: underline;
+          text-underline-offset: 4px;
         }
 
-        .lp-nav-links a:hover {
-          color: white;
-        }
-
-        .lp-nav-scrolled .lp-nav-links a:hover {
-          color: #2E7D32;
-        }
-
-        .lp-nav-login {
-          padding: 0.55rem 0.9rem;
-          border: 1px solid rgba(255, 255, 255, 0.28);
-          border-radius: 999px;
-        }
-
-        .lp-nav-scrolled .lp-nav-login {
-          border-color: #D1D5DB;
-        }
-
-        .lp-nav-cta {
-          background: #2E7D32;
-          color: white !important;
-          padding: 0.62rem 1.05rem;
-          border-radius: 999px;
-          box-shadow: 0 10px 22px rgba(46, 125, 50, 0.22);
-        }
-
-        .lp-nav-cta:hover {
-          transform: translateY(-1px);
-          background: #1B5E20;
-        }
-
-        .lp-hero {
-          position: relative;
-          min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          overflow: hidden;
-          padding: 7rem 20px 5rem;
-          color: white;
-        }
-
-        .lp-hero-bg {
-          position: absolute;
-          inset: 0;
-          background-image: url('https://images.pexels.com/photos/6962625/pexels-photo-6962625.jpeg');
-          background-size: cover;
-          background-position: center;
-          background-repeat: no-repeat;
-          transform: scale(1.03);
-          animation: lpHeroZoom 18s ease-in-out infinite alternate;
-        }
-
-        .lp-hero-overlay {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(
-            135deg,
-            rgba(10, 28, 34, 0.78),
-            rgba(46, 125, 50, 0.42),
-            rgba(10, 28, 34, 0.82)
-          );
-        }
-
-        .lp-hero-orb {
-          position: absolute;
-          border-radius: 50%;
-          filter: blur(16px);
-          pointer-events: none;
-          animation: lpFloat 8s ease-in-out infinite;
-        }
-
-        .lp-hero-orb-one {
-          width: 280px;
-          height: 280px;
-          top: 10%;
-          left: -80px;
-          background: radial-gradient(circle, rgba(102, 187, 106, 0.34), transparent 70%);
-        }
-
-        .lp-hero-orb-two {
-          width: 320px;
-          height: 320px;
-          bottom: 8%;
-          right: -100px;
-          background: radial-gradient(circle, rgba(144, 202, 249, 0.24), transparent 72%);
-          animation-delay: 1.2s;
-        }
-
-        .lp-hero-content {
-          position: relative;
-          z-index: 2;
-          max-width: 900px;
-          text-align: center;
-        }
-
-        .lp-eyebrow {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.45rem 0.9rem;
-          border-radius: 999px;
-          background: rgba(255, 255, 255, 0.12);
-          border: 1px solid rgba(255, 255, 255, 0.22);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          font-size: 0.82rem;
-          font-weight: 700;
-          letter-spacing: 0.02em;
-          margin-bottom: 1.25rem;
-          color: rgba(255, 255, 255, 0.94);
-        }
-
-        .lp-headline {
-          font-size: clamp(2.4rem, 6vw, 4.2rem);
-          line-height: 1.05;
-          margin: 0 0 1.25rem;
-          font-weight: 900;
-          letter-spacing: -0.035em;
-        }
-
-        .lp-headline-accent {
-          background: linear-gradient(90deg, #A5D6A7, #FFFFFF, #90CAF9);
-          -webkit-background-clip: text;
-          background-clip: text;
-          color: transparent;
-        }
-
-        .lp-subhead {
-          font-size: clamp(1rem, 2.2vw, 1.25rem);
-          line-height: 1.7;
-          max-width: 760px;
-          margin: 0 auto 2.25rem;
-          color: rgba(255, 255, 255, 0.9);
-        }
-
-        .lp-hero-actions {
-          display: flex;
-          gap: 1rem;
-          justify-content: center;
-          flex-wrap: wrap;
-          margin-bottom: 2rem;
-        }
-
+        /* Buttons */
         .lp-btn {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          gap: 0.55rem;
-          min-height: 52px;
-          padding: 0 1.75rem;
-          border-radius: 999px;
-          font-weight: 800;
+          min-height: 48px;
+          padding: 0 1.5rem;
+          border-radius: 10px;
+          font-weight: 600;
+          font-size: 0.98rem;
           text-decoration: none;
-          transition: all 0.22s ease;
           border: 1px solid transparent;
+          transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
           cursor: pointer;
+        }
+
+        .lp-btn-small {
+          min-height: 40px;
+          padding: 0 1rem;
+          font-size: 0.9rem;
         }
 
         .lp-btn-primary {
-          background: #2E7D32;
-          color: white;
-          box-shadow: 0 14px 30px rgba(46, 125, 50, 0.32);
+          background: #14532D;
+          color: #fff;
         }
 
         .lp-btn-primary:hover {
-          transform: translateY(-2px);
-          background: #1B5E20;
-          box-shadow: 0 18px 36px rgba(46, 125, 50, 0.38);
+          background: #0F3D22;
         }
 
-        .lp-btn-secondary {
-          background: rgba(255, 255, 255, 0.10);
-          color: white;
-          border-color: rgba(255, 255, 255, 0.34);
-          backdrop-filter: blur(10px);
-          -webkit-backdrop-filter: blur(10px);
+        .lp-btn-ghost {
+          background: transparent;
+          color: #14532D;
+          border-color: #C9CDBF;
         }
 
-        .lp-btn-secondary:hover {
-          background: rgba(255, 255, 255, 0.18);
-          transform: translateY(-2px);
+        .lp-btn-ghost:hover {
+          border-color: #14532D;
         }
 
         .lp-btn-white {
-          background: white;
-          color: #1B5E20;
-          box-shadow: 0 14px 30px rgba(0, 0, 0, 0.16);
+          background: #fff;
+          color: #14532D;
         }
 
         .lp-btn-white:hover {
-          transform: translateY(-2px);
+          background: #E8F0E4;
         }
 
-        .lp-btn-outline-white {
-          background: transparent;
-          color: white;
-          border-color: rgba(255, 255, 255, 0.45);
+        .lp :is(a, button):focus-visible {
+          outline: 2px solid #14532D;
+          outline-offset: 2px;
+          border-radius: 4px;
         }
 
-        .lp-btn-outline-white:hover {
-          background: rgba(255, 255, 255, 0.12);
-          transform: translateY(-2px);
+        .lp-cta-band :is(a):focus-visible,
+        .lp-footer :is(a):focus-visible {
+          outline-color: #fff;
         }
 
-        .lp-trust-row {
-          display: flex;
-          flex-wrap: wrap;
-          justify-content: center;
-          gap: 0.75rem;
+        /* Hero */
+        .lp-hero {
+          padding: 5.5rem 0 4.5rem;
         }
 
-        .lp-trust-pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.45rem;
-          padding: 0.55rem 0.9rem;
-          border-radius: 999px;
-          background: rgba(255, 255, 255, 0.10);
-          border: 1px solid rgba(255, 255, 255, 0.18);
-          font-size: 0.82rem;
-          font-weight: 650;
-          color: rgba(255, 255, 255, 0.9);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-        }
-
-        .lp-scroll-cue {
-          position: absolute;
-          bottom: 1.75rem;
-          left: 50%;
-          margin-left: -22px;
-          z-index: 3;
-          width: 44px;
-          height: 44px;
-          border-radius: 50%;
-          border: 1px solid rgba(255, 255, 255, 0.28);
-          background: rgba(255, 255, 255, 0.10);
-          color: white;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          animation: lpBounce 2s infinite;
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-        }
-
-        .lp-section {
-          padding: 6rem 0;
-        }
-
-        .lp-container {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 0 20px;
-        }
-
-        .lp-section-light {
-          background: #F9FAFB;
-        }
-
-        .lp-section-white {
-          background: white;
-        }
-
-        .lp-section-tint {
-          background: linear-gradient(180deg, #F0FDF4 0%, #FFFFFF 100%);
-        }
-
-        .lp-section-head {
-          text-align: center;
-          max-width: 760px;
-          margin: 0 auto 3.5rem;
-        }
-
-        .lp-kicker {
-          display: inline-block;
-          color: #2E7D32;
-          font-weight: 800;
-          font-size: 0.82rem;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          margin-bottom: 0.75rem;
-        }
-
-        .lp-section-head h2,
-        .lp-safety-title {
-          font-size: clamp(1.9rem, 4vw, 2.75rem);
-          line-height: 1.15;
-          margin: 0 0 1rem;
-          color: #111827;
-          letter-spacing: -0.03em;
-        }
-
-        .lp-section-head p,
-        .lp-safety-copy {
-          color: #4B5563;
-          font-size: 1.05rem;
-          line-height: 1.7;
-          margin: 0;
-        }
-
-        .lp-feature-grid {
+        .lp-hero-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-          gap: 1.5rem;
-        }
-
-        .lp-feature-card {
-          background: white;
-          border: 1px solid #E5E7EB;
-          border-radius: 22px;
-          padding: 2rem 1.75rem;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
-          transition: all 0.25s ease;
-          position: relative;
-          overflow: hidden;
-        }
-
-        .lp-feature-card::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 4px;
-          background: linear-gradient(90deg, #2E7D32, #66BB6A, #90CAF9);
-          opacity: 0;
-          transition: opacity 0.25s ease;
-        }
-
-        .lp-feature-card:hover {
-          transform: translateY(-6px);
-          box-shadow: 0 22px 45px rgba(0, 0, 0, 0.09);
-          border-color: #C8E6C9;
-        }
-
-        .lp-feature-card:hover::before {
-          opacity: 1;
-        }
-
-        .lp-feature-icon {
-          width: 54px;
-          height: 54px;
-          border-radius: 16px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin-bottom: 1.25rem;
-          background: #E8F5E9;
-          color: #2E7D32;
-        }
-
-        .lp-feature-card h3 {
-          margin: 0 0 0.65rem;
-          font-size: 1.2rem;
-          color: #111827;
-        }
-
-        .lp-feature-card p {
-          margin: 0;
-          color: #4B5563;
-          line-height: 1.65;
-          font-size: 0.98rem;
-        }
-
-        .lp-steps {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-          gap: 1.5rem;
-        }
-
-        .lp-step {
-          background: white;
-          border: 1px solid #E5E7EB;
-          border-radius: 20px;
-          padding: 2rem 1.75rem;
-          position: relative;
-          transition: all 0.25s ease;
-        }
-
-        .lp-step:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 18px 38px rgba(0, 0, 0, 0.07);
-          border-color: #C8E6C9;
-        }
-
-        .lp-step-number {
-          width: 42px;
-          height: 42px;
-          border-radius: 14px;
-          background: #2E7D32;
-          color: white;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: 900;
-          margin-bottom: 1rem;
-          box-shadow: 0 10px 20px rgba(46, 125, 50, 0.2);
-        }
-
-        .lp-step h3 {
-          margin: 0 0 0.65rem;
-          font-size: 1.15rem;
-          color: #111827;
-        }
-
-        .lp-step p {
-          margin: 0;
-          color: #4B5563;
-          line-height: 1.65;
-        }
-
-        .lp-audience-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-          gap: 1.25rem;
-        }
-
-        .lp-audience-card {
-          border-radius: 22px;
-          padding: 2rem 1.75rem;
-          border: 1px solid #E5E7EB;
-          background: white;
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-          transition: all 0.25s ease;
-        }
-
-        .lp-audience-card:hover {
-          transform: translateY(-5px);
-          box-shadow: 0 20px 42px rgba(0, 0, 0, 0.08);
-        }
-
-        .lp-audience-dark {
-          background: linear-gradient(135deg, #0A1C22, #153A2A);
-          color: white;
-          border-color: rgba(255, 255, 255, 0.12);
-        }
-
-        .lp-audience-dark h3,
-        .lp-audience-dark p,
-        .lp-audience-dark li {
-          color: white;
-        }
-
-        .lp-audience-dark p {
-          opacity: 0.86;
-        }
-
-        .lp-audience-icon {
-          width: 48px;
-          height: 48px;
-          border-radius: 14px;
-          background: #E8F5E9;
-          color: #2E7D32;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .lp-audience-dark .lp-audience-icon {
-          background: rgba(255, 255, 255, 0.12);
-          color: #A5D6A7;
-        }
-
-        .lp-audience-card h3 {
-          margin: 0;
-          font-size: 1.2rem;
-          color: #111827;
-        }
-
-        .lp-audience-card p {
-          margin: 0;
-          color: #4B5563;
-          line-height: 1.65;
-        }
-
-        .lp-audience-card ul {
-          list-style: none;
-          padding: 0;
-          margin: 0;
-          display: grid;
-          gap: 0.6rem;
-        }
-
-        .lp-audience-card li {
-          display: flex;
-          align-items: flex-start;
-          gap: 0.5rem;
-          color: #374151;
-          font-size: 0.92rem;
-          line-height: 1.5;
-        }
-
-        .lp-audience-card li svg {
-          flex-shrink: 0;
-          margin-top: 2px;
-          color: #2E7D32;
-        }
-
-        .lp-audience-dark li svg {
-          color: #A5D6A7;
-        }
-
-        .lp-audience-link {
-          margin-top: auto;
-          display: inline-flex;
-          align-items: center;
-          gap: 0.45rem;
-          color: #2E7D32;
-          font-weight: 800;
-          text-decoration: none;
-          transition: gap 0.2s ease, color 0.2s ease;
-        }
-
-        .lp-audience-dark .lp-audience-link {
-          color: #A5D6A7;
-        }
-
-        .lp-audience-link:hover {
-          gap: 0.7rem;
-        }
-
-        .lp-safety-panel {
-          display: grid;
-          grid-template-columns: 1.1fr 0.9fr;
-          gap: 2rem;
-          align-items: center;
-          background: white;
-          border: 1px solid #E5E7EB;
-          border-radius: 28px;
-          padding: 2.5rem;
-          box-shadow: 0 18px 45px rgba(0, 0, 0, 0.06);
-        }
-
-        .lp-safety-list {
-          display: grid;
-          gap: 1rem;
-          margin-top: 1.75rem;
-        }
-
-        .lp-safety-item {
-          display: flex;
-          gap: 0.85rem;
-          align-items: flex-start;
-          color: #374151;
-          font-weight: 650;
-          line-height: 1.5;
-        }
-
-        .lp-safety-check {
-          width: 34px;
-          height: 34px;
-          border-radius: 10px;
-          background: #E8F5E9;
-          color: #2E7D32;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .lp-safety-visual {
-          border-radius: 22px;
-          background: linear-gradient(135deg, #E8F5E9, #E0F2FE);
-          padding: 1.5rem;
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-          min-height: 320px;
-          justify-content: center;
-        }
-
-        .lp-safety-stat {
-          background: white;
-          border-radius: 18px;
-          padding: 1.15rem;
-          border: 1px solid #E5E7EB;
-          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.05);
-          display: flex;
-          gap: 0.85rem;
+          grid-template-columns: 1.25fr 0.75fr;
+          gap: 4rem;
           align-items: center;
         }
 
-        .lp-safety-stat-icon {
-          width: 42px;
-          height: 42px;
-          border-radius: 12px;
-          background: #F0FDF4;
-          color: #2E7D32;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
+        .lp-hero-copy {
+          animation: lpRise 0.6s ease both;
         }
 
-        .lp-safety-stat strong {
-          display: block;
-          color: #111827;
-          margin-bottom: 2px;
-        }
-
-        .lp-safety-stat p {
-          margin: 0;
-          color: #6B7280;
-          font-size: 0.88rem;
-          line-height: 1.45;
-        }
-
-        .lp-cta {
-          position: relative;
-          overflow: hidden;
-          padding: 5.5rem 0;
-          background: linear-gradient(135deg, #1B5E20, #2E7D32 55%, #1565C0);
-          color: white;
-          text-align: center;
-        }
-
-        .lp-cta-orb {
-          position: absolute;
-          border-radius: 50%;
-          filter: blur(18px);
-          pointer-events: none;
-        }
-
-        .lp-cta-orb-one {
-          width: 260px;
-          height: 260px;
-          top: -60px;
-          left: -60px;
-          background: radial-gradient(circle, rgba(255, 255, 255, 0.18), transparent 70%);
-        }
-
-        .lp-cta-orb-two {
-          width: 300px;
-          height: 300px;
-          bottom: -80px;
-          right: -80px;
-          background: radial-gradient(circle, rgba(165, 214, 167, 0.22), transparent 72%);
-        }
-
-        .lp-cta-content {
-          position: relative;
-          z-index: 2;
-          max-width: 760px;
-        }
-
-        .lp-cta h2 {
-          font-size: clamp(2rem, 4vw, 3rem);
-          margin: 0 0 1rem;
+        .lp-hero-copy h1 {
+          font-size: clamp(2.1rem, 4.6vw, 3.4rem);
           line-height: 1.12;
-          letter-spacing: -0.03em;
+          font-weight: 600;
+          margin: 0 0 1.25rem;
+          max-width: 15ch;
+          text-wrap: balance;
         }
 
-        .lp-cta p {
-          font-size: 1.08rem;
+        .lp-lede {
+          font-size: 1.1rem;
           line-height: 1.7;
-          opacity: 0.92;
+          color: #3E4C42;
+          max-width: 52ch;
           margin: 0 0 2rem;
         }
 
+        .lp-hero-actions {
+          display: flex;
+          gap: 0.85rem;
+          flex-wrap: wrap;
+        }
+
+        .lp-trust {
+          list-style: none;
+          display: flex;
+          gap: 1.75rem;
+          flex-wrap: wrap;
+          padding: 1.1rem 0 0;
+          margin: 2.25rem 0 0;
+          border-top: 1px solid #E2E0D8;
+          color: #5B7A66;
+          font-size: 0.88rem;
+          font-weight: 500;
+        }
+
+        .lp-trust li {
+          position: relative;
+          padding-left: 0.9rem;
+        }
+
+        .lp-trust li::before {
+          content: "";
+          position: absolute;
+          left: 0;
+          top: 0.55em;
+          width: 5px;
+          height: 5px;
+          border-radius: 50%;
+          background: #14532D;
+        }
+
+        /* Session slip */
+        .lp-slip {
+          background: #fff;
+          border: 1px solid #E2E0D8;
+          border-radius: 14px;
+          padding: 1.75rem 1.75rem 1.5rem;
+          box-shadow: 0 12px 32px rgba(26, 46, 34, 0.08);
+          animation: lpRise 0.6s ease 0.12s both;
+        }
+
+        .lp-slip-label {
+          margin: 0 0 1rem;
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: #5B7A66;
+        }
+
+        .lp-slip-name {
+          margin: 0;
+          font-size: 1.45rem;
+          font-weight: 600;
+          color: #1A2E22;
+        }
+
+        .lp-slip-meta {
+          margin: 0.2rem 0 1.25rem;
+          color: #5B7A66;
+          font-size: 0.92rem;
+        }
+
+        .lp-slip-rows {
+          margin: 0;
+          border-top: 1px solid #E9E7E0;
+        }
+
+        .lp-slip-rows > div {
+          display: flex;
+          justify-content: space-between;
+          gap: 1rem;
+          padding: 0.6rem 0;
+          border-bottom: 1px solid #E9E7E0;
+        }
+
+        .lp-slip-rows dt {
+          color: #5B7A66;
+          font-size: 0.9rem;
+        }
+
+        .lp-slip-rows dd {
+          margin: 0;
+          font-weight: 600;
+          font-size: 0.9rem;
+          color: #1A2E22;
+          font-variant-numeric: tabular-nums;
+        }
+
+        .lp-slip-status {
+          margin: 1.1rem 0 0;
+          font-size: 0.85rem;
+          color: #14532D;
+          font-weight: 600;
+        }
+
+        /* Sections */
+        .lp-section {
+          padding: 5rem 0;
+        }
+
+        .lp-section-tint {
+          background: #EFEDE6;
+        }
+
+        .lp-title {
+          font-size: clamp(1.7rem, 3.4vw, 2.4rem);
+          font-weight: 600;
+          line-height: 1.15;
+          margin: 0 0 2.5rem;
+          max-width: 24ch;
+          text-wrap: balance;
+        }
+
+        /* Features */
+        .lp-feature-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 0 2.5rem;
+        }
+
+        .lp-feature {
+          border-top: 1px solid #D8D5CB;
+          padding: 1.5rem 0 0;
+          margin-bottom: 2rem;
+        }
+
+        .lp-feature h3 {
+          margin: 0 0 0.6rem;
+          font-size: 1.15rem;
+          font-weight: 600;
+        }
+
+        .lp-feature p {
+          margin: 0;
+          color: #3E4C42;
+          font-size: 0.96rem;
+        }
+
+        /* Steps */
+        .lp-steps {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 2.5rem;
+        }
+
+        .lp-steps li {
+          position: relative;
+        }
+
+        .lp-step-num {
+          display: block;
+          font-size: 2.6rem;
+          font-weight: 600;
+          color: #14532D;
+          line-height: 1;
+          margin-bottom: 0.9rem;
+          font-variant-numeric: tabular-nums;
+        }
+
+        .lp-steps h3 {
+          margin: 0 0 0.5rem;
+          font-size: 1.15rem;
+          font-weight: 600;
+        }
+
+        .lp-steps p {
+          margin: 0;
+          color: #3E4C42;
+          font-size: 0.96rem;
+        }
+
+        /* Audiences */
+        .lp-audience-list {
+          border-top: 1px solid #D8D5CB;
+        }
+
+        .lp-audience {
+          display: grid;
+          grid-template-columns: 220px 1fr;
+          gap: 2rem;
+          padding: 2rem 0;
+          border-bottom: 1px solid #D8D5CB;
+        }
+
+        .lp-audience h3 {
+          margin: 0;
+          font-size: 1.5rem;
+          font-weight: 600;
+          color: #14532D;
+        }
+
+        .lp-audience-body p {
+          margin: 0 0 1rem;
+          color: #3E4C42;
+          max-width: 58ch;
+        }
+
+        .lp-audience-body ul {
+          list-style: none;
+          margin: 0 0 1.25rem;
+          padding: 0;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.5rem 1.5rem;
+          color: #5B7A66;
+          font-size: 0.9rem;
+          font-weight: 500;
+        }
+
+        .lp-audience-cta {
+          color: #14532D;
+          font-weight: 600;
+          text-decoration: underline;
+          text-underline-offset: 4px;
+          text-decoration-color: #C9CDBF;
+          transition: text-decoration-color 0.15s ease;
+        }
+
+        .lp-audience-cta:hover {
+          text-decoration-color: #14532D;
+        }
+
+        /* Safety */
+        .lp-safety-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 4rem;
+          align-items: start;
+        }
+
+        .lp-safety-copy {
+          color: #3E4C42;
+          font-size: 1.02rem;
+          line-height: 1.7;
+          max-width: 52ch;
+          margin: 0;
+        }
+
+        .lp-safety-list {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          border-top: 1px solid #D8D5CB;
+        }
+
+        .lp-safety-list li {
+          padding: 0.95rem 0;
+          border-bottom: 1px solid #D8D5CB;
+          font-weight: 500;
+          color: #1A2E22;
+        }
+
+        /* CTA band */
+        .lp-cta-band {
+          background: #14532D;
+          color: #fff;
+          padding: 4.5rem 0;
+        }
+
+        .lp-cta-band h2 {
+          font-family: "Fraunces", Georgia, serif;
+          font-size: clamp(1.8rem, 3.6vw, 2.6rem);
+          font-weight: 600;
+          margin: 0 0 1.75rem;
+          text-wrap: balance;
+        }
+
+        .lp-cta-link {
+          color: #fff;
+          font-weight: 600;
+          text-decoration: underline;
+          text-underline-offset: 4px;
+          text-decoration-color: rgba(255, 255, 255, 0.4);
+          align-self: center;
+          transition: text-decoration-color 0.15s ease;
+        }
+
+        .lp-cta-link:hover {
+          text-decoration-color: #fff;
+        }
+
+        /* Footer */
         .lp-footer {
-          background: #0A1C22;
-          color: rgba(255, 255, 255, 0.72);
-          padding: 3rem 0 2rem;
+          background: #0F2418;
+          color: rgba(255, 255, 255, 0.78);
+          padding: 3.5rem 0 2rem;
         }
 
         .lp-footer-inner {
           display: flex;
           justify-content: space-between;
-          gap: 2rem;
+          gap: 2.5rem;
           flex-wrap: wrap;
         }
 
-        .lp-footer-brand {
-          max-width: 420px;
+        .lp-brand-footer {
+          color: #fff;
+          font-size: 1.3rem;
         }
 
         .lp-footer-brand p {
-          margin: 1rem 0 0;
-          line-height: 1.7;
+          margin: 0.9rem 0 0;
+          max-width: 40ch;
           font-size: 0.92rem;
+          line-height: 1.7;
         }
 
         .lp-footer-links {
           display: flex;
-          gap: 1.25rem;
-          flex-wrap: wrap;
-          align-items: flex-start;
+          flex-direction: column;
+          gap: 0.6rem;
         }
 
         .lp-footer-links a {
-          color: rgba(255, 255, 255, 0.72);
+          color: rgba(255, 255, 255, 0.78);
           text-decoration: none;
-          font-weight: 650;
           font-size: 0.92rem;
-          transition: color 0.2s ease;
+          transition: color 0.15s ease;
         }
 
         .lp-footer-links a:hover {
-          color: white;
+          color: #fff;
+          text-decoration: underline;
+          text-underline-offset: 4px;
         }
 
         .lp-footer-bottom {
-          margin-top: 2rem;
+          margin-top: 2.5rem;
           padding-top: 1.25rem;
-          border-top: 1px solid rgba(255, 255, 255, 0.10);
+          border-top: 1px solid rgba(255, 255, 255, 0.14);
           display: flex;
           justify-content: space-between;
           gap: 1rem;
           flex-wrap: wrap;
           font-size: 0.82rem;
+          color: rgba(255, 255, 255, 0.6);
         }
 
-        .lp-reveal {
-          opacity: 0;
-          transform: translateY(18px);
-          transition: opacity 0.65s ease, transform 0.65s ease;
-        }
-
-        .lp-visible {
-          opacity: 1;
-          transform: translateY(0);
-        }
-
-        @keyframes lpHeroZoom {
+        @keyframes lpRise {
           from {
-            transform: scale(1.03);
+            opacity: 0;
+            transform: translateY(14px);
           }
           to {
-            transform: scale(1.08);
-          }
-        }
-
-        @keyframes lpFloat {
-          0%, 100% {
-            transform: translateY(0px);
-          }
-          50% {
-            transform: translateY(-12px);
-          }
-        }
-
-        @keyframes lpBounce {
-          0%, 100% {
+            opacity: 1;
             transform: translateY(0);
           }
-          50% {
-            transform: translateY(8px);
-          }
         }
 
-        @media (max-width: 900px) {
-          .lp-safety-panel {
+        @media (max-width: 920px) {
+          .lp-hero-grid {
             grid-template-columns: 1fr;
-          }
-        }
-
-        @media (max-width: 860px) {
-          .lp-hide-mobile {
-            display: none;
+            gap: 3rem;
           }
 
-          .lp-nav-links {
-            gap: 0.7rem;
+          .lp-feature-grid,
+          .lp-steps {
+            grid-template-columns: repeat(2, 1fr);
           }
 
-          .lp-nav-login {
-            padding: 0.5rem 0.75rem;
-            font-size: 0.85rem;
+          .lp-audience {
+            grid-template-columns: 1fr;
+            gap: 0.75rem;
           }
 
-          .lp-nav-cta {
-            padding: 0.58rem 0.9rem;
-            font-size: 0.85rem;
+          .lp-safety-grid {
+            grid-template-columns: 1fr;
+            gap: 2rem;
           }
         }
 
         @media (max-width: 640px) {
+          .lp-hide-mobile {
+            display: none;
+          }
+
+          .lp-header-nav {
+            gap: 0.9rem;
+          }
+
           .lp-hero {
-            padding: 6.5rem 16px 4rem;
+            padding: 3.5rem 0 3rem;
           }
 
           .lp-section {
-            padding: 4.5rem 0;
+            padding: 3.5rem 0;
           }
 
-          .lp-safety-panel {
-            padding: 1.75rem;
+          .lp-feature-grid,
+          .lp-steps {
+            grid-template-columns: 1fr;
           }
 
           .lp-footer-bottom {
             flex-direction: column;
-            align-items: flex-start;
           }
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .lp-reveal {
-            opacity: 1;
-            transform: none;
-            transition: none;
-          }
-
-          .lp-hero-bg,
-          .lp-hero-orb,
-          .lp-scroll-cue {
-            animation: none !important;
-          }
-
-          * {
-            scroll-behavior: auto !important;
+          .lp-hero-copy,
+          .lp-slip {
+            animation: none;
           }
         }
       `}</style>
-    </>
+    </div>
   );
 };
 

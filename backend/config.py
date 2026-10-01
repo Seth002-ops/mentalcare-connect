@@ -1,7 +1,9 @@
-import os
 import base64
+import os
 import secrets
+
 from cryptography.fernet import Fernet
+
 
 class Settings:
     SECRET_KEY = os.getenv("SECRET_KEY")
@@ -37,7 +39,7 @@ class Settings:
     # Flip any flag to True/False to enable/disable a feature
     # ==========================================
     FEATURE_FLAGS = {
-        "payments_enabled": False,       # Flip to True when investors say go
+        "payments_enabled": True,        # Simulated M-Pesa checkout (no live Daraja yet)
         "ai_mood_insights": True,        # AI weekly mood analysis for clients
         "smart_booking": True,           # One-click therapist booking
         "sponsored_sessions": True,      # Platform-funded free sessions
