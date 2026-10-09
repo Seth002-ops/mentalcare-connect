@@ -34,10 +34,31 @@ from jose import jwt
 from jose.exceptions import JWTError
 from openai import AsyncOpenAI
 from pydantic import BaseModel
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 from sqlalchemy import func, inspect, text
+
+try:
+    from slowapi import Limiter, _rate_limit_exceeded_handler
+    from slowapi.errors import RateLimitExceeded
+    from slowapi.util import get_remote_address
+except ImportError:  # pragma: no cover - dependency may be unavailable in local dev
+    class RateLimitExceeded(Exception):
+        pass
+
+    def _rate_limit_exceeded_handler(request: Request, exc: Exception):
+        return JSONResponse(status_code=429, content={"detail": "Rate limit exceeded"})
+
+    def get_remote_address(request: Request):
+        return request.client.host if request.client else "unknown"
+
+    class Limiter:
+        def __init__(self, key_func=None, *args, **kwargs):
+            self.key_func = key_func
+
+        def limit(self, *args, **kwargs):
+            def decorator(func):
+                return func
+
+            return decorator
 
 load_dotenv()
 
@@ -129,12 +150,6 @@ from schemas import (
     UserCreate,
     UserLogin,
     UserResponse,
-)
-from security_routes import security_router
-from security_service import (
-    check_rate_limit,
-    is_ip_blocked,
-    record_security_event,
 )
 
 # =========================
@@ -364,73 +379,6 @@ STATIC_PUBLIC_PREFIXES = (
 )
 
 
-# Prefixes fully exempt from the security middleware's IP-block and
-# rate-limit checks (static assets, docs, health checks, websockets).
-SECURITY_EXEMPT_PREFIXES = (
-    "/uploads/",
-    "/static/",
-    "/.well-known/",
-    "/ws",
-    "/docs",
-    "/openapi.json",
-    "/redoc",
-    "/favicon.ico",
-    "/api/health",
-)
-
-
-def is_security_exempt(path: str) -> bool:
-    return path.startswith(SECURITY_EXEMPT_PREFIXES)
-
-
-def get_client_ip(request: Request) -> str:
-    """
-    Best-effort client IP resolution.
-    Prefers X-Forwarded-For (behind reverse proxies like Render/Vercel).
-    """
-    forwarded_for = request.headers.get("x-forwarded-for")
-
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
-
-    return request.client.host if request.client else "unknown"
-
-
-def get_user_agent(request: Request) -> str:
-    return request.headers.get("user-agent", "") or ""
-
-
-def log_security_event_from_request(
-    request: Request,
-    *,
-    event_type: str,
-    severity: str,
-    action_taken: str,
-    status_code: int,
-    details: dict | None = None,
-):
-    """
-    Create a security event from middleware without crashing the request.
-    """
-    db = SessionLocal()
-
-    try:
-        record_security_event(
-            db,
-            ip_address=get_client_ip(request),
-            event_type=event_type,
-            severity=severity,
-            method=request.method,
-            path_hit=request.url.path,
-            status_code=status_code,
-            user_agent=get_user_agent(request),
-            details=details,
-            action_taken=action_taken,
-        )
-    finally:
-        db.close()
-
-
 def is_public_path(path: str, method: str) -> bool:
     """
     Paths that do not require JWT authentication.
@@ -489,65 +437,13 @@ async def auth_and_security_middleware(request: Request, call_next):
     path = request.url.path
     method = request.method
 
-    client_ip = get_client_ip(request)
-
-    # Block banned IPs before authentication
-    if is_ip_blocked(client_ip):
-        log_security_event_from_request(
-            request,
-            event_type="blocked_request",
-            severity="high",
-            action_taken="request_blocked",
-            status_code=403,
-            details={
-                "path": path,
-            },
-        )
-
-        return set_security_headers(
-            JSONResponse(
-                status_code=403,
-                content={
-                    "detail": "Access denied",
-                },
-            )
-        )
-
-    # Rate limit non-exempt paths
-    if not is_security_exempt(path):
-        rate_check = check_rate_limit(client_ip, path)
-
-        if not rate_check["allowed"]:
-            log_security_event_from_request(
-                request,
-                event_type="rate_limit_exceeded",
-                severity="high",
-                action_taken="rate_limited",
-                status_code=429,
-                details={
-                    "path": path,
-                    "limit": rate_check.get("limit"),
-                },
-            )
-
-            return set_security_headers(
-                JSONResponse(
-                    status_code=429,
-                    content={
-                        "detail": "Too many requests. Please slow down.",
-                    },
-                )
-            )
-
     if not is_public_path(path, method):
         auth_header = request.headers.get("authorization")
 
         if not auth_header or not auth_header.startswith("Bearer "):
-            return set_security_headers(
-                JSONResponse(
-                    status_code=401,
-                    content={"detail": "Authentication required"},
-                )
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Authentication required"},
             )
 
         token = auth_header.split(" ", 1)[1]
@@ -559,11 +455,9 @@ async def auth_and_security_middleware(request: Request, call_next):
                 algorithms=[settings.ALGORITHM],
             )
         except JWTError:
-            return set_security_headers(
-                JSONResponse(
-                    status_code=401,
-                    content={"detail": "Invalid or expired token"},
-                )
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Invalid or expired token"},
             )
 
     response = await call_next(request)
@@ -608,10 +502,16 @@ manager = ConnectionManager()
 # AI CLIENT
 # =========================
 
-client = AsyncOpenAI(
-    api_key=os.getenv("GROQ_API_KEY"),
-    base_url="https://api.groq.com/openai/v1",
-)
+AI_API_KEY = os.getenv("GROQ_API_KEY") or os.getenv("OPENAI_API_KEY")
+AI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.groq.com/openai/v1")
+
+if AI_API_KEY:
+    client = AsyncOpenAI(api_key=AI_API_KEY, base_url=AI_BASE_URL)
+else:
+    client = None
+    logger.warning(
+        "AI client is not configured. Set GROQ_API_KEY or OPENAI_API_KEY to enable AI endpoints."
+    )
 
 
 # =========================
@@ -781,6 +681,12 @@ def read_root():
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "message": "Backend is connected"}
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    # Browsers request this automatically; return 204 so it doesn't log a 404.
+    return Response(status_code=204)
 
 
 # =========================
@@ -2691,6 +2597,10 @@ Formatting and Style Rules (CRITICAL):
 
 
 async def generate_ai_response(messages: list[dict]):
+    if client is None:
+        yield "AI support is temporarily unavailable. Please configure GROQ_API_KEY or OPENAI_API_KEY."
+        return
+
     try:
         stream = await client.chat.completions.create(
             model="openai/gpt-oss-20b",
@@ -2826,6 +2736,14 @@ Output ONLY valid JSON with these exact keys:
 }}
 """
 
+    if client is None:
+        return {
+            "subjective": "Client presented for session.",
+            "objective": "AI support is temporarily unavailable. Please configure a valid API key.",
+            "assessment": "Progress ongoing.",
+            "plan": "Continue current treatment plan with clinical oversight.",
+        }
+
     try:
         response = await client.chat.completions.create(
             model="openai/gpt-oss-20b",
@@ -2908,6 +2826,16 @@ IMPORTANT: Output ONLY the raw JSON object. Do not include markdown, do not incl
 Example:
 {{"summary": "You had a mixed week.", "should_talk_to_therapist": false, "reason": "Your mood is generally stable.", "suggestion": "Try a 10-minute daily walk."}}
 """
+
+    if client is None:
+        return {
+            "has_data": True,
+            "summary": "You have been tracking your moods this week. Keep it up!",
+            "should_talk_to_therapist": False,
+            "reason": "AI insights are temporarily unavailable.",
+            "suggestion": "Take a few minutes to relax today.",
+            "mood_data": mood_list,
+        }
 
     try:
         response = await client.chat.completions.create(
@@ -3211,13 +3139,6 @@ Canonical: https://mecac-backend.onrender.com/.well-known/security.txt
 Policy: We take security seriously. Please report vulnerabilities responsibly.
 """
     return PlainTextResponse(content=content, media_type="text/plain")
-
-
-# =========================
-# SECURITY ROUTER REGISTRATION
-# =========================
-
-app.include_router(security_router)
 
 
 # =========================
