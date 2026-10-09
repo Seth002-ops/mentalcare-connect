@@ -1,11 +1,12 @@
 from datetime import datetime
-from typing import Optional
-from sqlalchemy.orm import Session
-from sqlalchemy import func
-from models import User, Message, SessionBooking, MoodEntry, Review, Notification, AiChatHistory
-from passlib.context import CryptContext
+
 from cryptography.fernet import Fernet
+from passlib.context import CryptContext
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
 from config import settings
+from models import AiChatHistory, Message, MoodEntry, Notification, Review, SessionBooking, User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 cipher_suite = Fernet(settings.ENCRYPTION_KEY)
@@ -189,7 +190,7 @@ def mark_all_notifications_read(db: Session, user_id: int):
 
 
 # ============ ADMIN CRUD ============
-def get_all_users(db: Session, user_type: Optional[str] = None, search: Optional[str] = None):
+def get_all_users(db: Session, user_type: str | None = None, search: str | None = None):
     query = db.query(User)
     if user_type:
         query = query.filter(User.user_type == user_type)
@@ -274,6 +275,7 @@ def get_ai_chat_history(db: Session, user_id: int, limit: int = 10):
 
 from models import Wallet, Withdrawal
 
+
 # ============ WALLET CRUD ============
 def get_or_create_wallet(db: Session, user_id: int):
     wallet = db.query(Wallet).filter(Wallet.user_id == user_id).first()
@@ -324,7 +326,7 @@ def get_user_withdrawals(db: Session, user_id: int):
     ).order_by(Withdrawal.created_at.desc()).all()
 
 
-def get_all_withdrawals(db: Session, status: Optional[str] = None):
+def get_all_withdrawals(db: Session, status: str | None = None):
     query = db.query(Withdrawal)
     if status:
         query = query.filter(Withdrawal.status == status)
@@ -335,7 +337,7 @@ def get_withdrawal_by_id(db: Session, withdrawal_id: int):
     return db.query(Withdrawal).filter(Withdrawal.id == withdrawal_id).first()
 
 
-def update_withdrawal_status(db: Session, withdrawal_id: int, status: str, admin_note: Optional[str] = None):
+def update_withdrawal_status(db: Session, withdrawal_id: int, status: str, admin_note: str | None = None):
     withdrawal = db.query(Withdrawal).filter(Withdrawal.id == withdrawal_id).first()
     if withdrawal:
         withdrawal.status = status

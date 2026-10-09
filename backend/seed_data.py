@@ -10,7 +10,7 @@ try:
 except ImportError:
     from main import engine
 
-from models import Base, University, User, RageRoom, RageRoomPackage
+from models import RageRoom, RageRoomPackage, University, User
 
 
 # Reuse your app's password hasher, whichever style you use

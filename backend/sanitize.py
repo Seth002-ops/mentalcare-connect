@@ -1,5 +1,6 @@
 import bleach
 
+
 def sanitize_text(text: str) -> str:
     """Strip dangerous HTML/scripts from user input."""
     if not text:

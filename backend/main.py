@@ -130,6 +130,12 @@ from schemas import (
     UserLogin,
     UserResponse,
 )
+from security_routes import security_router
+from security_service import (
+    check_rate_limit,
+    is_ip_blocked,
+    record_security_event,
+)
 
 # =========================
 # BASIC CONFIG
@@ -358,6 +364,73 @@ STATIC_PUBLIC_PREFIXES = (
 )
 
 
+# Prefixes fully exempt from the security middleware's IP-block and
+# rate-limit checks (static assets, docs, health checks, websockets).
+SECURITY_EXEMPT_PREFIXES = (
+    "/uploads/",
+    "/static/",
+    "/.well-known/",
+    "/ws",
+    "/docs",
+    "/openapi.json",
+    "/redoc",
+    "/favicon.ico",
+    "/api/health",
+)
+
+
+def is_security_exempt(path: str) -> bool:
+    return path.startswith(SECURITY_EXEMPT_PREFIXES)
+
+
+def get_client_ip(request: Request) -> str:
+    """
+    Best-effort client IP resolution.
+    Prefers X-Forwarded-For (behind reverse proxies like Render/Vercel).
+    """
+    forwarded_for = request.headers.get("x-forwarded-for")
+
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+
+    return request.client.host if request.client else "unknown"
+
+
+def get_user_agent(request: Request) -> str:
+    return request.headers.get("user-agent", "") or ""
+
+
+def log_security_event_from_request(
+    request: Request,
+    *,
+    event_type: str,
+    severity: str,
+    action_taken: str,
+    status_code: int,
+    details: dict | None = None,
+):
+    """
+    Create a security event from middleware without crashing the request.
+    """
+    db = SessionLocal()
+
+    try:
+        record_security_event(
+            db,
+            ip_address=get_client_ip(request),
+            event_type=event_type,
+            severity=severity,
+            method=request.method,
+            path_hit=request.url.path,
+            status_code=status_code,
+            user_agent=get_user_agent(request),
+            details=details,
+            action_taken=action_taken,
+        )
+    finally:
+        db.close()
+
+
 def is_public_path(path: str, method: str) -> bool:
     """
     Paths that do not require JWT authentication.
@@ -416,13 +489,65 @@ async def auth_and_security_middleware(request: Request, call_next):
     path = request.url.path
     method = request.method
 
+    client_ip = get_client_ip(request)
+
+    # Block banned IPs before authentication
+    if is_ip_blocked(client_ip):
+        log_security_event_from_request(
+            request,
+            event_type="blocked_request",
+            severity="high",
+            action_taken="request_blocked",
+            status_code=403,
+            details={
+                "path": path,
+            },
+        )
+
+        return set_security_headers(
+            JSONResponse(
+                status_code=403,
+                content={
+                    "detail": "Access denied",
+                },
+            )
+        )
+
+    # Rate limit non-exempt paths
+    if not is_security_exempt(path):
+        rate_check = check_rate_limit(client_ip, path)
+
+        if not rate_check["allowed"]:
+            log_security_event_from_request(
+                request,
+                event_type="rate_limit_exceeded",
+                severity="high",
+                action_taken="rate_limited",
+                status_code=429,
+                details={
+                    "path": path,
+                    "limit": rate_check.get("limit"),
+                },
+            )
+
+            return set_security_headers(
+                JSONResponse(
+                    status_code=429,
+                    content={
+                        "detail": "Too many requests. Please slow down.",
+                    },
+                )
+            )
+
     if not is_public_path(path, method):
         auth_header = request.headers.get("authorization")
 
         if not auth_header or not auth_header.startswith("Bearer "):
-            return JSONResponse(
-                status_code=401,
-                content={"detail": "Authentication required"},
+            return set_security_headers(
+                JSONResponse(
+                    status_code=401,
+                    content={"detail": "Authentication required"},
+                )
             )
 
         token = auth_header.split(" ", 1)[1]
@@ -434,9 +559,11 @@ async def auth_and_security_middleware(request: Request, call_next):
                 algorithms=[settings.ALGORITHM],
             )
         except JWTError:
-            return JSONResponse(
-                status_code=401,
-                content={"detail": "Invalid or expired token"},
+            return set_security_headers(
+                JSONResponse(
+                    status_code=401,
+                    content={"detail": "Invalid or expired token"},
+                )
             )
 
     response = await call_next(request)
@@ -3084,6 +3211,13 @@ Canonical: https://mecac-backend.onrender.com/.well-known/security.txt
 Policy: We take security seriously. Please report vulnerabilities responsibly.
 """
     return PlainTextResponse(content=content, media_type="text/plain")
+
+
+# =========================
+# SECURITY ROUTER REGISTRATION
+# =========================
+
+app.include_router(security_router)
 
 
 # =========================

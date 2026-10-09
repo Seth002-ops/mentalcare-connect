@@ -1,6 +1,6 @@
 # inspect_db.py
 from database import SessionLocal
-from models import University, User, RageRoom, RageRoomPackage
+from models import RageRoom, RageRoomPackage, University, User
 
 db = SessionLocal()
 

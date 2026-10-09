@@ -1,6 +1,7 @@
+from datetime import datetime, timedelta
+
 from database import SessionLocal
 from models import University
-from datetime import datetime, timedelta
 
 db = SessionLocal()
 

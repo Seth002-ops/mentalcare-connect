@@ -1,6 +1,8 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Text, ForeignKey
-from sqlalchemy.sql import func
 from datetime import datetime
+
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy.sql import func
+
 from database import Base
 
 
@@ -294,3 +296,19 @@ class AiChatMessage(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+# ============ SECURITY EVENTS ============
+class SecurityEvent(Base):
+    __tablename__ = "security_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_type = Column(String, index=True, nullable=False)
+    severity = Column(String, index=True, nullable=False, default="low")
+    method = Column(String, nullable=True)
+    path_hit = Column(String, nullable=True)
+    status_code = Column(Integer, nullable=True)
+    ip_address = Column(String, index=True, nullable=True)
+    user_agent = Column(String, nullable=True)
+    user_id = Column(Integer, nullable=True)
+    details = Column(Text, nullable=True)
+    action_taken = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)

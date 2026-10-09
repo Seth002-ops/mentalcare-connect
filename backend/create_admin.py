@@ -1,9 +1,11 @@
 from dotenv import load_dotenv
+
 load_dotenv()
+
+from passlib.context import CryptContext
 
 from database import SessionLocal
 from models import User
-from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

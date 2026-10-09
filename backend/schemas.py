@@ -1,14 +1,13 @@
-from typing import List, Optional
 from datetime import datetime
-from pydantic import BaseModel, EmailStr
 
+from pydantic import BaseModel, EmailStr
 
 # ============ AUTH & USER SCHEMAS ============
 
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
-    name: Optional[str] = None
+    name: str | None = None
     user_type: str = "client" 
 
 
@@ -20,28 +19,28 @@ class UserLogin(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
-    user_type: Optional[str] = None
+    user_type: str | None = None
 
 
 class UserResponse(BaseModel):
     id: int
     email: EmailStr
-    name: Optional[str] = None
+    name: str | None = None
     user_type: str
     is_active: bool = True
     terms_accepted: bool = False
-    created_at: Optional[datetime] = None
-    verification_status: Optional[str] = None
-    specializations: Optional[str] = None
-    bio: Optional[str] = None
-    experience_years: Optional[int] = None
-    hourly_rate: Optional[float] = None
-    license_number: Optional[str] = None
-    profile_photo_url: Optional[str] = None
-    languages: Optional[str] = None
-    rating: Optional[float] = None
-    university_id: Optional[int] = None
-    is_verified_student: Optional[bool] = None
+    created_at: datetime | None = None
+    verification_status: str | None = None
+    specializations: str | None = None
+    bio: str | None = None
+    experience_years: int | None = None
+    hourly_rate: float | None = None
+    license_number: str | None = None
+    profile_photo_url: str | None = None
+    languages: str | None = None
+    rating: float | None = None
+    university_id: int | None = None
+    is_verified_student: bool | None = None
 
     class Config:
         from_attributes = True
@@ -50,14 +49,14 @@ class UserResponse(BaseModel):
 class AdminUserResponse(BaseModel):
     id: int
     email: EmailStr
-    name: Optional[str] = None
+    name: str | None = None
     user_type: str
     is_active: bool = True
     terms_accepted: bool = False
-    created_at: Optional[datetime] = None
-    verification_status: Optional[str] = None
-    university_id: Optional[int] = None
-    is_verified_student: Optional[bool] = None
+    created_at: datetime | None = None
+    verification_status: str | None = None
+    university_id: int | None = None
+    is_verified_student: bool | None = None
 
     class Config:
         from_attributes = True
@@ -74,37 +73,37 @@ class AdminStatsResponse(BaseModel):
 class StudentSignupRequest(BaseModel):
     email: EmailStr
     password: str
-    name: Optional[str] = None
+    name: str | None = None
     university_id: int
 
 
 # ============ THERAPIST SCHEMAS ============
 
 class TherapistProfileUpdate(BaseModel):
-    name: Optional[str] = None
-    specializations: Optional[str] = None
-    bio: Optional[str] = None
-    experience_years: Optional[int] = None
-    hourly_rate: Optional[float] = None
-    license_number: Optional[str] = None
-    languages: Optional[str] = None
+    name: str | None = None
+    specializations: str | None = None
+    bio: str | None = None
+    experience_years: int | None = None
+    hourly_rate: float | None = None
+    license_number: str | None = None
+    languages: str | None = None
 
 
 class TherapistVerificationResponse(BaseModel):
     id: int
     email: EmailStr
-    name: Optional[str] = None
+    name: str | None = None
     user_type: str
-    verification_status: Optional[str] = None
-    specializations: Optional[str] = None
-    bio: Optional[str] = None
-    experience_years: Optional[int] = None
-    hourly_rate: Optional[float] = None
-    license_number: Optional[str] = None
-    license_document_path: Optional[str] = None
-    languages: Optional[str] = None
-    profile_photo_url: Optional[str] = None
-    created_at: Optional[datetime] = None
+    verification_status: str | None = None
+    specializations: str | None = None
+    bio: str | None = None
+    experience_years: int | None = None
+    hourly_rate: float | None = None
+    license_number: str | None = None
+    license_document_path: str | None = None
+    languages: str | None = None
+    profile_photo_url: str | None = None
+    created_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -123,7 +122,7 @@ class MessageResponse(BaseModel):
     room_id: int
     content: str
     sender_type: str
-    timestamp: Optional[datetime] = None
+    timestamp: datetime | None = None
     encrypted: bool = False
 
     class Config:
@@ -146,18 +145,18 @@ class PaymentRequest(BaseModel):
 
 class PaymentResponse(BaseModel):
     success: bool
-    message: Optional[str] = None
-    transaction_id: Optional[str] = None
-    phone: Optional[str] = None
-    amount: Optional[float] = None
+    message: str | None = None
+    transaction_id: str | None = None
+    phone: str | None = None
+    amount: float | None = None
 
 
 # ============ MOOD SCHEMAS ============
 
 class MoodEntryCreate(BaseModel):
     mood_score: str
-    note: Optional[str] = ""
-    entry_date: Optional[str] = None
+    note: str | None = ""
+    entry_date: str | None = None
 
     class Config:
         from_attributes = True
@@ -166,8 +165,8 @@ class MoodEntryResponse(BaseModel):
     id: int
     client_id: int
     mood_score: str
-    note: Optional[str] = None
-    entry_date: Optional[datetime] = None
+    note: str | None = None
+    entry_date: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -179,17 +178,17 @@ class ReviewCreate(BaseModel):
     booking_id: int
     therapist_id: int
     rating: int
-    comment: Optional[str] = None
+    comment: str | None = None
 
 
 class ReviewResponse(BaseModel):
     id: int
     booking_id: int
-    client_id: Optional[int] = None
+    client_id: int | None = None
     therapist_id: int
     rating: int
-    comment: Optional[str] = None
-    created_at: Optional[datetime] = None
+    comment: str | None = None
+    created_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -201,9 +200,9 @@ class NotificationResponse(BaseModel):
     id: int
     user_id: int
     message: str
-    type: Optional[str] = None
+    type: str | None = None
     is_read: bool = False
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -213,10 +212,10 @@ class NotificationResponse(BaseModel):
 
 class AiChatHistoryResponse(BaseModel):
     id: int
-    user_id: Optional[int] = None
+    user_id: int | None = None
     role: str
     content: str
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -226,22 +225,22 @@ class AiChatHistoryResponse(BaseModel):
 
 class RageRoomCreate(BaseModel):
     name: str
-    location: Optional[str] = None
-    description: Optional[str] = None
-    available_days: Optional[str] = None
-    available_hours: Optional[str] = None
+    location: str | None = None
+    description: str | None = None
+    available_days: str | None = None
+    available_hours: str | None = None
     is_active: bool = True
 
 
 class RageRoomPackageResponse(BaseModel):
     id: int
-    rage_room_id: Optional[int] = None
+    rage_room_id: int | None = None
     name: str
-    tier: Optional[str] = None
+    tier: str | None = None
     price: float
-    duration_minutes: Optional[int] = None
-    description: Optional[str] = None
-    student_price: Optional[float] = None
+    duration_minutes: int | None = None
+    description: str | None = None
+    student_price: float | None = None
 
     class Config:
         from_attributes = True
@@ -250,13 +249,13 @@ class RageRoomPackageResponse(BaseModel):
 class RageRoomResponse(BaseModel):
     id: int
     name: str
-    location: Optional[str] = None
-    description: Optional[str] = None
-    available_days: Optional[str] = None
-    available_hours: Optional[str] = None
+    location: str | None = None
+    description: str | None = None
+    available_days: str | None = None
+    available_hours: str | None = None
     is_active: bool = True
-    created_at: Optional[datetime] = None
-    packages: List[RageRoomPackageResponse] = []
+    created_at: datetime | None = None
+    packages: list[RageRoomPackageResponse] = []
 
     class Config:
         from_attributes = True
@@ -264,20 +263,20 @@ class RageRoomResponse(BaseModel):
 
 class RageRoomPackageCreate(BaseModel):
     name: str
-    tier: Optional[str] = None
+    tier: str | None = None
     price: float
-    duration_minutes: Optional[int] = None
-    description: Optional[str] = None
-    student_price: Optional[float] = None
+    duration_minutes: int | None = None
+    description: str | None = None
+    student_price: float | None = None
 
 
 class RageRoomBookingCreate(BaseModel):
     package_id: int
-    rage_room_id: Optional[int] = None
+    rage_room_id: int | None = None
     scheduled_time: datetime
     use_student_rate: bool = False
-    signer_name: Optional[str] = None
-    signer_id_number: Optional[str] = None
+    signer_name: str | None = None
+    signer_id_number: str | None = None
 
 
 # ============ UNIVERSITY SCHEMAS ============
@@ -285,8 +284,8 @@ class RageRoomBookingCreate(BaseModel):
 class UniversityCreate(BaseModel):
     name: str
     email_domain: str
-    subscription_tier: Optional[str] = None
-    subscription_expires: Optional[datetime] = None
+    subscription_tier: str | None = None
+    subscription_expires: datetime | None = None
     rage_room_credit_pool: int = 0
     is_active: bool = True
 
@@ -295,11 +294,11 @@ class UniversityResponse(BaseModel):
     id: int
     name: str
     email_domain: str
-    subscription_tier: Optional[str] = None
-    subscription_expires: Optional[datetime] = None
+    subscription_tier: str | None = None
+    subscription_expires: datetime | None = None
     rage_room_credit_pool: int = 0
     is_active: bool = True
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -308,15 +307,15 @@ class UniversityResponse(BaseModel):
 # ============ SESSION NOTE SCHEMAS (NEW) ============
 
 class SessionNoteCreate(BaseModel):
-    subjective: Optional[str] = None
-    objective: Optional[str] = None
-    assessment: Optional[str] = None
-    plan: Optional[str] = None
-    private_notes: Optional[str] = None
-    risk_level: Optional[str] = "low"
-    follow_up_required: Optional[bool] = False
-    treatment_approach: Optional[str] = None
-    techniques_used: Optional[str] = None
+    subjective: str | None = None
+    objective: str | None = None
+    assessment: str | None = None
+    plan: str | None = None
+    private_notes: str | None = None
+    risk_level: str | None = "low"
+    follow_up_required: bool | None = False
+    treatment_approach: str | None = None
+    techniques_used: str | None = None
     
 
 
@@ -325,17 +324,17 @@ class SessionNoteResponse(BaseModel):
     booking_id: int
     therapist_id: int
     client_id: int
-    subjective: Optional[str] = None
-    objective: Optional[str] = None
-    assessment: Optional[str] = None
-    plan: Optional[str] = None
-    private_notes: Optional[str] = None
-    risk_level: Optional[str] = None
+    subjective: str | None = None
+    objective: str | None = None
+    assessment: str | None = None
+    plan: str | None = None
+    private_notes: str | None = None
+    risk_level: str | None = None
     follow_up_required: bool = False
-    treatment_approach: Optional[str] = None
-    techniques_used: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    treatment_approach: str | None = None
+    techniques_used: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     class Config:
         from_attributes = True

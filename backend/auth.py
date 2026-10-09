@@ -1,17 +1,18 @@
 from datetime import datetime, timedelta
-from typing import Optional
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwt
 from jose.exceptions import JWTError
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
+
 from config import settings
-from database import get_db
 from crud import get_user_by_id
+from database import get_db
 
 security = HTTPBearer()
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -32,7 +33,7 @@ async def get_current_user(
     )
     try:
         payload = jwt.decode(credentials.credentials, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        user_id: Optional[int] = payload.get("user_id")
+        user_id: int | None = payload.get("user_id")
         if user_id is None:
             raise credentials_exception
     except JWTError:
