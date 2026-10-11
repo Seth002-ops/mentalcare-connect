@@ -25,7 +25,7 @@ import TherapistWithdrawals from './components/TherapistWithdrawals';
 import RageRooms from './components/RageRooms';
 import VerifyEmail from './components/VerifyEmail';
 import AdminUniversities from './components/AdminUniversities';
-import AICompanion from './components/AICompanion';
+import AdminSecurityHub from './components/AdminSecurityHub';
 import TherapistAvailability from './components/TherapistAvailability';
 import VideoCall from './components/VideoCall';
 import AdminAnalyticsPage from './components/AdminAnalyticsPage';
@@ -61,7 +61,7 @@ const App = () => {
         .then((data) => {
           if (data) {
             setTermsAccepted(data.terms_accepted || false);
-            
+
             if (storedType === 'therapist') {
               setVerificationStatus(data.verification_status || 'incomplete');
               setProfileComplete(!!data.specializations);
@@ -77,13 +77,13 @@ const App = () => {
 
   const login = (token, type, email) => {
     setLoadingAfterLogin(true);
-    
+
     localStorage.setItem('token', token);
     localStorage.setItem('userType', type);
     localStorage.setItem('email', email);
     setUser({ email, token });
     setUserType(type);
-    
+
     fetch(`${API_URL}/users/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -147,313 +147,337 @@ const App = () => {
     <ErrorBoundary>
       <ToastProvider>
         <Router>
-        <div className="App">
-          <Routes>
-            {/* Public Routes */}
-            <Route
-              path="/"
-              element={
-                !user || !termsAccepted ? (
-                  <LandingPage />
-                ) : (
-                  <Navigate to="/dashboard" />
-                )
-              }
-            />
-            <Route
-              path="/admin/analytics"
-              element={
-                user && userType === 'admin' ? (
-                  <AdminAnalyticsPage />
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-            <Route
-              path="/login"
-              element={
-                user ? (
-                  <Navigate to="/dashboard" replace />
-                ) : (
-                  <Login onLogin={login} />
-                )
-              }
-            />
-            <Route
-              path="/signup"
-              element={
-                user ? (
-                  <Navigate to="/dashboard" replace />
-                ) : (
-                  <Signup onLogin={login} />
-                )
-              }
-            />
-            <Route path="/verify-email" element={<VerifyEmail />} />
-            <Route path="/terms" element={<TermsOfService />} />
-            <Route path="/privacy" element={<PrivacyPolicy />} />
-            <Route path="/services" element={<Services />} />
-            <Route path="/admin/rage-rooms" element={<AdminRageRooms />} />
-            <Route path="/therapist/session-notes" element={user && userType === 'therapist' ? <TherapistSessionNotes /> : <Navigate to="/login" />} />
-            <Route path="/therapist/session-notes/:bookingId" element={user && userType === 'therapist' ? <TherapistSessionNotes /> : <Navigate to="/login" />} />
-
-            {/* Terms Acceptance Gate */}
-            <Route
-              path="/terms-acceptance"
-              element={
-                user ? (
-                  <TermsAcceptance onAccept={handleTermsAccepted} />
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-
-            {/* Therapist Profile Completion */}
-            <Route
-              path="/therapist-register"
-              element={
-                user && userType === 'therapist' ? (
-                  <TherapistRegistration onComplete={handleProfileComplete} />
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-
-            {/* Therapist Pending Approval Page */}
-            <Route
-              path="/pending-approval"
-              element={
-                user && userType === 'therapist' ? (
-                  <TherapistPendingPage />
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-
-            {/* Protected Dashboard */}
-            <Route
-              path="/dashboard"
-              element={
-                user ? (
-                  termsAccepted ? (
-                    userType === 'therapist' && verificationStatus === 'incomplete' ? (
-                      <Navigate to="/therapist-register" />
-                    ) : userType === 'therapist' && (verificationStatus === 'pending' || verificationStatus === 'rejected') ? (
-                      <Navigate to="/pending-approval" />
-                    ) : userType === 'client' ? (
-                      <ClientDashboard logout={logout} />
-                    ) : userType === 'therapist' ? (
-                      <TherapistDashboard logout={logout} />
-                    ) : userType === 'admin' ? (
-                      <AdminDashboard logout={logout} />
-                    ) : (
-                      <Navigate to="/login" />
-                    )
+          <div className="App">
+            <Routes>
+              {/* ==================== PUBLIC ROUTES ==================== */}
+              <Route
+                path="/"
+                element={
+                  user ? (
+                    <Navigate to="/dashboard" replace />
                   ) : (
-                    <Navigate to="/terms-acceptance" />
+                    <LandingPage />
                   )
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
+                }
+              />
+              <Route
+                path="/login"
+                element={
+                  user ? (
+                    <Navigate to="/dashboard" replace />
+                  ) : (
+                    <Login onLogin={login} />
+                  )
+                }
+              />
+              <Route
+                path="/signup"
+                element={
+                  user ? (
+                    <Navigate to="/dashboard" replace />
+                  ) : (
+                    <Signup onLogin={login} />
+                  )
+                }
+              />
+              <Route path="/verify-email" element={<VerifyEmail />} />
+              <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/services" element={<Services />} />
 
-            {/* Client-Only Routes */}
-            <Route
-              path="/therapists"
-              element={
-                user && userType === 'client' ? (
-                  <BrowseTherapists />
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
+              {/* ==================== TERMS GATE ==================== */}
+              <Route
+                path="/terms-acceptance"
+                element={
+                  !user ? (
+                    <Navigate to="/login" replace />
+                  ) : termsAccepted ? (
+                    <Navigate to="/dashboard" replace />
+                  ) : (
+                    <TermsAcceptance onAccept={handleTermsAccepted} />
+                  )
+                }
+              />
 
-            <Route
-              path="/therapists/:id"
-              element={
-                user && userType === 'client' ? (
-                  <TherapistProfile />
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
+              {/* ==================== THERAPIST ONBOARDING ==================== */}
+              <Route
+                path="/therapist-register"
+                element={
+                  !user || userType !== 'therapist' ? (
+                    <Navigate to="/login" replace />
+                  ) : profileComplete ? (
+                    <Navigate to="/dashboard" replace />
+                  ) : (
+                    <TherapistRegistration onComplete={handleProfileComplete} />
+                  )
+                }
+              />
+              <Route
+                path="/pending-approval"
+                element={
+                  !user || userType !== 'therapist' ? (
+                    <Navigate to="/login" replace />
+                  ) : (
+                    <TherapistPendingPage />
+                  )
+                }
+              />
 
-            <Route
-              path="/leave-review"
-              element={
-                user && userType === 'client' ? (
-                  <LeaveReview />
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
+              {/* ==================== MAIN DASHBOARD ==================== */}
+              <Route
+                path="/dashboard"
+                element={
+                  !user ? (
+                    <Navigate to="/login" replace />
+                  ) : !termsAccepted ? (
+                    <Navigate to="/terms-acceptance" replace />
+                  ) : userType === 'therapist' && verificationStatus === 'incomplete' ? (
+                    <Navigate to="/therapist-register" replace />
+                  ) : userType === 'therapist' && (verificationStatus === 'pending' || verificationStatus === 'rejected') ? (
+                    <Navigate to="/pending-approval" replace />
+                  ) : userType === 'client' ? (
+                    <ClientDashboard logout={logout} />
+                  ) : userType === 'therapist' ? (
+                    <TherapistDashboard logout={logout} />
+                  ) : userType === 'admin' ? (
+                    <AdminDashboard logout={logout} />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
 
-            {/* Authenticated Chat Route */}
-            <Route
-              path="/chat/:roomId"
-              element={<Chat user={user} userType={userType} />}
-            />
-            <Route path="/booking" element={<Booking />} />
-            <Route path="/payment" element={<Payment />} />
+              {/* ==================== CLIENT ROUTES ==================== */}
+              <Route
+                path="/therapists"
+                element={
+                  user && userType === 'client' ? (
+                    <BrowseTherapists />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+              <Route
+                path="/therapists/:id"
+                element={
+                  user && userType === 'client' ? (
+                    <TherapistProfile />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+              <Route
+                path="/leave-review"
+                element={
+                  user && userType === 'client' ? (
+                    <LeaveReview />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+              <Route
+                path="/rage-rooms"
+                element={
+                  user && userType === 'client' ? (
+                    <RageRooms logout={logout} />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
 
-            {/* Admin Route */}
-            <Route
-              path="/admin"
-              element={
-                user && userType === 'admin' ? (
-                  <AdminDashboard logout={logout} />
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-            <Route
-              path="/admin/universities"
-              element={
-                user && userType === 'admin' ? (
-                  <AdminUniversities logout={logout} />
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
+              {/* ==================== SHARED AUTHENTICATED ROUTES ==================== */}
+              <Route
+                path="/chat/:roomId"
+                element={
+                  user ? (
+                    <Chat user={user} userType={userType} />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+              <Route
+                path="/booking"
+                element={
+                  user ? (
+                    <Booking />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+              <Route
+                path="/payment"
+                element={
+                  user ? (
+                    <Payment />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+              <Route
+                path="/session/video/:bookingId"
+                element={
+                  user ? (
+                    <VideoCall />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
 
-            {/* ============ NEW THERAPIST ROUTES ============ */}
-            
-            {/* Therapist Profile Management */}
-            <Route
-              path="/therapist/profile"
-              element={
-                user && userType === 'therapist' ? (
-                  <TherapistProfile logout={logout} />
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
+              {/* ==================== THERAPIST ROUTES ==================== */}
+              <Route
+                path="/therapist/profile"
+                element={
+                  user && userType === 'therapist' ? (
+                    <TherapistProfile logout={logout} />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+              <Route
+                path="/therapist/clients"
+                element={
+                  user && userType === 'therapist' ? (
+                    <TherapistClients logout={logout} />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+              <Route
+                path="/therapist/messages"
+                element={
+                  user && userType === 'therapist' ? (
+                    <TherapistMessages logout={logout} />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+              <Route
+                path="/therapist/session-notes"
+                element={
+                  user && userType === 'therapist' ? (
+                    <TherapistSessionNotes logout={logout} />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+              <Route
+                path="/therapist/session-notes/:bookingId"
+                element={
+                  user && userType === 'therapist' ? (
+                    <TherapistSessionNotes logout={logout} />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+              <Route
+                path="/therapist/chat/:roomId"
+                element={
+                  user && userType === 'therapist' ? (
+                    <Chat user={user} userType={userType} />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+              <Route
+                path="/therapist/withdrawals"
+                element={
+                  user && userType === 'therapist' ? (
+                    <TherapistWithdrawals logout={logout} />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+              <Route
+                path="/therapist-availability"
+                element={
+                  user && userType === 'therapist' ? (
+                    <TherapistAvailability />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
 
-            {/* Therapist Clients List */}
-            <Route
-              path="/therapist/clients"
-              element={
-                user && userType === 'therapist' ? (
-                  <TherapistClients logout={logout} />
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
+              {/* ==================== ADMIN ROUTES ==================== */}
+              <Route
+                path="/admin"
+                element={
+                  user && userType === 'admin' ? (
+                    <AdminDashboard logout={logout} />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+              <Route
+                path="/admin/universities"
+                element={
+                  user && userType === 'admin' ? (
+                    <AdminUniversities logout={logout} />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+              <Route
+                path="/admin/rage-rooms"
+                element={
+                  user && userType === 'admin' ? (
+                    <AdminRageRooms />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+              <Route
+                path="/admin/analytics"
+                element={
+                  user && userType === 'admin' ? (
+                    <AdminAnalyticsPage />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+              <Route
+                path="/admin/security"
+                element={
+                  user && userType === 'admin' ? (
+                    <AdminSecurityHub logout={logout} />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
 
-            {/* Therapist Messages List */}
-            <Route
-              path="/therapist/messages"
-              element={
-                user && userType === 'therapist' ? (
-                  <TherapistMessages logout={logout} />
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
+              {/* ==================== FALLBACK ==================== */}
+              <Route
+                path="*"
+                element={<Navigate to={user ? '/dashboard' : '/'} replace />}
+              />
+            </Routes>
 
-            {/* Therapist Session Notes - List all clients */}
-            <Route
-              path="/therapist/session-notes"
-              element={
-                user && userType === 'therapist' ? (
-                  <TherapistClients logout={logout} />
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-
-            {/* Therapist Session Notes - Specific client */}
-            <Route
-              path="/therapist/session-notes/:clientId"
-              element={
-                user && userType === 'therapist' ? (
-                  <TherapistSessionNotes logout={logout} />
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-
-            {/* Therapist Chat with specific client */}
-            <Route
-              path="/therapist/chat/:roomId"
-              element={
-                user && userType === 'therapist' ? (
-                  <Chat user={user} userType={userType} />
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-
-            {/* Therapist Withdrawals Management */}
-            <Route
-              path="/therapist/withdrawals"
-              element={
-                user && userType === 'therapist' ? (
-                  <TherapistWithdrawals logout={logout} />
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-            <Route
-              path="/therapist-availability"
-              element={
-                user && userType === 'therapist' ? (
-                  <TherapistAvailability />
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-            <Route
-              path="/session/video/:bookingId"
-              element={
-                user ? (
-                  <VideoCall />
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-            {/* Rage Room Booking */}
-            <Route
-              path="/rage-rooms"
-              element={
-                user && userType === 'client' ? (
-                  <RageRooms logout={logout} />
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-
-          </Routes>
-
-          {/* ============ AI COMPANION WIDGET ============ */}
-          {/* Shows for clients (support) AND therapists (work assistant) */}
-          {/* Hidden for admins and logged-out visitors */}
-          {user && (userType === 'client' || userType === 'therapist') && (
-            <AICompanionWidget userType={userType} />
-          )}
-
-        </div>
-      </Router>
+            {/* AI COMPANION WIDGET */}
+            {user && (userType === 'client' || userType === 'therapist') && (
+              <AICompanionWidget userType={userType} />
+            )}
+          </div>
+        </Router>
       </ToastProvider>
     </ErrorBoundary>
   );
