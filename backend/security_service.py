@@ -1,25 +1,32 @@
-"""
-Security service: IP blocking and security event recording.
-
-Backed by Redis when available; falls back gracefully when Redis is
-unavailable (blocks are not persisted in that case, but the app keeps
-working and events are still recorded in the database).
-"""
-
 import json
 import logging
-from datetime import datetime
+import time
+from typing import Any
+
+from fastapi import Request
 
 from redis_client import redis_client
 
-logger = logging.getLogger("mecac.security")
-
-BLOCKED_IP_PREFIX = "mecac:security:blocked_ip:"
-
 try:
     from models import SecurityEvent
-except ImportError:
+except Exception:
     SecurityEvent = None
+
+logger = logging.getLogger("mecac.security")
+
+BLOCKED_IPS_KEY = "mecac:security:blocked_ips"
+TEMP_BLOCK_PREFIX = "mecac:security:temp_block:"
+RATE_PREFIX = "mecac:security:rate:"
+LOGIN_FAIL_PREFIX = "mecac:security:login_fail:"
+
+RATE_RULES = {
+    "global": {"limit": 180, "window": 60},
+    "/auth/login": {"limit": 5, "window": 60},
+    "/auth/register": {"limit": 3, "window": 60},
+    "/auth/student-signup": {"limit": 3, "window": 60},
+    "/payments/simulate": {"limit": 5, "window": 60},
+    "/ai/chat": {"limit": 15, "window": 60},
+}
 
 
 def redis_ready() -> bool:
@@ -28,186 +35,184 @@ def redis_ready() -> bool:
             return False
         redis_client.ping()
         return True
-    except Exception:
+    except Exception as exc:
+        logger.debug("Redis ping failed: %s", exc)
         return False
 
 
-def record_security_event(
-    db,
-    *,
-    event_type: str,
-    severity: str,
-    method: str | None = None,
-    path_hit: str | None = None,
-    status_code: int | None = None,
-    ip_address: str | None = None,
-    user_agent: str | None = None,
-    user_id: int | None = None,
-    details: dict | None = None,
-    action_taken: str | None = None,
-):
-    """
-    Record a security event in the database. Fails silently so that a
-    database issue never breaks the caller (e.g. a middleware).
-    """
-    if SecurityEvent is None:
-        logger.warning("SecurityEvent model not available; event not recorded: %s", event_type)
-        return None
+def get_client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    real_ip = request.headers.get("x-real-ip")
+    if real_ip:
+        return real_ip.strip()
+    if request.client and request.client.host:
+        return request.client.host
+    return "unknown"
 
+
+def get_user_agent(request: Request) -> str:
+    return request.headers.get("user-agent", "")[:500]
+
+
+def temp_block_key(ip: str) -> str:
+    return f"{TEMP_BLOCK_PREFIX}{ip}"
+
+
+def is_ip_blocked(ip: str) -> bool:
+    if not redis_ready():
+        return False
     try:
-        event = SecurityEvent(
-            event_type=event_type,
-            severity=severity,
-            method=method,
-            path_hit=path_hit,
-            status_code=status_code,
-            ip_address=ip_address,
-            user_agent=user_agent,
-            user_id=user_id,
-            details=json.dumps(details or {}, default=str),
-            action_taken=action_taken,
-        )
-        db.add(event)
-        db.commit()
-        return event
-
+        if redis_client.sismember(BLOCKED_IPS_KEY, ip):
+            return True
+        return bool(redis_client.exists(temp_block_key(ip)))
     except Exception as exc:
-        try:
-            db.rollback()
-        except Exception as rollback_exc:
-            logger.debug("Rollback after failed event insert also failed: %s", rollback_exc)
-        logger.warning("Failed to record security event %s: %s", event_type, exc)
-        return None
+        logger.warning("Failed checking IP block status: %s", exc)
+        return False
 
 
 def block_ip(
     ip: str,
-    *,
     reason: str = "",
     duration_seconds: int | None = None,
     permanent: bool = True,
 ) -> bool:
-    """
-    Block an IP. Returns True when the block was stored, False when Redis
-    is unavailable. Permanent = True means permanent; otherwise it expires
-    after duration_seconds (default 1 hour).
-    """
     if not redis_ready():
-        logger.warning("Cannot block IP %s: Redis unavailable", ip)
         return False
-
     try:
-        payload = json.dumps(
-            {
-                "reason": reason,
-                "permanent": permanent,
-                "blocked_at": datetime.utcnow().isoformat(),
-            },
-            default=str,
-        )
-
         if permanent:
-            redis_client.set(f"{BLOCKED_IP_PREFIX}{ip}", payload)
-        else:
-            ttl = duration_seconds if duration_seconds and duration_seconds > 0 else 3600
-            redis_client.setex(f"{BLOCKED_IP_PREFIX}{ip}", ttl, payload)
-
+            redis_client.sadd(BLOCKED_IPS_KEY, ip)
+        if duration_seconds and duration_seconds > 0:
+            redis_client.setex(
+                temp_block_key(ip), duration_seconds, reason or "blocked"
+            )
         return True
-
     except Exception as exc:
-        logger.warning("block_ip failed for %s: %s", ip, exc)
+        logger.warning("Failed to block IP %s: %s", ip, exc)
         return False
 
 
 def unblock_ip(ip: str) -> bool:
     if not redis_ready():
-        logger.warning("Cannot unblock IP %s: Redis unavailable", ip)
         return False
-
     try:
-        deleted = redis_client.delete(f"{BLOCKED_IP_PREFIX}{ip}")
-        return deleted is not None and deleted > 0
-
+        redis_client.srem(BLOCKED_IPS_KEY, ip)
+        redis_client.delete(temp_block_key(ip))
+        return True
     except Exception as exc:
-        logger.warning("unblock_ip failed for %s: %s", ip, exc)
+        logger.warning("Failed to unblock IP %s: %s", ip, exc)
         return False
 
 
-def is_ip_blocked(ip: str) -> bool:
-    """
-    Check whether an IP is currently blocked. Requires Redis; when Redis is
-    down no blocking is enforced (fail-open, so the app stays reachable).
-    """
-    if not redis_ready():
-        return False
-
-    try:
-        return redis_client.exists(f"{BLOCKED_IP_PREFIX}{ip}") > 0
-
-    except Exception as exc:
-        logger.warning("is_ip_blocked failed for %s: %s", ip, exc)
-        return False
-
-
-RATE_LIMIT_PREFIX = "mecac:security:rate:"
-
-DEFAULT_RATE_LIMITS = (
-    ("/auth/", 10, 60),  # 10 requests per 60s for auth endpoints
-)
-
-FALLBACK_RATE_LIMIT = (60, 60)  # 60 requests per minute elsewhere
-
-
-def check_rate_limit(ip: str, path: str) -> dict:
-    """
-    Sliding-window rate limit backed by Redis.
-
-    Returns {"allowed": bool, "limit": int, "window": int}. When Redis is
-    unavailable the request is always allowed (fail-open).
-    """
-    if not redis_ready():
-        return {"allowed": True, "limit": None, "window": None}
-
-    limit, window = FALLBACK_RATE_LIMIT
-    for prefix, prefix_limit, prefix_window in DEFAULT_RATE_LIMITS:
-        if path.startswith(prefix):
-            limit, window = prefix_limit, prefix_window
-            break
-
-    key = f"{RATE_LIMIT_PREFIX}{ip}:{path}"
-
-    try:
-        count = redis_client.incr(key)
-        if count == 1:
-            redis_client.expire(key, window)
-
-        ttl = redis_client.ttl(key)
-        if ttl is not None and ttl < 0:
-            redis_client.expire(key, window)
-
-        return {
-            "allowed": count <= limit,
-            "limit": limit,
-            "window": window,
-        }
-
-    except Exception as exc:
-        logger.warning("check_rate_limit failed for %s: %s", ip, exc)
-        return {"allowed": True, "limit": limit, "window": window}
-
-
-def get_blocked_ips() -> list:
+def get_blocked_ips() -> list[str]:
     if not redis_ready():
         return []
-
-    blocked = []
-
     try:
-        for key in redis_client.scan_iter(match=f"{BLOCKED_IP_PREFIX}*"):
-            blocked.append(key.replace(BLOCKED_IP_PREFIX, ""))
-
-        return sorted(blocked)
-
+        permanent = redis_client.smembers(BLOCKED_IPS_KEY) or set()
+        temporary = []
+        for key in redis_client.scan_iter(match=f"{TEMP_BLOCK_PREFIX}*"):
+            ip = key.replace(TEMP_BLOCK_PREFIX, "")
+            temporary.append(ip)
+        return sorted(set(list(permanent) + temporary))
     except Exception as exc:
-        logger.warning("get_blocked_ips failed: %s", exc)
+        logger.warning("Failed to list blocked IPs: %s", exc)
         return []
+
+
+def get_rate_rule(path: str) -> dict[str, int]:
+    return RATE_RULES.get(path, RATE_RULES["global"])
+
+
+def check_rate_limit(ip: str, path: str) -> dict[str, Any]:
+    if not redis_ready():
+        return {"allowed": True, "remaining": None, "limit": None}
+    
+    rule = get_rate_rule(path)
+    scope = path if path in RATE_RULES else "global"
+    window = rule["window"]
+    limit = rule["limit"]
+    bucket = int(time.time() // window)
+    key = f"{RATE_PREFIX}{scope}:{ip}:{bucket}"
+    
+    try:
+        current = redis_client.incr(key)
+        if current == 1:
+            redis_client.expire(key, window)
+        allowed = current <= limit
+        remaining = max(limit - current, 0)
+        return {"allowed": allowed, "remaining": remaining, "limit": limit}
+    except Exception as exc:
+        logger.warning("Rate limit check failed for %s: %s", ip, exc)
+        return {"allowed": True, "remaining": None, "limit": None}
+
+
+def register_failed_login(
+    ip: str, max_attempts: int = 5, window_seconds: int = 300
+) -> int:
+    if not redis_ready():
+        return 0
+    try:
+        key = f"{LOGIN_FAIL_PREFIX}{ip}"
+        attempts = redis_client.incr(key)
+        if attempts == 1:
+            redis_client.expire(key, window_seconds)
+        if attempts >= max_attempts:
+            block_ip(
+                ip,
+                reason="too_many_failed_logins",
+                duration_seconds=window_seconds,
+                permanent=False,
+            )
+        return attempts
+    except Exception as exc:
+        logger.warning("Failed login counter error for %s: %s", ip, exc)
+        return 0
+
+
+def clear_failed_logins(ip: str) -> None:
+    if not redis_ready():
+        return
+    try:
+        redis_client.delete(f"{LOGIN_FAIL_PREFIX}{ip}")
+    except Exception as exc:
+        logger.debug("Failed to clear login counters for %s: %s", ip, exc)
+
+
+def record_security_event(
+    db,
+    *,
+    ip_address: str,
+    event_type: str,
+    severity: str = "medium",
+    method: str | None = None,
+    path_hit: str | None = None,
+    status_code: int | None = None,
+    user_agent: str | None = None,
+    user_id: int | None = None,
+    details: dict[str, Any] | None = None,
+    action_taken: str | None = None,
+) -> None:
+    if SecurityEvent is None or db is None:
+        return
+    try:
+        event = SecurityEvent(
+            ip_address=ip_address,
+            user_agent=(user_agent or "")[:500],
+            user_id=user_id,
+            event_type=event_type,
+            severity=severity,
+            method=method,
+            path_hit=path_hit,
+            status_code=status_code,
+            details=json.dumps(details or {}, default=str),
+            action_taken=action_taken,
+        )
+        db.add(event)
+        db.commit()
+    except Exception as exc:
+        try:
+            db.rollback()
+        except Exception as rb_exc:
+            logger.debug("Rollback failed: %s", rb_exc)
+        logger.warning("Failed to record security event: %s", exc)
