@@ -1,9 +1,7 @@
 """
 Redis client for security features (IP blocking, rate limiting, cache).
-
-Uses REDIS_URL from the environment if present. When Redis is not configured
-or unreachable, redis_client is None and all security features degrade
-gracefully (no blocking, no rate limiting via Redis, no cache).
+Uses REDIS_URL from the environment if present. Falls back to localhost:6379.
+When Redis is unreachable, redis_client is None and features degrade gracefully.
 """
 
 import logging
@@ -12,20 +10,20 @@ import os
 from dotenv import load_dotenv
 
 try:
-    import redis  # type: ignore
+    import redis
 except ImportError:
-    redis = None  # type: ignore
+    redis = None
 
 logger = logging.getLogger("mecac.redis")
 
-# Ensure .env is loaded even when this module is imported standalone
 load_dotenv()
 
-REDIS_URL = os.getenv("REDIS_URL", "")
+# Default to local Redis if no env var is set
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 redis_client = None
 
-if redis is not None and REDIS_URL:
+if redis is not None:
     try:
         redis_client = redis.Redis.from_url(
             REDIS_URL,
@@ -36,7 +34,18 @@ if redis is not None and REDIS_URL:
         redis_client.ping()
         logger.info("Connected to Redis at %s", REDIS_URL)
     except Exception as exc:
-        logger.warning("Redis unavailable (%s). Security features will run without Redis.", exc)
+        logger.warning("Redis unavailable (%s). Security/Cache will run without Redis.", exc)
         redis_client = None
-elif not REDIS_URL:
-    logger.info("REDIS_URL not set. Security features will run without Redis.")
+else:
+    logger.warning("Python 'redis' package not installed. Cache/Security disabled.")
+
+
+def is_redis_available() -> bool:
+    """Check if Redis connection is active."""
+    if redis_client is None:
+        return False
+    try:
+        redis_client.ping()
+        return True
+    except Exception:
+        return False

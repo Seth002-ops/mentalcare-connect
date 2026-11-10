@@ -36,6 +36,8 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel
 from sqlalchemy import func, inspect, text
 
+from cache_service import delete_cache, get_cache, set_cache
+
 try:
     from slowapi import Limiter, _rate_limit_exceeded_handler
     from slowapi.errors import RateLimitExceeded
@@ -808,14 +810,67 @@ def accept_terms(db=Depends(get_db), current_user=Depends(get_current_user)):
     db.refresh(current_user)
     return {"message": "Terms accepted successfully", "terms_accepted": bool(getattr(current_user, "terms_accepted", False)), "terms_accepted_at": getattr(current_user, "terms_accepted_at", None)}
 
+CACHE_KEY_THERAPISTS_LIST = "mecac:cache:therapists_list"
+THERAPISTS_TTL = 120  # 2 minutes (shorter TTL because new therapists might approve frequently)
+
 @app.get("/users", response_model=list[UserResponse])
-def list_users(user_type: str | None = None, db=Depends(get_db), current_user=Depends(get_current_user)):
-    if current_user.user_type != "admin" and user_type != "therapist":
-        raise HTTPException(status_code=403, detail="Only admins may list users")
+def list_users(
+    user_type: str | None = None,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Lists users. Caches the full list of APPROVED THERAPISTS for public browsing.
+    Other queries hit the DB directly to ensure freshness/security.
+    """
+    
+    # --- CACHE LOGIC FOR PUBLIC THERAPIST LISTING ---
+    if user_type == "therapist":
+        # Check if we have a cached list of approved therapists
+        cached_therapists = get_cache(CACHE_KEY_THERAPISTS_LIST)
+        
+        if cached_therapists is not None:
+            logger.debug("Cache HIT for therapists list")
+            # Return the cached JSON-safe objects
+            return [UserResponse(**t) for t in cached_therapists]
+
+    # --- FALLBACK TO DATABASE ---
+    logger.debug(f"Cache MISS or Non-Cached Query for user_type={user_type}")
+    
     query = db.query(User)
-    if user_type: query = query.filter(User.user_type == user_type)
-    if user_type == "therapist": query = query.filter(User.verification_status == "approved")
-    return query.all()
+
+    if user_type:
+        query = query.filter(User.user_type == user_type)
+
+    if user_type == "therapist":
+        query = query.filter(User.verification_status == "approved")
+
+    results = query.all()
+    
+    # Convert SQLAlchemy models to Pydantic-compatible dicts for caching
+    # We do this manually to avoid serialization issues later
+    serialized_results = []
+    for u in results:
+        serialized_results.append({
+            "id": u.id,
+            "email": u.email,
+            "name": u.name,
+            "user_type": u.user_type,
+            "is_active": u.is_active,
+            "profile_photo_url": getattr(u, "profile_photo_url", None),
+            "specialty": getattr(u, "specialty", None),
+            "session_rate": getattr(u, "session_rate", None),
+            "rating": getattr(u, "rating", None),
+            "university_id": getattr(u, "university_id", None),
+            "created_at": u.created_at.isoformat() if u.created_at else None,
+        })
+
+    # Save to Cache ONLY if it was a therapist request
+    if user_type == "therapist":
+        set_cache(CACHE_KEY_THERAPISTS_LIST, serialized_results, ttl=THERAPISTS_TTL)
+        logger.debug("Saved therapists list to cache")
+
+    return results
 
 @app.get("/users/{user_id}", response_model=UserResponse)
 def read_user(user_id: int, db=Depends(get_db), current_user=Depends(get_current_user)):
@@ -833,12 +888,41 @@ def read_user(user_id: int, db=Depends(get_db), current_user=Depends(get_current
 # UNIVERSITIES
 # =========================
 
+from cache_service import get_cache, set_cache  # Ensure this is imported at top of main.py
+
+CACHE_KEY_UNIVERSITIES = "mecac:cache:universities"
+UNIVERSITIES_TTL = 300  # 5 minutes
+
 @app.get("/universities")
 def list_public_universities(db=Depends(get_db)):
+    """
+    Returns active universities with Redis caching.
+    Checks cache first; if miss, queries DB and saves to cache.
+    """
+    # 1. Check Redis Cache
+    cached_data = get_cache(CACHE_KEY_UNIVERSITIES)
+    
+    if cached_data is not None:
+        logger.debug("Cache HIT for universities")
+        return cached_data
+
+    # 2. Cache MISS -> Query Database
+    logger.debug("Cache MISS for universities. Querying DB...")
     universities = db.query(University).filter(University.is_active == True).all()
-    return [{"id": university.id, "name": university.name, "email_domain": university.email_domain} for university in universities]
+    
+    result = [
+        {
+            "id": u.id,
+            "name": u.name,
+            "email_domain": u.email_domain,
+        }
+        for u in universities
+    ]
 
-
+    # 3. Save to Redis Cache (TTL 5 mins)
+    set_cache(CACHE_KEY_UNIVERSITIES, result, ttl=UNIVERSITIES_TTL)
+    
+    return result
 # =========================
 # THERAPIST ROUTES
 # =========================
@@ -1325,6 +1409,9 @@ def admin_approve_therapist(user_id: int, db=Depends(get_db), admin=Depends(requ
     if not user or user.user_type != "therapist": raise HTTPException(status_code=404, detail="Therapist not found")
     set_if_exists(user, "verification_status", "approved")
     db.commit()
+    if getattr(user, 'user_type', None) == 'therapist':
+        delete_cache("mecac:cache:therapists_list")
+        logger.debug("Cache invalidated: therapists_list")
     db.refresh(user)
     create_notification(db, user_id=user.id, message="Your therapist account has been approved! You can now accept clients.", type="system")
     return {"message": "Therapist approved", "user_id": user.id}
@@ -1389,13 +1476,60 @@ def admin_update_withdrawal_status(withdrawal_id: int, status: str, db=Depends(g
 # RAGE ROOM ROUTES
 # =========================
 
+CACHE_KEY_RAGE_ROOMS = "mecac:cache:rage_rooms"
+RAGE_ROOMS_TTL = 300  # 5 minutes
+
 @app.get("/rage-rooms")
 def list_rage_rooms(db=Depends(get_db)):
+    """
+    Returns active rage rooms with their packages, cached in Redis.
+    """
+    # 1. Check Cache
+    cached_data = get_cache(CACHE_KEY_RAGE_ROOMS)
+    
+    if cached_data is not None:
+        logger.debug("Cache HIT for rage_rooms")
+        return cached_data
+
+    # 2. Cache MISS -> Query DB
+    logger.debug("Cache MISS for rage_rooms. Querying DB...")
     rooms = db.query(RageRoom).filter(RageRoom.is_active == True).all()
+    
     result = []
     for room in rooms:
-        packages = db.query(RageRoomPackage).filter(RageRoomPackage.rage_room_id == room.id).all()
-        result.append({"id": room.id, "name": room.name, "location": room.location, "description": room.description, "capacity": getattr(room, "capacity", None), "price_per_hour": getattr(room, "price_per_hour", None), "available_days": room.available_days, "available_hours": room.available_hours, "image_url": getattr(room, "image_url", None), "packages": [{"id": package.id, "name": package.name, "description": package.description, "duration_minutes": package.duration_minutes, "price": package.price, "student_price": getattr(package, "student_price", None), "tier": getattr(package, "tier", "standard")} for package in packages]})
+        packages = (
+            db.query(RageRoomPackage)
+            .filter(RageRoomPackage.rage_room_id == room.id)
+            .all()
+        )
+        
+        result.append({
+            "id": room.id,
+            "name": room.name,
+            "location": room.location,
+            "description": room.description,
+            "capacity": getattr(room, "capacity", None),
+            "price_per_hour": getattr(room, "price_per_hour", None),
+            "available_days": room.available_days,
+            "available_hours": room.available_hours,
+            "image_url": getattr(room, "image_url", None),
+            "packages": [
+                {
+                    "id": package.id,
+                    "name": package.name,
+                    "description": package.description,
+                    "duration_minutes": package.duration_minutes,
+                    "price": package.price,
+                    "student_price": getattr(package, "student_price", None),
+                    "tier": getattr(package, "tier", "standard"),
+                }
+                for package in packages
+            ],
+        })
+
+    # 3. Save to Cache
+    set_cache(CACHE_KEY_RAGE_ROOMS, result, ttl=RAGE_ROOMS_TTL)
+    
     return result
 
 @app.post("/rage-rooms")
@@ -1418,6 +1552,8 @@ def create_rage_room(name: str = Form(...), location: str = Form(...), descripti
     if image_url: set_if_exists(room, "image_url", image_url)
     db.add(room)
     db.commit()
+    delete_cache("mecac:cache:rage_rooms")
+    logger.debug("Cache invalidated: rage_rooms")
     db.refresh(room)
     return {"id": room.id, "message": "Rage room registered", "image_url": getattr(room, "image_url", image_url)}
 
@@ -1706,6 +1842,8 @@ def admin_create_university(university: UniversityCreate, db=Depends(get_db), ad
     new_uni = University(**university.dict())
     db.add(new_uni)
     db.commit()
+    delete_cache("mecac:cache:universities")
+    logger.debug("Cache invalidated: universities")
     db.refresh(new_uni)
     return new_uni
 
