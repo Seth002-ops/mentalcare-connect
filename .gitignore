@@ -1,24 +1,77 @@
-# Python
+# ==========================================
+# ENVIRONMENT & SECRETS (NEVER COMMIT)
+# ==========================================
+.env
+.env.local
+.env.development
+.env.production
+*.pem
+*.key
+secrets.json
+credentials.json
+
+# ==========================================
+# PYTHON / BACKEND
+# ==========================================
+.venv/
+venv/
+qwen-env/
+env/
 __pycache__/
 *.pyc
-.venv/
-backend/afya_care.db
-backend/uploads/
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
 
-# Node
+# ==========================================
+# DATABASE (NEVER COMMIT REAL DATA)
+# ==========================================
+*.db
+*.sqlite
+*.sqlite3
+afya_care.db
+
+# ==========================================
+# NODE / FRONTEND
+# ==========================================
 node_modules/
-frontend/build/
+build/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Secrets - NEVER COMMIT
-.env
+# ==========================================
+# UPLOADS (User files should not be in Git)
+# ==========================================
+backend/uploads/
+uploads/
+
+# ==========================================
+# AUTO-GENERATED JUNK
+# ==========================================
+filelist.txt
+project-structure.txt
+.freebuff/
 *.log
 
-# IDE
+# ==========================================
+# IDE & EDITORS
+# ==========================================
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# OS
+# ==========================================
+# OS FILES
+# ==========================================
 .DS_Store
 Thumbs.db
-
-.env
+desktop.ini

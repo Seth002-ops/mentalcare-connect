@@ -1,4 +1,0 @@
-[
-  "backend/tests/test_security.py::test_docs_are_disabled",
-  "backend/tests/test_security.py::test_openapi_schema_is_disabled"
-]
