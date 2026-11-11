@@ -28,6 +28,8 @@ class User(Base):
     is_verified_student = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    free_sessions_total = Column(Integer, default=3)
+    free_sessions_used = Column(Integer, default=0)
 
 
 class Message(Base):
@@ -55,6 +57,8 @@ class SessionBooking(Base):
     therapist_earning = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     video_room_id = Column(String, nullable=True)
+    payment_mode = Column(String, default="pending") 
+    # Values: "sponsored", "free_quota", "university_pool", "paid"
 
 class Review(Base):
     __tablename__ = "reviews"
@@ -238,6 +242,8 @@ class University(Base):
     rage_room_credit_pool = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    sponsored_sessions_pool = Column(Integer, default=0)
+    sponsored_sessions_used = Column(Integer, default=0)
 
 
 class EmailVerificationToken(Base):
@@ -312,3 +318,12 @@ class SecurityEvent(Base):
     details = Column(Text, nullable=True)
     action_taken = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+class PlatformConfig(Base):
+    __tablename__ = "platform_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, unique=True, index=True, nullable=False)  # e.g., "payments_enabled"
+    value = Column(String, default="")                              # e.g., "true" or "false"
+    updated_by = Column(Integer, nullable=True)                     # Admin ID who changed it
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

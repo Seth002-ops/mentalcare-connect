@@ -85,12 +85,12 @@ def get_messages_by_room(db: Session, room_id: int, skip: int = 0, limit: int = 
     return decrypted_messages
 
 
-def create_booking(db: Session, booking: dict):
-    db_booking = SessionBooking(**booking)
-    db.add(db_booking)
+def create_booking(db: Session, booking_data: dict):
+    new_booking = SessionBooking(**booking_data)
+    db.add(new_booking)
     db.commit()
-    db.refresh(db_booking)
-    return db_booking
+    db.refresh(new_booking)
+    return new_booking
 
 
 def simulate_payment(phone: str, amount: int) -> dict:

@@ -150,16 +150,7 @@ const App = () => {
           <div className="App">
             <Routes>
               {/* ==================== PUBLIC ROUTES ==================== */}
-              <Route
-                path="/"
-                element={
-                  user ? (
-                    <Navigate to="/dashboard" replace />
-                  ) : (
-                    <LandingPage />
-                  )
-                }
-              />
+              <Route path="/" element={<LandingPage user={user} />} />
               <Route
                 path="/login"
                 element={

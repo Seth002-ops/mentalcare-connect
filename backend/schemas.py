@@ -134,8 +134,9 @@ class MessageResponse(BaseModel):
 class BookingCreate(BaseModel):
     therapist_id: int
     scheduled_time: datetime
-    amount: float
-
+    amount: float | None = None  # <--- MAKE IT OPTIONAL
+    notes: str | None = None     # <--- ADD NOTES IF MISSING (Optional but recommended)
+    duration_minutes: int = 60   
 
 class PaymentRequest(BaseModel):
     booking_id: int

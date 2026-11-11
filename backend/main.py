@@ -37,6 +37,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, inspect, text
 
 from cache_service import delete_cache, get_cache, set_cache
+from payment_logic import apply_payment_decision, determine_payment_mode
 
 try:
     from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -68,6 +69,7 @@ from models import (
     AiChatMessage,
     EmailVerificationToken,
     MoodEntry,
+    PlatformConfig,
     PlatformWithdrawal,
     RageRoom,
     RageRoomBooking,
@@ -173,6 +175,23 @@ from security_service import (
 
 logger = logging.getLogger(__name__)
 
+def add_column_if_missing(table_name: str, column_name: str, column_type: str):
+    """Safely adds a column to an existing SQLite table if it doesn't exist."""
+    try:
+        with engine.connect() as conn:
+            # PRAGMA table_info works for SQLite
+            result = conn.execute(text(f"PRAGMA table_info({table_name})"))
+            columns = [row[1] for row in result.fetchall()]
+            
+            if column_name not in columns:
+                conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"))
+                conn.commit()
+                logger.info(f" Added column '{column_name}' to table '{table_name}'")
+            else:
+                logger.debug(f"ℹ Column '{column_name}' already exists in '{table_name}'")
+    except Exception as e:
+        logger.warning(f" Could not add column '{column_name}' to '{table_name}': {e}")
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_ROOT = os.path.join(BASE_DIR, "uploads")
 LICENSE_DIR = os.path.join(UPLOAD_ROOT, "licenses")
@@ -259,6 +278,7 @@ def add_column_if_missing(table_name: str, column_name: str, column_type: str):
 
 
 def ensure_schema():
+    # ... [Your existing migrations above stay here] ...
     add_column_if_missing("rage_rooms", "image_url", "TEXT")
     add_column_if_missing("session_bookings", "video_room_id", "TEXT")
     add_column_if_missing("rage_room_packages", "student_price", "FLOAT")
@@ -268,7 +288,40 @@ def ensure_schema():
     add_column_if_missing("rage_room_bookings", "is_student_rate", "BOOLEAN DEFAULT 0")
     add_column_if_missing("rage_room_bookings", "waiver_signed_at", "DATETIME")
 
-
+    # ==========================
+    # PHASE 9: SMART PAYMENTS MIGRATIONS
+    # ==========================
+    
+    # 1. Users Table: Free Session Quotas
+    add_column_if_missing("users", "free_sessions_total", "INTEGER DEFAULT 3")
+    add_column_if_missing("users", "free_sessions_used", "INTEGER DEFAULT 0")
+    
+    # 2. Universities Table: Sponsored Pool
+    add_column_if_missing("universities", "sponsored_sessions_pool", "INTEGER DEFAULT 0")
+    add_column_if_missing("universities", "sponsored_sessions_used", "INTEGER DEFAULT 0")
+    
+    # 3. Bookings Table: Payment Mode Tracking
+    add_column_if_missing("session_bookings", "payment_mode", "TEXT DEFAULT 'pending'") 
+    
+    # 4. Seed Global Config (Tasting Mode Toggle)
+    # We create a temporary session specifically for this DB operation
+    temp_db = SessionLocal()
+    try:
+        config = temp_db.query(PlatformConfig).filter(PlatformConfig.key == "payments_enabled").first()
+        if not config:
+            new_config = PlatformConfig(key="payments_enabled", value="false")
+            temp_db.add(new_config)
+            temp_db.commit()
+            logger.info(" Seeded default platform config: payments_enabled=false")
+        else:
+            logger.info(f"ℹ Config 'payments_enabled' already exists (Value: {config.value})")
+    except Exception as e:
+        logger.error(f" Failed to seed config: {e}")
+        temp_db.rollback()
+    finally:
+        temp_db.close()  # ALWAYS close the session
+        
+    logger.info(" Phase 9 Schema Migrations Applied Successfully")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
@@ -1140,24 +1193,83 @@ def read_messages(room_id: int, skip: int = 0, limit: int = 100, db=Depends(get_
 # =========================
 
 DEFAULT_SESSION_FEE = 1500
-
 @app.post("/bookings")
-def create_session_booking(booking: BookingCreate, db=Depends(get_db), current_user=Depends(get_current_user)):
-    if current_user.user_type != "client": raise HTTPException(status_code=403, detail="Only clients may book sessions")
+def create_session_booking(
+    booking: BookingCreate, 
+    db=Depends(get_db), 
+    current_user=Depends(get_current_user)
+):
+    # 1. Basic Validation
+    if current_user.user_type != "client":
+        raise HTTPException(status_code=403, detail="Only clients may book sessions")
+    
     therapist = get_user_by_id(db, booking.therapist_id)
-    if not therapist or therapist.user_type != "therapist": raise HTTPException(status_code=404, detail="Therapist not found")
-    if getattr(therapist, "verification_status", None) != "approved": raise HTTPException(status_code=400, detail="This therapist is not yet approved")
-    booking_data = booking.dict()
+    if not therapist or therapist.user_type != "therapist":
+        raise HTTPException(status_code=404, detail="Therapist not found")
+    
+    if getattr(therapist, "verification_status", None) != "approved":
+        raise HTTPException(status_code=400, detail="This therapist is not yet approved")
+
+    # 2. GET UNIVERSITY CONTEXT (for sponsorship check)
+    university = None
+    if current_user.university_id:
+        university = db.query(University).filter(University.id == current_user.university_id).first()
+
+    # 3. DETERMINE PAYMENT MODE & COST
+    decision = determine_payment_mode(db, current_user, therapist, university)
+    
+    # If blocked (e.g., Tasting Mode ON but payments disabled globally), reject immediately
+    if decision["mode"] == "blocked":
+        raise HTTPException(status_code=503, detail=decision["reason"])
+
+    # 4. PREPARE BOOKING DATA
+    # Use model_dump() to convert Pydantic object to dict safely
+    booking_data = booking.model_dump()
+    
+    # Ensure required fields exist even if optional in schema
     booking_data["client_id"] = current_user.id
     booking_data["payment_status"] = "pending"
-    booking_data["amount"] = getattr(therapist, "session_rate", None) or getattr(therapist, "hourly_rate", None) or DEFAULT_SESSION_FEE
-    db_booking = create_booking(db, booking_data)
-    client_name = get_display_name(current_user)
-    try: time_label = booking.scheduled_time.strftime("%B %d at %I:%M %p")
-    except Exception: time_label = str(booking.scheduled_time)
-    create_notification(db, user_id=booking.therapist_id, message=f"New booking from {client_name} on {time_label}", type="booking")
-    return {"booking_id": db_booking.id, "status": "confirmed"}
+    
+    # CRITICAL: Overwrite user-provided amount with backend-calculated cost
+    # This prevents users from setting their own price
+    booking_data["amount"] = decision["cost"]
+    booking_data["payment_mode"] = decision["mode"]
+    
+    # Handle optional fields that might be missing from old schemas
+    if "duration_minutes" not in booking_data:
+        booking_data["duration_minutes"] = 60 # Default to 60 mins
+        
+    if "notes" not in booking_data:
+        booking_data["notes"] = ""
 
+    # 5. CREATE BOOKING IN DB
+    db_booking = create_booking(db, booking_data)
+    
+    # 6. APPLY COUNTERS (Increment free sessions or university pool)
+    # This updates User.free_sessions_used OR University.sponsored_sessions_used
+    apply_payment_decision(db, db_booking, decision)
+
+    # 7. NOTIFICATION & RESPONSE
+    client_name = get_display_name(current_user)
+    try:
+        time_label = booking.scheduled_time.strftime("%B %d at %I:%M %p")
+    except Exception:
+        time_label = str(booking.scheduled_time)
+        
+    create_notification(
+        db, 
+        user_id=booking.therapist_id, 
+        message=f"New booking from {client_name} on {time_label}", 
+        type="booking"
+    )
+    
+    return {
+        "booking_id": db_booking.id, 
+        "status": "confirmed",
+        "payment_mode": decision["mode"],
+        "amount_charged": decision["cost"],
+        "message": decision["reason"]
+    }
 @app.get("/bookings/me")
 def get_my_bookings(db=Depends(get_db), current_user=Depends(get_current_user)):
     bookings = get_bookings_for_user(db, current_user.id)
