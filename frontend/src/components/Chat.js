@@ -13,8 +13,6 @@ const IconAI = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
 const IconUser = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>;
 const IconLock = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>;
 const IconCheckDouble = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 7 13 12 10 9"></polyline><polyline points="22 10 17 15 14 12"></polyline></svg>;
-const IconMenu = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>;
-
 const Chat = ({ user, userType }) => {
   const { roomId } = useParams();
   const navigate = useNavigate();
@@ -22,10 +20,10 @@ const Chat = ({ user, userType }) => {
 
   // ============ HUMAN CHAT STATE ============
   const [messages, setMessages] = useState([]);
+  const [, setError] = useState(null);
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef(null);
   const [otherUserName, setOtherUserName] = useState('Therapist');
-  const [isTyping, setIsTyping] = useState(false);
 
   // ============ AI SIDEBAR STATE ============
   const [aiOpen, setAiOpen] = useState(false);
@@ -78,15 +76,26 @@ const Chat = ({ user, userType }) => {
     fetchAiHistory();
   }, []);
 
-  // ============ FETCH & POLL HUMAN MESSAGES ============
+   // ============ FETCH & POLL HUMAN MESSAGES (FIXED) ============
   useEffect(() => {
+    let isMounted = true;
+    let pollInterval = null;
+
     const fetchMessages = async () => {
       const token = localStorage.getItem('token');
-      if (!token || !roomId) return;
+      
+      // Guard Clause: Don't fetch if no token or invalid room ID
+      if (!token || !roomId) {
+        return;
+      }
+
       try {
         const res = await fetch(`${API_URL}/messages/${roomId}`, { 
           headers: { Authorization: `Bearer ${token}` } 
         });
+
+        if (!isMounted) return; // Prevent state update if component unmounted
+
         if (res.ok) {
           const data = await res.json();
           const mapped = data.map(m => ({
@@ -94,20 +103,59 @@ const Chat = ({ user, userType }) => {
             text: m.content,
             sender: m.sender_type,
             timestamp: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            read: true // Simplified for MVP
+            read: true 
           }));
+          
           // Only update if length changed to prevent flickering
           setMessages(prev => (prev.length !== mapped.length ? mapped : prev));
+          
+          // Clear any previous errors if we succeeded
+          setError(null); 
+
+          // Start polling ONLY if we haven't started yet
+          if (!pollInterval && isMounted) {
+             pollInterval = setInterval(fetchMessages, 5000); // Reduced frequency to 5s
+          }
+        } else if (res.status === 403) {
+          // ✅ CRITICAL: Stop polling immediately on Forbidden
+          if (pollInterval) clearInterval(pollInterval);
+          setError("You do not have permission to view this chat.");
+          
+          // Optional: Redirect user back to dashboard if they shouldn't be here
+          setTimeout(() => navigate('/dashboard'), 2000);
+        } else if (res.status === 404) {
+          // Stop polling on Not Found
+          if (pollInterval) clearInterval(pollInterval);
+          setError("Chat room not found.");
+        } else {
+          // Other errors (500, etc.)
+          console.error(`Failed to load messages: ${res.statusText}`);
+          // Do NOT clear interval yet, maybe it's transient? 
+          // But for safety in MVP, let's stop after 3 failures or just log.
         }
       } catch (err) {
-        console.error("Failed to load messages", err);
+        console.error("Network Error:", err);
+        if (isMounted) {
+           setError("Connection lost. Retrying...");
+           // Keep trying via interval, but ensure interval exists
+           if (!pollInterval) {
+             pollInterval = setInterval(fetchMessages, 10000); // Retry slower on network fail
+           }
+        }
+      } finally {
+        // No loading state is displayed in this component.
       }
     };
-    
+
+    // Initial Fetch
     fetchMessages();
-    const interval = setInterval(fetchMessages, 3000);
-    return () => clearInterval(interval);
-  }, [roomId]);
+
+    // Cleanup function
+    return () => {
+      isMounted = false;
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [roomId, navigate]); // Added navigate to deps
 
   // ============ FETCH OTHER PARTICIPANT'S NAME ============
   useEffect(() => {
