@@ -123,6 +123,8 @@ const AdminDashboard = ({ logout }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('');
   const [activeTab, setActiveTab] = useState('users');
+  const [tastingMode, setTastingMode] = useState(false); 
+  const [loadingConfig, setLoadingConfig] = useState(true);
 
   const initialLoadedRef = useRef(false);
 
@@ -186,8 +188,9 @@ const AdminDashboard = ({ logout }) => {
       if (showError) addToast('Network error loading pending therapists.', 'error');
     }
   }, [addToast]);
+  
   useEffect(() => {
-    const loadInitial = async () => {
+    const loadInitialData = async () => {
       const token = localStorage.getItem('token');
 
       if (!token) {
@@ -199,30 +202,48 @@ const AdminDashboard = ({ logout }) => {
 
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [statsRes, usersRes, pendingRes] = await Promise.allSettled([
+      // Fetch Stats, Users, Pending Therapists, AND Payment Config simultaneously
+      const [statsRes, usersRes, pendingRes, configRes] = await Promise.allSettled([
         fetch(`${API_URL}/admin/stats`, { headers }),
         fetch(`${API_URL}/admin/users`, { headers }),
         fetch(`${API_URL}/admin/therapists/pending`, { headers }),
+        fetch(`${API_URL}/admin/config/payments`, { headers }), // ✅ NEW FETCH
       ]);
 
       let hadError = false;
 
+      // Handle Stats
       if (statsRes.status === 'fulfilled' && statsRes.value.ok) {
         setStats(await statsRes.value.json());
       } else {
         hadError = true;
       }
 
+      // Handle Users
       if (usersRes.status === 'fulfilled' && usersRes.value.ok) {
         setUsers(await usersRes.value.json());
       } else {
         hadError = true;
       }
 
+      // Handle Pending Therapists
       if (pendingRes.status === 'fulfilled' && pendingRes.value.ok) {
         setPendingTherapists(await pendingRes.value.json());
       } else {
         hadError = true;
+      }
+
+      // ✅ HANDLE PAYMENT CONFIG (NEW LOGIC)
+      if (configRes.status === 'fulfilled' && configRes.value.ok) {
+        const data = await configRes.value.json();
+        // Assuming backend returns { payments_enabled: boolean/string }
+        // If payments_enabled is FALSE, Tasting Mode is TRUE
+        const isEnabled = data.payments_enabled === true || data.payments_enabled === "true";
+        setTastingMode(!isEnabled); 
+      } else {
+        // Default to OFF (Live Payments) if config fails to load, for safety
+        setTastingMode(false);
+        console.warn("Failed to load payment config");
       }
 
       if (hadError) {
@@ -231,15 +252,17 @@ const AdminDashboard = ({ logout }) => {
 
       initialLoadedRef.current = true;
       setInitialLoading(false);
+      setLoadingConfig(false); // ✅ Stop loading spinner for config
     };
 
-    loadInitial();
-  }, [addToast, logout]);
+    loadInitialData();
+  }, [addToast, logout]); // Dependencies remain stable
+
+  // Keep your secondary effect for searching/filtering users
   useEffect(() => {
     if (!initialLoadedRef.current) return;
     fetchUsers();
   }, [searchQuery, filterType, fetchUsers]);
-
   const handleToggleActive = async (userId) => {
     const token = localStorage.getItem('token');
     try {
@@ -280,6 +303,42 @@ const AdminDashboard = ({ logout }) => {
     } catch (err) {
       console.error('Failed to approve therapist', err);
       addToast('Network error while approving therapist', 'error');
+    }
+  };
+
+    // ✅ ADD THIS HANDLER FUNCTION
+  const handleToggleTastingMode = async () => {
+    const newState = !tastingMode;
+    const token = localStorage.getItem('token');
+    
+    // Optimistic UI Update
+    setTastingMode(newState);
+    setLoadingConfig(true); // Show spinner while saving
+    
+    try {
+      // Send opposite value to backend: 
+      // If Tasting Mode is ON (newState=true), Payments Enabled should be FALSE
+      const res = await fetch(`${API_URL}/admin/config/payments`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({ enabled: !newState }) 
+      });
+
+      if (!res.ok) throw new Error('Failed to update config');
+      
+      addToast(
+        newState ? 'Tasting Mode ENABLED. All sessions are now free.' : 'Live Payments RESTORED.', 
+        newState ? 'warning' : 'success'
+      );
+    } catch (err) {
+      // Revert on failure
+      setTastingMode(!newState);
+      addToast('Failed to toggle mode. Please try again.', 'error');
+    } finally {
+      setLoadingConfig(false);
     }
   };
 
@@ -677,6 +736,63 @@ const AdminDashboard = ({ logout }) => {
             </div>
           ))}
         </div>
+        {/* ==================== TASTING MODE TOGGLE (INSERT HERE) ==================== */}
+        <div
+          className="admin-action-card"
+          style={{
+            ...styles.managementCard,
+            border: tastingMode ? '2px solid #F59E0B' : '1px solid #E5E7EB',
+            background: tastingMode ? '#FFFBEB' : 'white',
+          }}
+        >
+          <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: tastingMode ? '#FEF3C7' : '#DBEAFE', color: tastingMode ? '#D97706' : '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+              <line x1="12" y1="2" x2="12" y2="12"></line>
+            </svg>
+          </div>
+          
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: '700', fontSize: '1rem', color: '#111827', marginBottom: '0.25rem' }}>
+              Platform Payment Mode
+            </div>
+            <div style={{ fontSize: '0.8rem', color: '#6B7280' }}>
+              {tastingMode 
+                ? 'ACTIVE: Investors & Demo users get FREE access.' 
+                : 'LIVE: Real M-Pesa payments required.'}
+            </div>
+          </div>
+
+          <button
+            onClick={handleToggleTastingMode}
+            disabled={loadingConfig}
+            style={{
+              position: 'relative',
+              width: '52px',
+              height: '28px',
+              borderRadius: '999px',
+              backgroundColor: tastingMode ? '#F59E0B' : '#D1D5DB',
+              border: 'none',
+              cursor: loadingConfig ? 'wait' : 'pointer',
+              transition: 'background-color 0.3s ease',
+              flexShrink: 0,
+              marginLeft: '1rem'
+            }}
+            aria-label="Toggle Tasting Mode"
+          >
+            <span style={{
+              position: 'absolute',
+              top: '2px',
+              left: tastingMode ? '26px' : '2px',
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              backgroundColor: 'white',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+              transition: 'left 0.3s cubic-bezier(0.4, 0.0, 0.2, 1)'
+            }} />
+          </button>
+        </div>
 
         {/* Management Cards */}
         <div
@@ -684,6 +800,7 @@ const AdminDashboard = ({ logout }) => {
           style={styles.managementCard}
           onClick={() => navigate('/admin/analytics')}
         >
+
           <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#DBEAFE', color: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <IconChart />
           </div>
@@ -693,6 +810,46 @@ const AdminDashboard = ({ logout }) => {
           </div>
           <span style={{ color: '#9CA3AF' }}><IconArrowRight /></span>
         </div>
+        {/* Inside AdminDashboard.js render method */}
+
+<div style={styles.card}>
+  <h3>Platform Settings</h3>
+  
+  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 0', borderBottom: '1px solid #eee' }}>
+    <div>
+      <strong>Tasting Mode</strong>
+      <p className="small text-gray">When ON, all bookings are free (Sponsored).</p>
+    </div>
+    
+    {/* Simple Toggle Button */}
+    <button 
+      onClick={async () => {
+        const newState = !tastingMode; // Assume tastingMode is state
+        
+        // Call API
+        const token = localStorage.getItem('token');
+        await fetch(`${API_URL}/admin/config/payments?enabled=${newState}`, {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        setTastingMode(newState);
+        addToast(`Tasting Mode ${newState ? 'ENABLED' : 'DISABLED'}`, 'info');
+      }}
+      style={{
+        padding: '0.5rem 1rem',
+        borderRadius: '8px',
+        border: 'none',
+        background: tastingMode ? '#DC2626' : '#2E7D32', // Red if OFF (Paid), Green if ON (Free)? Or vice versa. Let's say Green=Active/Free
+        color: 'white',
+        cursor: 'pointer',
+        fontWeight: 'bold'
+      }}
+    >
+      {tastingMode ? 'ACTIVE (FREE)' : 'INACTIVE (PAID)'}
+    </button>
+  </div>
+</div>
 
         <div
           className="admin-action-card"

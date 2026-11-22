@@ -157,88 +157,98 @@ const Booking = () => {
     fetchSlots();
   }, [selectedTherapist, selectedDate, addToast]);
 
-  const handleBook = async () => {
-    if (!selectedTherapist || !selectedDate || !selectedTime) {
-      addToast('Please select a therapist, date, and time.', 'error');
-      return;
-    }
+const handleBook = async () => {
+  // 1. Validation
+  if (!selectedTherapist || !selectedDate || !selectedTime) {
+    addToast('Please select a therapist, date, and time.', 'error');
+    return;
+  }
 
-    const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token');
+  if (!token) {
+    addToast('Please log in before booking.', 'error');
+    return;
+  }
 
-    if (!token) {
-      addToast('Please log in before booking.', 'error');
-      return;
-    }
+  try {
+    // 2. Send Booking Request
+    const response = await fetch(`${API_URL}/bookings`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        therapist_id: selectedTherapist.id,
+        scheduled_time: `${selectedDate}T${selectedTime}:00`,
+        // Note: We do NOT send amount here. The backend calculates it based on logic.
+      }),
+    });
 
-    try {
-      const response = await fetch(`${API_URL}/bookings`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          therapist_id: selectedTherapist.id,
-          scheduled_time: `${selectedDate}T${selectedTime}:00`,
-          amount: selectedTherapist.price,
-        }),
-      });
-
-      if (!response.ok) {
-        let errorText = `Booking failed with status ${response.status}`;
-
-        try {
-          const errorData = await response.json();
-          errorText =
-            errorData.detail ||
-            errorData.message ||
-            errorData.error ||
-            errorText;
-        } catch {
-          try {
-            errorText = await response.text();
-          } catch {
-            // ignore
-          }
-        }
-
-        throw new Error(errorText || 'Booking failed');
-      }
-
-      const text = await response.text();
-
-      let data = {};
-
+    // 3. Handle HTTP Errors
+    if (!response.ok) {
+      let errorText = `Booking failed with status ${response.status}`;
       try {
-        data = text ? JSON.parse(text) : {};
+        const errorData = await response.json();
+        errorText = errorData.detail || errorData.message || errorData.error || errorText;
       } catch {
-        data = {};
+        try {
+          errorText = await response.text();
+        } catch {
+          // ignore parsing errors
+        }
       }
+      throw new Error(errorText || 'Booking failed');
+    }
 
-      const bookingId =
-        data.booking_id ||
-        data.id ||
-        data.booking?.id ||
-        null;
+    // 4. Parse Success Response
+    const data = await response.json();
+    
+    const bookingId = data.booking_id || data.id || null;
+    const paymentMode = data.payment_mode; // e.g., "paid", "sponsored", "free_quota"
+    const finalCost = data.amount_charged; // e.g., 0 or 1500
+    if (!bookingId) {
+      throw new Error('Booking created but no ID returned.');
+    }
 
-      if (!bookingId) {
-        throw new Error('Booking was created but no booking ID was returned.');
-      }
-
-      addToast('Booking confirmed! Proceeding to payment...', 'success');
-
+    // 5. DECISION LOGIC: Where to go next?
+    
+    if (paymentMode === 'paid') {
+      // Case A: Real Money Transaction -> Go to Payment Page
+      addToast(`Booking confirmed. Amount due: KSh ${finalCost.toLocaleString()}`, 'info');
+      
       navigate('/payment', {
         state: {
           bookingId,
-          amount: selectedTherapist.price,
+          amount: finalCost,
           therapist_name: selectedTherapist.name,
+          mode: paymentMode
         },
       });
-    } catch (error) {
-      addToast('Booking failed: ' + error.message, 'error');
-    }
-  };
+    } else {
+      // Case B: Free/Sponsored/Quota -> Skip Payment, Go to Dashboard
+      // Construct a friendly message based on the payment mode.
+      let successMsg = 'Session Booked Successfully!';
+      
+      if (paymentMode === 'sponsored') {
+        successMsg = 'Demo Mode: Your session is FREE.';
+      } else if (paymentMode === 'free_quota') {
+        successMsg = 'Free Quota Applied: No charge for this session.';
+      } else if (paymentMode === 'university_pool') {
+        successMsg = 'University Sponsorship: Covered by your institution.';
+      }
 
+      addToast(successMsg, 'success');
+      
+      // Redirect directly to dashboard since no payment is needed
+      navigate('/dashboard');
+    }
+
+  } catch (error) {
+    console.error('Booking Error:', error);
+    addToast('Booking failed: ' + error.message, 'error');
+  }
+};
   const styles = {
     container: {
       minHeight: '100vh',
