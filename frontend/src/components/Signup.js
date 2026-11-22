@@ -98,7 +98,7 @@ const Signup = ({ onLogin }) => {
           addToast('Could not load verified universities.', 'error');
         });
     }
-  }, [userRole]);
+  }, [addToast, userRole]);
 
   const filteredUniversities = useMemo(() => {
     if (!uniSearch.trim()) return KENYAN_UNIVERSITIES;

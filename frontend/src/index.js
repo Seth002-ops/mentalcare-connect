@@ -1,6 +1,10 @@
+// src/index.js
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+
+// Import the new utility-first global styles
+import './styles/global.css'; 
 
 const container = document.getElementById('root');
 
@@ -10,6 +14,7 @@ if (!container) {
   );
 }
 
+// Global error handlers for development debugging
 if (typeof window !== 'undefined') {
   window.addEventListener('error', (event) => {
     console.error('Global window error:', event.error || event.message);
@@ -22,4 +27,8 @@ if (typeof window !== 'undefined') {
 
 const root = ReactDOM.createRoot(container);
 
-root.render(<App />);
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);

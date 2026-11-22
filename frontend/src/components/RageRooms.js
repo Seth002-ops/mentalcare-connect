@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
 import RageRoomWaiver from './RageRoomWaiver';
 import { API_URL } from '../config'; // ✅ FIXED: Using centralized config
@@ -14,9 +14,7 @@ const IconCheck = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="no
 const IconZap = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>;
 const IconGradCap = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5"></path></svg>;
 const IconArrowLeft = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>;
-const IconShield = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>;
 const IconSparkle = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.9 5.7L19.6 10l-5.7 1.9L12 17.6l-1.9-5.7L4.4 10l5.7-1.9z"></path></svg>;
-const IconPhone = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>;
 const IconLeaf = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg>;
 const IconFlame = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>;
 const IconExplosion = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path><circle cx="12" cy="12" r="3"></circle></svg>;
@@ -77,16 +75,7 @@ const RageRooms = ({ logout }) => {
 
   const timeSlots = ['9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM'];
 
-  useEffect(() => {
-    initApp();
-  }, []);
-
-  const initApp = async () => {
-    await Promise.all([fetchRooms(), fetchMyBookings(), fetchStudentStatus()]);
-    setLoading(false);
-  };
-
-  const fetchStudentStatus = async () => {
+  const fetchStudentStatus = useCallback(async () => {
     const token = localStorage.getItem('token');
     if (!token) return;
     try {
@@ -101,9 +90,9 @@ const RageRooms = ({ logout }) => {
     } catch (err) {
       console.error('Failed to fetch student status', err);
     }
-  };
+  }, []);
 
-  const fetchRooms = async () => {
+  const fetchRooms = useCallback(async () => {
     const token = localStorage.getItem('token');
     try {
       const res = await fetch(`${API_URL}/rage-rooms`, { headers: { Authorization: `Bearer ${token}` } });
@@ -112,9 +101,9 @@ const RageRooms = ({ logout }) => {
       console.error('Failed to fetch rage rooms', err);
       addToast('Failed to load rage rooms.', 'error');
     }
-  };
+  }, [addToast]);
 
-  const fetchMyBookings = async () => {
+  const fetchMyBookings = useCallback(async () => {
     const token = localStorage.getItem('token');
     try {
       const res = await fetch(`${API_URL}/rage-rooms/bookings/me`, { headers: { Authorization: `Bearer ${token}` } });
@@ -122,7 +111,16 @@ const RageRooms = ({ logout }) => {
     } catch (err) {
       console.error('Failed to fetch bookings', err);
     }
-  };
+  }, []);
+
+  const initApp = useCallback(async () => {
+    await Promise.all([fetchRooms(), fetchMyBookings(), fetchStudentStatus()]);
+    setLoading(false);
+  }, [fetchRooms, fetchMyBookings, fetchStudentStatus]);
+
+  useEffect(() => {
+    initApp();
+  }, [initApp]);
 
   const handleSelectPackage = (room, pkg) => {
     setSelectedRoom(room);

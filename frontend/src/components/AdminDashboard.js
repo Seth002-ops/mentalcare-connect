@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
 import AdminBookings from './AdminBookings';
@@ -15,8 +15,6 @@ const IconDownload = () => <svg width="16" height="16" viewBox="0 0 24 24" fill=
 const IconCheck = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>;
 const IconX = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
 const IconShield = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>;
-const IconGlobe = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>;
-const IconCreditCard = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>;
 const IconChart = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg>;
 
 // ============ TEMP BRAND MARK ============
@@ -128,14 +126,14 @@ const AdminDashboard = ({ logout }) => {
 
   const initialLoadedRef = useRef(false);
 
-  const buildUsersUrl = () => {
-    let url = `${API_URL}/admin/users?`;
-    if (searchQuery) url += `search=${encodeURIComponent(searchQuery)}&`;
-    if (filterType) url += `user_type=${filterType}`;
-    return url;
-  };
+  const buildUsersUrl = useCallback(() => {
+  let url = `${API_URL}/admin/users?`;
+  if (searchQuery) url += `search=${encodeURIComponent(searchQuery)}&`;
+  if (filterType) url += `user_type=${filterType}`;
+  return url;
+}, [searchQuery, filterType]); // Dependencies added
 
-  const fetchStats = async (showError = true) => {
+  const fetchStats = useCallback(async (showError = true) => {
     const token = localStorage.getItem('token');
     try {
       const res = await fetch(`${API_URL}/admin/stats`, {
@@ -150,9 +148,9 @@ const AdminDashboard = ({ logout }) => {
       console.error('Failed to fetch stats', err);
       if (showError) addToast('Network error loading stats.', 'error');
     }
-  };
+  }, [addToast]);
 
-  const fetchUsers = async (showError = true) => {
+  const fetchUsers = useCallback(async (showError = true) => {
     const token = localStorage.getItem('token');
     setUsersLoading(true);
     try {
@@ -170,9 +168,9 @@ const AdminDashboard = ({ logout }) => {
     } finally {
       setUsersLoading(false);
     }
-  };
+  }, [buildUsersUrl, addToast]);
 
-  const fetchPendingTherapists = async (showError = true) => {
+  const fetchPendingTherapists = useCallback(async (showError = true) => {
     const token = localStorage.getItem('token');
     try {
       const res = await fetch(`${API_URL}/admin/therapists/pending`, {
@@ -187,8 +185,7 @@ const AdminDashboard = ({ logout }) => {
       console.error('Failed to fetch pending therapists', err);
       if (showError) addToast('Network error loading pending therapists.', 'error');
     }
-  };
-
+  }, [addToast]);
   useEffect(() => {
     const loadInitial = async () => {
       const token = localStorage.getItem('token');
@@ -204,7 +201,7 @@ const AdminDashboard = ({ logout }) => {
 
       const [statsRes, usersRes, pendingRes] = await Promise.allSettled([
         fetch(`${API_URL}/admin/stats`, { headers }),
-        fetch(buildUsersUrl(), { headers }),
+        fetch(`${API_URL}/admin/users`, { headers }),
         fetch(`${API_URL}/admin/therapists/pending`, { headers }),
       ]);
 
@@ -237,12 +234,11 @@ const AdminDashboard = ({ logout }) => {
     };
 
     loadInitial();
-  }, []);
-
+  }, [addToast, logout]);
   useEffect(() => {
     if (!initialLoadedRef.current) return;
     fetchUsers();
-  }, [searchQuery, filterType]);
+  }, [searchQuery, filterType, fetchUsers]);
 
   const handleToggleActive = async (userId) => {
     const token = localStorage.getItem('token');
@@ -289,7 +285,6 @@ const AdminDashboard = ({ logout }) => {
 
   const handleRejectTherapist = async (userId) => {
     const token = localStorage.getItem('token');
-    if (!confirm('Are you sure you want to reject this therapist?')) return;
 
     try {
       const res = await fetch(`${API_URL}/admin/therapists/${userId}/reject`, {

@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../config'; 
 import { useToast } from './ToastContext';
 
 const TherapistRegistration = ({ onComplete }) => {
-  const navigate = useNavigate();
   const { addToast } = useToast();
   
   const [formData, setFormData] = useState({
@@ -15,6 +13,7 @@ const TherapistRegistration = ({ onComplete }) => {
     license_number: '',
     languages: 'English',
   });
+  // eslint-disable-next-line no-unused-vars
   const [licenseFile, setLicenseFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

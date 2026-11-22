@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { API_URL } from '../config'; // ✅ ADDED
 import { useToast } from './ToastContext'; // ✅ ADDED
 
@@ -7,27 +7,30 @@ const AdminBookings = () => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { fetchBookings(); }, []);
-
-  const fetchBookings = async () => {
-    const token = localStorage.getItem('token');
-    try {
-      const res = await fetch(`${API_URL}/admin/bookings`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) {
-        setBookings(await res.json());
-      } else {
-        addToast('Failed to load bookings.', 'error'); // ✅ ADDED
-      }
-    } catch (err) { 
-      console.error(err); 
-      addToast('Network error. Could not load bookings.', 'error'); // ✅ ADDED
-    } finally { 
-      setLoading(false); 
+// Define fetchBookings with useCallback FIRST (move the function definition above this)
+const fetchBookings = useCallback(async () => {
+  const token = localStorage.getItem('token');
+  try {
+    const res = await fetch(`${API_URL}/admin/bookings`, { headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) {
+      setBookings(await res.json());
+    } else {
+      addToast('Failed to load bookings.', 'error'); 
     }
-  };
+  } catch (err) { 
+    console.error(err); 
+    addToast('Network error. Could not load bookings.', 'error'); 
+  } finally { 
+    setLoading(false); 
+  }
+}, [addToast]); // Dependency added here
+
+useEffect(() => { 
+  fetchBookings(); 
+}, [fetchBookings]); // Dependency added here
+
 
   const handleRefund = async (id) => {
-    if (!confirm('Refund this booking? This cannot be undone.')) return;
     const token = localStorage.getItem('token');
     try {
       // ✅ FIXED: Use API_URL instead of relative path

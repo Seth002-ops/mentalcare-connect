@@ -1,5 +1,8 @@
+// src/App.js
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+
+// Components
 import LandingPage from './components/LandingPage';
 import ClientDashboard from './components/ClientDashboard';
 import TherapistDashboard from './components/TherapistDashboard';
@@ -34,7 +37,6 @@ import AdminRageRooms from './components/AdminRageRooms';
 import { ToastProvider } from './components/ToastContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import { API_URL } from './config';
-import './App.css';
 
 const App = () => {
   const [user, setUser] = useState(null);
@@ -45,6 +47,7 @@ const App = () => {
   const [loadingUser, setLoadingUser] = useState(true);
   const [loadingAfterLogin, setLoadingAfterLogin] = useState(false);
 
+  // Initialize User State from LocalStorage
   useEffect(() => {
     const token = localStorage.getItem('token');
     const storedType = localStorage.getItem('userType');
@@ -54,6 +57,7 @@ const App = () => {
       setUser({ email: storedEmail, token });
       setUserType(storedType);
 
+      // Fetch latest user data to sync terms/status
       fetch(`${API_URL}/users/me`, {
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -126,6 +130,7 @@ const App = () => {
     setProfileComplete(true);
   };
 
+  // Loading Screen
   if (loadingUser || loadingAfterLogin) {
     return (
       <div
@@ -136,6 +141,7 @@ const App = () => {
           height: '100vh',
           fontSize: '1.2rem',
           color: '#6B7280',
+          fontFamily: "'Plus Jakarta Sans', sans-serif",
         }}
       >
         Loading...
@@ -146,31 +152,35 @@ const App = () => {
   return (
     <ErrorBoundary>
       <ToastProvider>
-        <Router>
+        {/* ✅ ADDED FUTURE FLAGS TO SILENCE WARNINGS */}
+        <Router future={{ 
+          v7_startTransition: true, 
+          v7_relativeSplatPath: true 
+        }}>
           <div className="App">
             <Routes>
               {/* ==================== PUBLIC ROUTES ==================== */}
+              
+              {/* LANDING PAGE: Always visible. Passes 'user' so Nav knows state */}
               <Route path="/" element={<LandingPage user={user} />} />
+              
+              {/* LOGIN/SIGNUP: Redirects to dashboard if already logged in */}
               <Route
                 path="/login"
                 element={
                   user ? (
-                    <Navigate to="/dashboard" replace />
+                    <Navigate to="/dashboard" replace/>
                   ) : (
                     <Login onLogin={login} />
                   )
                 }
               />
               <Route
-                path="/signup"
-                element={
-                  user ? (
-                    <Navigate to="/dashboard" replace />
-                  ) : (
-                    <Signup onLogin={login} />
-                  )
-                }
-              />
+  path="/signup"
+  element={<Signup onLogin={login} />} 
+/>
+              
+              {/* STATIC INFO PAGES */}
               <Route path="/verify-email" element={<VerifyEmail />} />
               <Route path="/terms" element={<TermsOfService />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
