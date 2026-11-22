@@ -359,6 +359,11 @@ const DashboardSkeleton = () => (
   </div>
 );
 
+// ✅ ADD THIS FUNCTION INSIDE ClientDashboard COMPONENT
+const openAICompanion = () => {
+  // Dispatch a custom event that AICompanionWidget listens for
+  window.dispatchEvent(new CustomEvent('open-ai-companion'));
+};
 // ============ TEMP BRAND MARK ============
 // Senior note: this is intentionally NOT a final logo.
 // It is a neutral typographic placeholder until your real logo is ready.
@@ -747,11 +752,12 @@ const ClientDashboard = ({ logout }) => {
   };
 
   const quickActions = [
-    { title: 'Find a Therapist', desc: 'Browse licensed professionals', to: '/therapists', icon: <IconUsers /> },
-    { title: 'Book a Session', desc: 'Schedule online therapy', to: '/booking', icon: <IconCalendar /> },
-    { title: 'AI Companion', desc: 'Talk anytime, 24/7', to: '/chat/1', icon: <IconBot /> },
-    { title: 'Messages', desc: 'Check secure chat', to: '/chat/1', icon: <IconMessage /> },
-  ];
+  { title: 'Find a Therapist', desc: 'Browse licensed professionals', to: '/therapists', icon: <IconUsers /> },
+  { title: 'Book a Session', desc: 'Schedule online therapy', to: '/booking', icon: <IconCalendar /> },
+  //  Changed to use a special action key instead of a URL
+  { title: 'AI Companion', desc: 'Talk anytime, 24/7', action: 'open_ai', icon: <IconBot /> }, 
+  { title: 'Messages', desc: 'Check secure chat', action: 'open_ai', icon: <IconMessage /> },   
+];
 
   const upcomingSession = useMemo(() => {
     return (
@@ -877,17 +883,47 @@ const ClientDashboard = ({ logout }) => {
                 Quick Actions
               </div>
 
-              {quickActions.map((a) => (
-                <Link key={a.title} to={a.to} className="cd-drawer-item" onClick={() => setDrawerOpen(false)}>
-                  <span className="cd-drawer-icon">
-                    <span style={{ color: '#2E7D32' }}>{a.icon}</span>
-                  </span>
-                  <span>
-                    <span style={{ display: 'block', fontWeight: '600', color: '#111827', fontSize: '0.92rem' }}>{a.title}</span>
-                    <span style={{ display: 'block', fontSize: '0.75rem', color: '#6B7280' }}>{a.desc}</span>
-                  </span>
-                </Link>
-              ))}
+              {quickActions.map((a) => {
+  // If it's a navigation link
+  if (a.to) {
+    return (
+      <Link key={a.title} to={a.to} className="cd-drawer-item" onClick={() => setDrawerOpen(false)}>
+        <span className="cd-drawer-icon">
+          <span style={{ color: '#2E7D32' }}>{a.icon}</span>
+        </span>
+        <span>
+          <span style={{ display: 'block', fontWeight: '600', color: '#111827', fontSize: '0.92rem' }}>{a.title}</span>
+          <span style={{ display: 'block', fontSize: '0.75rem', color: '#6B7280' }}>{a.desc}</span>
+        </span>
+      </Link>
+    );
+  }
+  
+  // If it triggers the AI Widget
+  if (a.action === 'open_ai') {
+    return (
+      <button 
+        key={a.title} 
+        className="cd-drawer-item" 
+        style={{ width: '100%', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left' }}
+        onClick={() => {
+          setDrawerOpen(false);
+          openAICompanion();
+        }}
+      >
+        <span className="cd-drawer-icon">
+          <span style={{ color: '#2E7D32' }}>{a.icon}</span>
+        </span>
+        <span>
+          <span style={{ display: 'block', fontWeight: '600', color: '#111827', fontSize: '0.92rem' }}>{a.title}</span>
+          <span style={{ display: 'block', fontSize: '0.75rem', color: '#6B7280' }}>{a.desc}</span>
+        </span>
+      </button>
+    );
+  }
+  
+  return null;
+})}
 
               <div style={{ height: 1, background: '#E5E7EB', margin: '0.75rem 0' }} />
 
@@ -1488,7 +1524,7 @@ const ClientDashboard = ({ logout }) => {
                 Need someone to talk to right now? Your AI companion is here to listen, 24/7.
               </p>
               <button
-                onClick={() => navigate('/chat/1')}
+                onClick={openAICompanion}
                 style={{
                   width: '100%',
                   padding: '0.75rem',

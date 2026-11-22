@@ -57,12 +57,6 @@ const IconSpeaker = () => (
   </svg>
 );
 
-const IconStop = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="6" y="6" width="12" height="12" rx="2"/>
-  </svg>
-);
-
 const IconBot = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/>
@@ -102,6 +96,16 @@ const AICompanionWidget = ({ userType = 'client' }) => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // ✅ ADD THIS USEEFFECT TO LISTEN FOR OPEN EVENTS FROM DASHBOARD
+useEffect(() => {
+  const handleOpenEvent = () => setIsOpen(true);
+  window.addEventListener('open-ai-companion', handleOpenEvent);
+  
+  return () => {
+    window.removeEventListener('open-ai-companion', handleOpenEvent);
+  };
+}, []);
 
   // Initialize Speech Recognition
   useEffect(() => {
@@ -162,7 +166,7 @@ const AICompanionWidget = ({ userType = 'client' }) => {
     if (isOpen && messages.length === 0) {
       fetchHistory();
     }
-  }, [isOpen]);
+  }, [isOpen, messages.length]);
 
   const fetchHistory = async () => {
     const token = localStorage.getItem('token');
